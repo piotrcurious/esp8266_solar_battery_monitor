@@ -2,6 +2,9 @@
 System to monitor solar battery using broadcast packets 
 Written by hand by me , perhaps it's why there are so many bugs :D
 
+edit: i decided to throw changed versions and fixes into separate dirs, so pay attention to check which files are most recent to get most bug free experience. 
+I use more and more AI to help me code it up, learning it progress, but I am not good coder and i have little time for it so it's slow and quirky process. 
+
 The system is simple :
 -AP (can be either one of esp's or real AP, but isolated AP is recommended, code for ESP32 and esp8266 included)
 -sender for esp8266 - connected to solar system battery
@@ -21,6 +24,9 @@ I tried to include some power saving measures, like decrease beacon interval and
 but that still consumes over 20mA. 
 In worst case scenario : AP,sender,reciever for display, reciever for doing something 
 this means 4 devices, 80mA each, 320mA , 1.6W (!)and probably over 2W including loss in DC-DC to power this stuff. 
+I tried to use cheap DC-DC board to power bare esp8266 directly from 12V , so 12V DC-DC right down to 3.3V 
+and while surprising side effect is that wifi range and packet loss improved significantly,
+it did cut power consumption in idle down to 17mA only and during transmit to 80mA only. That's still too much.
 
 One of basic uses would be to make the device control charge of the powerbank it is connected to , 
 so it charges the power bank only when battery is fully charged (full sun, 13.8V)
