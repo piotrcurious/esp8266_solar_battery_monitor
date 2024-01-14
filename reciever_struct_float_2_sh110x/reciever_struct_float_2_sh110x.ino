@@ -246,9 +246,13 @@ void loop() {
     }
 #endif //TIMEOUT_TICKER
     
-    int message_size=Udp.read((byte*)&tframe,packetSize); // read the packet into the buffer
+//    int message_size=Udp.read((byte*)&tframe,packetSize); // read the packet into the buffer
                                                           // TODO limit the amount of data read by size of the struct
                                                           // otherwise malformed packet can overwrite memory
+                                                          
+    int message_size=Udp.read((byte*)&tframe,sizeof(tframe)); // read the packet into the buffer
+                                            //read only size of struct to avoid oversized packet overfill the memory
+
 
     if (message_size>0){
 //      packetBuffer[message_size]='\0'; //// null terminate
