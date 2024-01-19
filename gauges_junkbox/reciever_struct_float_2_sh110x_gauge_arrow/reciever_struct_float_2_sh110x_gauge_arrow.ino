@@ -100,7 +100,7 @@ void updateMinMax() {
   gauge_min = ABS_MAX-0.1;
   gauge_max = ABS_MIN+0.1;
   for (int i = 0; i < BUFFER_SIZE; i++) {
-    if (buffer[i] < gauge_min) {
+    if ((buffer[i] < gauge_min)&& buffer[i]>0 ) {
       if (buffer[i]>ABS_MIN) gauge_min = buffer[i]; else gauge_min = ABS_MIN;
     }
     if (buffer[i] > gauge_max) {
