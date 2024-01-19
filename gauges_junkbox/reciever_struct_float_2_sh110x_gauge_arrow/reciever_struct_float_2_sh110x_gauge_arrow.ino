@@ -16,9 +16,6 @@
 #include "display_settings.h" // includes configuration of on-screen widgets
 uint8_t  display_brightness ; // global variable to adjust display brightness
 
-#include "arrow_gauge.h" // include arrow gauge settings and variables
-#include "arrow_gauge.cpp" //include arrow gauge functions
-
 //timer interrupt includes
 // Select a Timer Clock
 #define USING_TIM_DIV1                false           // for shortest and most accurate timer
@@ -85,29 +82,29 @@ uint8_t screen = 2 ; //choose screen to use
                      //  1 - voltage display by fading text
                      //  2 - voltage display by arrow gauge with min/max
 
-
+telemetry_frame tframe ; // use telemetry_frame struct from telemetry_frame.h 
+                        // as global struct for all functions
 //arrow gauge
 
 #define BUFFER_SIZE 128
-#define ABS_MIN 0.0 // change this to your absolute minimum value
-#define ABS_MAX 10.0 // change this to your absolute maximum value
+#define ABS_MIN 6.0 // change this to your absolute minimum value
+#define ABS_MAX 17.0 // change this to your absolute maximum value
 float buffer[BUFFER_SIZE]; // circular buffer to store the last 128 values
 int gauge_index = 0; // index to keep track of the buffer position
 float gauge_min = ABS_MAX; // minimum value in the buffer
 float gauge_max = ABS_MIN; // maximum value in the buffer
 
-
 void updateMinMax() {
   // this function should update the min and max values based on the buffer contents
   // we use a simple linear search algorithm
-  gauge_min = ABS_MAX;
-  gauge_max = ABS_MIN;
+  gauge_min = ABS_MAX-0.1;
+  gauge_max = ABS_MIN+0.1;
   for (int i = 0; i < BUFFER_SIZE; i++) {
     if (buffer[i] < gauge_min) {
-      gauge_min = buffer[i];
+      if (buffer[i]>ABS_MIN) gauge_min = buffer[i]; else gauge_min = ABS_MIN;
     }
     if (buffer[i] > gauge_max) {
-      gauge_max = buffer[i];
+      if (buffer[i]<ABS_MAX) gauge_max = buffer[i]; else gauge_max = ABS_MAX;
     }
   }
 }
@@ -120,14 +117,32 @@ void displayValue(float value) {
   display.setTextColor(SSD1306_WHITE); // set the text color to white
   display.setCursor(0, 0); // set the cursor position to the top left corner
   display.print(gauge_min,2); // print the minimum value
-  display.setCursor(SCREEN_WIDTH - 24, 0); // set the cursor position to the top right corner
+  display.setCursor(SCREEN_WIDTH - 8*5, 0); // set the cursor position to the top right corner
   display.print(gauge_max,2); // print the maximum value
-  display.drawLine(0, 10, SCREEN_WIDTH - 1, 10, SSD1306_WHITE); // draw a horizontal line for the scale
-  int x = map(int(value*100),int(gauge_min*100),int(gauge_max*100), 2, SCREEN_WIDTH - 3); // map the value to the x coordinate
-
+//  display.drawLine(0, 10, SCREEN_WIDTH - 1, 10, SSD1306_WHITE); // draw a horizontal line for the scale
+  int x = 1; 
+  if (value>gauge_min){
+   x = map(int(value*100),int(gauge_min*100)-1,int(gauge_max*100), 4, SCREEN_WIDTH - 4); // map the value to the x coordinate
+  constrain (x,1,SCREEN_WIDTH);
+  }
+  
+  int min_x=1 ; 
+  if (value<gauge_min){
+  min_x = map(int((gauge_min-value)*100),0,int(gauge_min*100)+1, 3, SCREEN_WIDTH - 4 -8*5); // map the gauge min value 
+  } 
+//  int min_x = map(int((gauge_min-value)*100),0,int(gauge_min*100)+1, 3, SCREEN_WIDTH - 4 -8*5); // map the gauge min value 
+  constrain (min_x,1,SCREEN_WIDTH-1);
+  constrain (x, 1,SCREEN_WIDTH-1);
   display.drawLine(x, 10, 0, SCREEN_HEIGHT - 1, SSD1306_WHITE); // draw a vertical line for the arrow
+  display.drawLine(x, 10, min_x, SCREEN_HEIGHT - 1, SSD1306_WHITE); // draw a vertical line for the arrow
+
   display.drawLine(x - 2, 12, x, 10, SSD1306_WHITE); // draw the left part of the arrow head
   display.drawLine(x + 2, 12, x, 10, SSD1306_WHITE); // draw the right part of the arrow head
+          display.setCursor(SCREEN_WIDTH-40, 8*7);
+          display.setTextSize(1);      // Normal 1:1 pixel scale
+          display.print(tframe.voltage_ADC0,2);
+          display.print(F("V "));
+
 //  display.display(); // update the display
 }
 
@@ -147,11 +162,13 @@ void setup() {
 //  if(!display.begin(SSD1306_SWITCHCAPVCC, SCREEN_ADDRESS)) {
 //    Serial.println(F("SSD1306 allocation failed"));
 //  //  for(;;); // Don't proceed, loop forever
-//  }
-  delay(250);
+//  }  
+  WiFi.mode(WIFI_OFF);
+  WiFi.forceSleepBegin(); // turn off wifi to not waste power on startup
+  delay(150);
   display.begin(SCREEN_ADDRESS,true);
   display.display();
-  delay(1000);
+  delay(500);
 
   // Show initial display buffer contents on the screen --
   // the library initializes this with an Adafruit splash screen.
@@ -163,7 +180,7 @@ void setup() {
   // Show the display buffer on the screen. You MUST call display() after
   // drawing commands to make them visible on screen!
   display.display();
-  delay(500);
+  delay(200);
 
   // start timer interrupts
     ITimer.attachInterruptInterval(HW_TIMER_INTERVAL_MS * 1000, TimerHandler) ;
@@ -235,8 +252,7 @@ if (RSSI > -55) {
 
  
 void loop() {
-  telemetry_frame tframe ; // use telemetry_frame struct from telemetry_frame.h
-
+ 
   if (!display_refresh_sync) {
 //  display.setTextSize(1);      // Normal 1:1 pixel scale
 //  display.setTextColor(SSD1306_WHITE,SSD1306_BLACK); // Draw white text on a black background
