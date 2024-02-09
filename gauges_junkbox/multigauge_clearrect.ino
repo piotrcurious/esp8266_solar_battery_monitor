@@ -29,15 +29,82 @@ struct Variable {
 // You can add or remove variables as you wish
 Variable variables[] = {
   // Variable 1: temperature in hex
-  {"temp", "Temp:", 0, 0, 1, 1000, 0, {0, 0, 0, 0, 0, 0, 0, 0, 0, 0}},
+  {
+    "temp", // The name of the variable
+    "Temp:", // The label to show on the display
+    0, // The x position of the label
+    0, // The y position of the label
+    1, // The font size of the label
+    1000, // The update rate of the variable in milliseconds
+    0, // The display mode of the variable (0 for hex)
+    {0, 0, 0, 0, 0, 0, 0, 0, 0, 0} // The parameters for the display mode (not used for hex)
+  },
   // Variable 2: humidity in dec
-  {"hum", "Hum:", 64, 0, 1, 1000, 1, {0, 0, 0, 0, 0, 0, 0, 0, 0, 0}},
+  {
+    "hum", // The name of the variable
+    "Hum:", // The label to show on the display
+    64, // The x position of the label
+    0, // The y position of the label
+    1, // The font size of the label
+    1000, // The update rate of the variable in milliseconds
+    1, // The display mode of the variable (1 for dec)
+    {0, 0, 0, 0, 0, 0, 0, 0, 0, 0} // The parameters for the display mode (not used for dec)
+  },
   // Variable 3: light in bar
-  {"light", "Light:", 0, 16, 1, 500, 2, {0, 1023, WHITE, 64, 16, 0, 0, 0, 0, 0}},
+  {
+    "light", // The name of the variable
+    "Light:", // The label to show on the display
+    0, // The x position of the label
+    16, // The y position of the label
+    1, // The font size of the label
+    500, // The update rate of the variable in milliseconds
+    2, // The display mode of the variable (2 for bar)
+    {
+      0, // The minimum value of the variable
+      1023, // The maximum value of the variable
+      WHITE, // The bar color
+      64, // The bar width
+      16, // The bar height
+      0, 0, 0, 0, 0 // The unused parameters for the display mode
+    }
+  },
   // Variable 4: sound in rolling graph
-  {"sound", "Sound:", 64, 16, 1, 100, 3, {0, 1023, YELLOW, 64, 32, 0, 0, 0, 0, 0}},
+  {
+    "sound", // The name of the variable
+    "Sound:", // The label to show on the display
+    64, // The x position of the label
+    16, // The y position of the label
+    1, // The font size of the label
+    100, // The update rate of the variable in milliseconds
+    3, // The display mode of the variable (3 for rolling graph)
+    {
+      0, // The minimum value of the variable
+      1023, // The maximum value of the variable
+      YELLOW, // The graph color
+      64, // The graph width
+      32, // The graph height
+      0, 0, 0, 0, 0 // The unused parameters for the display mode
+    }
+  },
   // Variable 5: pressure in analog gauge
-  {"press", "Press:", 0, 32, 1, 500, 4, {0, 100, GREEN, 32, 32, 16, 0, 0, 0, 0}}
+  {
+    "press", // The name of the variable
+    "Press:", // The label to show on the display
+    0, // The x position of the label
+    32, // The y position of the label
+    1, // The font size of the label
+    500, // The update rate of the variable in milliseconds
+    4, // The display mode of the variable (4 for analog gauge)
+    {
+      0, // The minimum value of the variable
+      100, // The maximum value of the variable
+      GREEN, // The gauge color
+      32, // The gauge width
+      32, // The gauge height
+      16, // The gauge radius
+      0, 0, 0, 0 // The unused parameters for the display mode
+    }
+  }
 };
 
 // Define the number of variables
