@@ -1,15 +1,18 @@
 # esp8266_solar_battery_monitor
 System to monitor solar battery using broadcast packets 
 Written by hand by me , perhaps it's why there are so many bugs :D
+Also added loads of code written by copilot, esp. in the junkbox folders so it's easier to jumpstart with gauges, ammeters, whatever needed. 
 
 edit: i decided to throw changed versions and fixes into separate dirs, so pay attention to check which files are most recent to get most bug free experience. 
 I use more and more AI to help me code it up, learning it progress, but I am not good coder and i have little time for it so it's slow and quirky process. 
 
 The system is simple :
 -AP (can be either one of esp's or real AP, but isolated AP is recommended, code for ESP32 and esp8266 included)
+esp8266 defers packets so update rate is choppy. Use at least ESP32 as an AP if you want UDP packets being rebroadcasted instantly. 
+
 -sender for esp8266 - connected to solar system battery
 -reciever for esp8266 or esp32 - to display voltage 
--TODO: more recievers to perform actions depending on battery voltage - f.e. send IR codes to turn things like AC or TV on or off . 
+-TODO: more recievers to perform actions depending on battery voltage - f.e. send IR codes to turn things like AC or TV on or off . See gauges junkbox folder. 
 
 Idea is that there is one battery sensor, and all recievers able to get broadcast packages from it will get voltage inside struct updated. 
 Those recievers can perform various functions f.e. turn on generator if battery is too low, turn on heating if battery is too high, 
