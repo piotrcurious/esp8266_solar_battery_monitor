@@ -219,12 +219,12 @@ void loop() {
 
 void initDisplay(void) {
     // Initialize display size and flags
-    uint16_t displayWidth = BlueDisplay1.getDisplayWidth();
-    uint16_t displayHeight = BlueDisplay1.getDisplayHeight();    
-    BlueDisplay1.setFlagsAndSize(BD_FLAG_FIRST_RESET_ALL | BD_FLAG_USE_MAX_SIZE | BD_FLAG_TOUCH_BASIC_DISABLE, DISPLAY_WIDTH,
+    uint16_t displayWidth  = BlueDisplay1.getMaxDisplayWidth();
+    uint16_t displayHeight = BlueDisplay1.getMaxDisplayHeight();    
+  //  BlueDisplay1.setFlagsAndSize(BD_FLAG_FIRST_RESET_ALL | BD_FLAG_USE_MAX_SIZE | BD_FLAG_TOUCH_BASIC_DISABLE, DISPLAY_WIDTH,
     DISPLAY_HEIGHT);
-  //  BlueDisplay1.setFlagsAndSize(BD_FLAG_FIRST_RESET_ALL | BD_FLAG_USE_MAX_SIZE | BD_FLAG_TOUCH_BASIC_DISABLE, displayWidth,
-  //  displayHeight);
+   BlueDisplay1.setFlagsAndSize(BD_FLAG_FIRST_RESET_ALL | BD_FLAG_USE_MAX_SIZE | BD_FLAG_TOUCH_BASIC_DISABLE, displayWidth,
+    displayHeight);
 
     // Initialize button position, size, colors etc.
 //    TouchButtonBlinkStartStop.init((DISPLAY_WIDTH - BUTTON_WIDTH_2) / 2, BUTTON_HEIGHT_4_LINE_4, BUTTON_WIDTH_2,
