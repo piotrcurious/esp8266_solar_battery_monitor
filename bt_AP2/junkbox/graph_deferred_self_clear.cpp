@@ -11,6 +11,8 @@ typedef struct {
 
 LineBuffer lineBuffer[MAX_LINES];
 int lineBufferIndex = 0;
+// Global variable to track the current position in the line buffer
+int currentLineIndex = 0;
 
 // Global variable to store the graph height
 uint16_t globalGraphHeight = 0;
@@ -61,7 +63,9 @@ void plotGraph(float *data, uint16_t dataSize, uint16_t graphPosX, uint16_t grap
                uint16_t graphWidth, uint16_t graphHeight, float graph_min, float graph_max) {
     // Reset the line buffer index
     lineBufferIndex = 0;
-
+    // Reset the current line index for drawing the buffer
+    currentLineIndex = 0; 
+    
     // Store the graph height in the global variable
     globalGraphHeight = graphHeight;
 
@@ -152,5 +156,20 @@ void drawRandomLines(int numLinesToDraw) {
     for (int i = 0; i < numLinesToDraw; i++) {
         int randomIndex = rand() % lineBufferIndex;  // Get a random line index
         drawBufferedLine(randomIndex);
+    }
+}
+
+
+// Function to draw a specified number of lines sequentially from the buffer
+void drawSequentialLines(int numLinesToDraw) {
+    // Draw lines sequentially from the current position
+    for (int i = 0; i < numLinesToDraw; i++) {
+        if (currentLineIndex < lineBufferIndex) {
+            drawBufferedLine(currentLineIndex);
+            currentLineIndex++;
+        } else {
+            // If we reach the end of the buffer, stop drawing
+            break;
+        }
     }
 }
