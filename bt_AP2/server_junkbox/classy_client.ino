@@ -1,5 +1,8 @@
 #include <WiFi.h>
 #include <HTTPClient.h>
+#include <StandardCplusplus.h> // Fake stdlib
+#include <vector>
+
 
 const char* ssid = "YOUR_SSID";
 const char* password = "YOUR_PASSWORD";
