@@ -595,3 +595,102 @@ You can now use the `retrieveSingle()` method in the `VariableClientManager` cla
 ### Summary
 
 With these enhancements, the `VariableClientManager` class can now efficiently retrieve and manage individual variables and arrays. The ability to retrieve and access individual arrays in addition to single float variables makes this class more versatile and suitable for more complex use cases where selective data retrieval is required.
+
+In the provided code, the **path** is used to identify the specific resource (a float variable or an array of floats) on the ESP32 server that the client wants to retrieve. Here's a detailed explanation of how the path is passed, stored, and retrieved:
+
+### 1. **Passing the Path**
+
+When you create an instance of either `FloatVariableClient` or `FloatArrayClient`, you pass the path as an argument to the constructor.
+
+```cpp
+clientManager.addClient(new FloatVariableClient("/float", serverIP));
+clientManager.addClient(new FloatArrayClient("/array", serverIP, retrievedArray, 5));
+```
+
+In these examples:
+- `"/float"` and `"/array"` are the paths provided as arguments to the constructors of `FloatVariableClient` and `FloatArrayClient`, respectively.
+
+### 2. **Storing the Path**
+
+The `path` is stored as a private member variable in the `VariableClient` base class, which both `FloatVariableClient` and `FloatArrayClient` inherit from.
+
+```cpp
+class VariableClient {
+protected:
+    const char* path;
+    const char* serverIP;
+    HTTPClient http;
+
+public:
+    VariableClient(const char* p, const char* ip) : path(p), serverIP(ip) {}
+    virtual void retrieveVariable() = 0;
+    const char* getPath() const { return path; }
+};
+```
+
+- In the `VariableClient` constructor, the `path` is initialized with the value passed during the creation of the client object (e.g., `"/float"` or `"/array"`).
+- This `path` is stored as a `const char*`, meaning it's a pointer to a constant string, which is suitable for storing the file path since it won't be modified after initialization.
+
+### 3. **Retrieving the Path**
+
+The `path` can be retrieved using the `getPath()` method provided in the `VariableClient` base class. This method is `const`, meaning it doesn't modify the object when called.
+
+```cpp
+const char* getPath() const { return path; }
+```
+
+- This method returns the stored path, which is used in different parts of the `VariableClientManager` class to identify the specific client that should be used for retrieving a particular variable.
+
+### 4. **Usage in Retrieval**
+
+The `path` is critical when the client requests data from the server. Here’s how the path is used:
+
+#### a. **Building the URL for the HTTP Request**
+
+When the `retrieveVariable()` method is called on a client, the `path` is combined with the `serverIP` to construct the full URL that the client will use to make the HTTP GET request:
+
+```cpp
+void retrieveVariable() override {
+    String url = String("http://") + serverIP + path;
+    http.begin(url);
+    int httpCode = http.GET();
+    // ...
+}
+```
+
+For example, if `serverIP` is `"192.168.1.100"` and `path` is `"/float"`, the resulting URL will be:
+
+```
+http://192.168.1.100/float
+```
+
+This URL is then used to send an HTTP GET request to the server to retrieve the corresponding data.
+
+#### b. **Selecting the Correct Client**
+
+The `VariableClientManager` uses the `path` to select the correct client when retrieving a single variable. This is done by comparing the `path` passed to `retrieveSingle()` or `getClient()` with the `path` stored in each client:
+
+```cpp
+void retrieveSingle(const char* path) {
+    for (int i = 0; i < clientCount; i++) {
+        if (strcmp(clients[i]->getPath(), path) == 0) {
+            clients[i]->retrieveVariable();
+            return;
+        }
+    }
+    Serial.printf("No client found for path: %s\n", path);
+}
+```
+
+In this method:
+- `strcmp()` compares the `path` passed to `retrieveSingle()` with the `path` stored in each `VariableClient`.
+- If a match is found, the corresponding client's `retrieveVariable()` method is called to retrieve the data.
+
+### Summary
+
+- **Path Passing:** The path is passed to the `VariableClient` (or its derived classes) via the constructor when a client is created.
+- **Path Storing:** The path is stored in a `const char*` variable within the `VariableClient` class.
+- **Path Retrieving:** The stored path can be retrieved using the `getPath()` method.
+- **Path Usage:** The path is used to build the URL for the HTTP GET request and to identify the correct client when retrieving specific data.
+
+This design ensures that each client is tied to a specific path, making it straightforward to manage and retrieve different variables or arrays served by the ESP32 server.
