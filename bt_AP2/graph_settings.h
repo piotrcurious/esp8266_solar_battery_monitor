@@ -9,9 +9,12 @@ float minutes_buffer_max = 0 ;
 
 #define DEBUG_INTERVAL 5000 //each second
 #define LASTVALUE_INTERVAL 1000*10 //each 10 seconds
+#define LABELS_INTERVAL 1000*10 //each 10 seconds
+
 
 uint32_t minutes_millis_last = MINUTES_INTERVAL;
 uint32_t debug_millis_last = DEBUG_INTERVAL;
+uint32_t labels_millis_last = LASTVALUE_INTERVAL;
 uint32_t lastvalue_millis_last = LASTVALUE_INTERVAL;
 
 //#define GRAPH_WIDTH  DISPLAY_WIDTH   // Graph width in pixels (adjust as needed)
@@ -50,8 +53,6 @@ uint16_t lfsr = 1;  // Initial seed value for the LFSR
 //int maxLines = MAX_LINES;  // Set this to the maximum number of lines in the buffer
 int linesDrawn = 0;  // Track how many lines have been drawn
 
-
-
 // Structure to store line parameters
 typedef struct {
     uint16_t x1, y1, x2, y2;
@@ -68,3 +69,6 @@ bool graphComplete = false; // indicates if graph buffer is completely drawn
 uint16_t globalGraphHeight = 0;
 // Global variable to store the graph Y position
 uint16_t globalGraphYPos = 0;
+
+uint16_t displayWidth ; //= BlueDisplay1.getDisplayWidth();
+uint16_t displayHeight;  //= BlueDisplay1.getDisplayHeight();
