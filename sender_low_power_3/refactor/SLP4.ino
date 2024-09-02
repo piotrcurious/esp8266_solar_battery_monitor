@@ -26,7 +26,7 @@ bool initialConnectAndStoreParams() {
   uint32_t timeout = millis() + 20000; // 20s timeout
   while (WiFi.status() != WL_CONNECTED && millis() < timeout) {
     digitalWrite(LED_PIN, !digitalRead(LED_PIN));
-    delay(100);
+    delay(500);
   }
 
   if (WiFi.status() == WL_CONNECTED) {
@@ -48,11 +48,12 @@ void setup() {
   pinMode(MODE_PIN, INPUT);
 
   initialConnectionEstablished = initialConnectAndStoreParams();
+  udp.begin(port);
+  wifi_fpm_set_wakeup_cb(fpm_wakup_cb_func);
 
   if (initialConnectionEstablished) {
-    udp.begin(port);
-    wifi_fpm_set_wakeup_cb(fpm_wakup_cb_func);
-  } else {
+    Serial.println("Connected OK");
+      } else {
     Serial.println("Failed to establish initial connection");
   }
 }
@@ -71,12 +72,13 @@ void reconnectAfterSleep() {
   uint32_t timeout = millis() + 20000; // 20s timeout
   while (WiFi.status() != WL_CONNECTED && millis() < timeout) {
     digitalWrite(LED_PIN, !digitalRead(LED_PIN));
-    delay(50);
+    delay(100);
   }
 
   if (WiFi.status() != WL_CONNECTED) {
     Serial.println("Failed to reconnect after sleep");
-    initialConnectionEstablished = false;
+    //initialConnectionEstablished = false; // no need as settings will stay same
+    // it could be useful for a mesh with changing bssid though. 
   }
 }
 
@@ -84,8 +86,8 @@ void loop() {
   if (!initialConnectionEstablished) {
     initialConnectionEstablished = initialConnectAndStoreParams();
     if (!initialConnectionEstablished) {
-      delay(5000);  // Wait before retrying
-      return;
+      delay(1000);  // Wait before retrying
+      //todo: sleep in case there is no connection. 
     }
   }
 
@@ -95,7 +97,7 @@ void loop() {
   udp.beginPacketMulticast(broadcast, port, WiFi.localIP());
   udp.write((byte*)&tframe, sizeof(tframe));
   udp.endPacket();
-  delay(20);
+  delay(20); // todo : find better way to check if packet is sent
 
   if (digitalRead(MODE_PIN) == HIGH) {
     WiFi.mode(WIFI_OFF);
@@ -114,6 +116,6 @@ void loop() {
 
     reconnectAfterSleep();
   } else {
-    delay(10);
+    delay(10); // delay in continuous mode. 3ms minimum. 
   }
 }
