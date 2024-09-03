@@ -10,6 +10,7 @@
 #include <ESP8266WiFi.h>
 #include <WiFiUdp.h>
 
+#define ASSOCIATE_TIMEOUT_INTERVAL 10*1000 // 10seconds
 
 //esp32
 // Declare a global variable to store the asyncUDP object

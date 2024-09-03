@@ -15,7 +15,7 @@ struct WIFI_SETTINGS_T _settings;
 bool initialConnectionEstablished = false;
 
 void yield_delay(uint32_t delay) {
-        unsigned long startTime = millis();
+        uint32_t startTime = millis();
         while (millis() - startTime < delay) { // Maximum wait time of 50ms
           yield(); // Allow the ESP8266 to handle background tasks
         }
@@ -110,9 +110,11 @@ void reconnectAfterSleep() {
   WiFi.config(_settings.ip_address, _settings.ip_gateway, _settings.ip_mask);
   WiFi.begin(ssid, password, _settings.wifi_channel, _settings.wifi_bssid, true);
 
-  uint32_t timeout = millis() + 20000; // 20s timeout
+  uint32_t timeout = millis();
   pinMode(LED_PIN, OUTPUT);
-  while (WiFi.status() != WL_CONNECTED && millis() < timeout) {
+//  while (WiFi.status() != WL_CONNECTED && millis() < timeout) {
+  while ((WiFi.status() != WL_CONNECTED )&&  ((millis()-timeout) < ASSOCIATE_TIMEOUT_INTERVAL)  ) {
+
     digitalWrite(LED_PIN, HIGH);
     yield_delay(10);
     digitalWrite(LED_PIN,LOW);
@@ -138,14 +140,14 @@ void loop() {
 
   telemetry_frame tframe;
   tframe.voltage_ADC0 = analogRead(analogInPin) * (17.0/1024);
-  tframe.wifi_rssi = WiFi.RSSI();
+  if (WiFi.status() == WL_CONNECTED) {tframe.wifi_rssi = WiFi.RSSI();}
 
  // udp.beginPacketMulticast(broadcast, port, WiFi.localIP());
  // udp.write((byte*)&tframe, sizeof(tframe));
  // udp.endPacket();
  // yield_delay(20); // todo : find better way to check if packet is sent
 
-   Serial.println(sendUDPPacket(tframe)); // print how long it took to send a packet in ms. 
+   if (WiFi.status() == WL_CONNECTED) {Serial.println(sendUDPPacket(tframe));} // print how long it took to send a packet in ms. 
 
   pinMode(MODE_PIN, INPUT);
   if (digitalRead(MODE_PIN) == HIGH) {
@@ -159,7 +161,7 @@ void loop() {
     wifi_fpm_set_sleep_type(LIGHT_SLEEP_T);
     wifi_fpm_open();
 
-    long sleepTimeMilliSeconds = 10 * 1000;
+    uint32_t sleepTimeMilliSeconds = 10 * 1000;
     wifi_fpm_do_sleep(sleepTimeMilliSeconds * 1000);
     esp_delay(sleepTimeMilliSeconds + 1);
 
