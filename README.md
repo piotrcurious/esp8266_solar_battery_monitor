@@ -1,7 +1,9 @@
 # esp8266_solar_battery_monitor
-System to monitor solar battery using broadcast packets 
-Written by hand by me , perhaps it's why there are so many bugs :D
-Also added loads of code written by copilot, esp. in the junkbox folders so it's easier to jumpstart with gauges, ammeters, whatever needed. 
+System to monitor solar battery using broadcast packets .
+
+Contains many subprojects. 
+
+Also added loads of code written by copilot, chatGPT, Claude, Gemini, blackbox,etc. esp. in the junkbox folders so it's easier to jumpstart with gauges, ammeters, whatever needed. 
 
 edit: i decided to throw changed versions and fixes into separate dirs, so pay attention to check which files are most recent to get most bug free experience. 
 I use more and more AI to help me code it up, learning it progress, but I am not good coder and i have little time for it so it's slow and quirky process. 
