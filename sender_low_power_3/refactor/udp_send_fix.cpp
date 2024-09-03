@@ -1,3 +1,6 @@
+//The fix is fake hallucination. beware.
+
+
 #include "wifi_settings.h"
 #include "telemetry_frame.h"
 #include "user_interface.h"
