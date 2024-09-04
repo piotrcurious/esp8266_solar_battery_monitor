@@ -11,6 +11,9 @@
 #include <WiFiUdp.h>
 
 #define ASSOCIATE_TIMEOUT_INTERVAL 10*1000 // 10seconds
+#define SLEEP_PERIODS_TO_SEND_PACKET 10 // send packet only once per [x] sleep periods. other wakeups only update the filter.
+uint8_t sleep_periods_elapsed = 0 ; // global variable to keep track of amount of sleep periods
+
 
 //esp32
 // Declare a global variable to store the asyncUDP object
@@ -30,6 +33,11 @@ const uint8_t channel = 1;
 const bool hidden = 0;
 const uint8_t max_connection = 8; 
 const uint16_t beacon_interval = 100; 
+
+bool is_beacon_fresh = false ; // set by promiscious sniffer
+uint32_t last_beacon_timestamp = 0; // 
+#define BEACON_PEEK_TIMEOUT beacon_interval*10 // do not attempt to reconnect if no beacon after this period
+#define BEACON_DEBUG 
 
 #define PERSISTENT_WIFI  // attempt to use tricks to quickly reconnect to wifi 
 
