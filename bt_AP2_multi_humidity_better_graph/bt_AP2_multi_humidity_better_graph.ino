@@ -280,7 +280,6 @@ void setup() {
     esp_wifi_scan_stop();
     esp_wifi_set_protocol(WIFI_IF_AP, WIFI_PROTOCOL_11B);
 
-
  // Set Bluetooth interrupt priority lower than WiFi
   esp_intr_alloc(ETS_BT_MAC_INTR_SOURCE, ESP_INTR_FLAG_IRAM, NULL, NULL, NULL);
   esp_intr_alloc(ETS_WIFI_MAC_INTR_SOURCE, ESP_INTR_FLAG_IRAM, NULL, NULL, NULL);
@@ -966,8 +965,12 @@ void loop() {
  //     drawLabels(minutes_buffer[current_graph], minutes_dataArraySize, GRAPH_X, GRAPH_Y, displayWidth-GRAPH_X,displayHeight-(GRAPH_Y), minutes_buffer_min[current_graph], minutes_buffer_max[current_graph),GRAPH_COLOR[current_graph]);    
       labels_millis_last=millis()+LABELS_INTERVAL;
      if (graphComplete){
-        if (current_graph>=0){
+        if (current_graph>=0){ //positive numbers mean real graphs
             drawLabels(minutes_buffer[current_graph], minutes_dataArraySize, GRAPH_X, GRAPH_Y, displayWidth-GRAPH_X,displayHeight-(GRAPH_Y), minutes_buffer_min[current_graph], minutes_buffer_max[current_graph],GRAPH_COLOR[current_graph]);     
+        } else { //negative numbers mean layouts. draw labels for the first graph in stack
+           if ((graph_order[0])>=0) {
+              drawLabels(minutes_buffer[graph_order[0]], minutes_dataArraySize, GRAPH_X, GRAPH_Y, displayWidth-GRAPH_X,displayHeight-(GRAPH_Y), minutes_buffer_min[graph_order[0]], minutes_buffer_max[graph_order[0]],GRAPH_COLOR[graph_order[0]]);     
+           }
         }
       }
      } 
@@ -978,10 +981,14 @@ void loop() {
 //    plotGraph_buffered(minutes_buffer, minutes_dataArraySize, GRAPH_X, GRAPH_Y, displayWidth-GRAPH_X,displayHeight-(GRAPH_Y), minutes_buffer_min, minutes_buffer_max,GRAPH1_COLOR);
    if (graphComplete){
          if (current_graph>=0) { // positive graph values mean real graphs
-            plotGraph(minutes_buffer[current_graph], minutes_dataArraySize, GRAPH_X, GRAPH_Y, displayWidth-GRAPH_X,displayHeight-(GRAPH_Y),
+            plotGraph(minutes_buffer[current_graph], minutes_dataArraySize, GRAPH_X, GRAPH_Y, displayWidth-GRAPH_X-LEGEND_LABEL_FONT_WIDTH*4,displayHeight-(GRAPH_Y),
                   minutes_buffer_min[current_graph], minutes_buffer_max[current_graph],GRAPH_COLOR[current_graph],true);     
 //      plotGraph_buffered(minutes_buffer[current_graph], minutes_dataArraySize, GRAPH_X, GRAPH_Y, displayWidth-GRAPH_X,displayHeight-(GRAPH_Y), minutes_buffer_min[current_graph], minutes_buffer_max[current_graph],GRAPH_COLOR[current_graph]);
-         }
+         }else {
+      plotGraphMulti(minutes_dataArraySize, GRAPH_X, GRAPH_Y, displayWidth-GRAPH_X-LEGEND_LABEL_FONT_WIDTH*4,displayHeight-(GRAPH_Y)); 
+      //          minutes_buffer_min[graph_order[i]], minutes_buffer_max[graph_order[i]],GRAPH_COLOR[graph_order[i]], clear_under );
+    }
+         
       }    
     }//if (minutes_millis_last<millis()) {
 
@@ -1047,9 +1054,12 @@ void drawGui(void) {
 
     BlueDisplay1.clearDisplay(COLOR_BACKGROUND);
     if (current_graph>=0) { // positive graph values mean real graphs
-      plotGraph(minutes_buffer[current_graph], minutes_dataArraySize, GRAPH_X, GRAPH_Y, displayWidth-GRAPH_X,displayHeight-(GRAPH_Y),
+      plotGraph(minutes_buffer[current_graph], minutes_dataArraySize, GRAPH_X, GRAPH_Y, displayWidth-GRAPH_X-LEGEND_LABEL_FONT_WIDTH*4,displayHeight-(GRAPH_Y),
               minutes_buffer_min[current_graph], minutes_buffer_max[current_graph],GRAPH_COLOR[current_graph],true);
       //  plotGraph(minutes_buffer, minutes_dataArraySize, GRAPH_X, GRAPH_Y, displayWidth-GRAPH_X, displayHeight-(GRAPH_Y), minutes_buffer_min, minutes_buffer_max,GRAPH1_COLOR,clear_under);
+    }else { // negative means drawing layouts . 
+      //todo : more layouts and ability to choose layout to configure by swipe up. 
+      plotGraphMulti(minutes_dataArraySize, GRAPH_X, GRAPH_Y, displayWidth-GRAPH_X-LEGEND_LABEL_FONT_WIDTH*4,displayHeight-(GRAPH_Y)); 
     }
 
     
@@ -1064,7 +1074,7 @@ void handleSwipe(struct Swipe *const swipe_param) {
     Serial0.println(current_graph);
 
     if (current_graph>=0) { // positive graph values mean real graphs
-      plotGraph(minutes_buffer[current_graph], minutes_dataArraySize, GRAPH_X, GRAPH_Y, displayWidth-GRAPH_X,displayHeight-(GRAPH_Y),
+      plotGraph(minutes_buffer[current_graph], minutes_dataArraySize, GRAPH_X, GRAPH_Y, displayWidth-GRAPH_X-LEGEND_LABEL_FONT_WIDTH*4,displayHeight-(GRAPH_Y),
               minutes_buffer_min[current_graph], minutes_buffer_max[current_graph],GRAPH_COLOR[current_graph],true);
     } else {
 /*
@@ -1077,11 +1087,10 @@ void handleSwipe(struct Swipe *const swipe_param) {
         }  
       }
  */
-      plotGraphMulti(minutes_dataArraySize, GRAPH_X, GRAPH_Y, displayWidth-GRAPH_X,displayHeight-(GRAPH_Y)); 
+      plotGraphMulti(minutes_dataArraySize, GRAPH_X, GRAPH_Y, displayWidth-GRAPH_X-LEGEND_LABEL_FONT_WIDTH*4,displayHeight-(GRAPH_Y)); 
       //          minutes_buffer_min[graph_order[i]], minutes_buffer_max[graph_order[i]],GRAPH_COLOR[graph_order[i]], clear_under );
     }
 
-    
     DisplayDebug();
   }else {
 // vertical swipe adds or removes graphs to the graph order array
