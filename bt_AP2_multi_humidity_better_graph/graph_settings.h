@@ -1,26 +1,45 @@
 #define MINUTES_GRAPH_BUFFER_MAX 60*24 //1440 *4 = 5760 bytes
 #define NUMBER_OF_BUFFERS 5 // 5760 bytes *5 = 28800 bytes - that is about maximum esp32 can hold with max 2 wifi connections...  
-
+#define NUMBER_OF_GRAPHS 5 //  // how many graphs in the swipe menu
+                              // some graphs may be combination of other graphs 
+                              // or be virtual graphs derived from combination and processing of other graph data
+#define NUMBER_OF_GRAPHS_IMG 1 //  // how many graphs below 0 (negative) 
+                              // those graphs are meta constructs, f.e. stacked graph. 
+                              
+                              
 float minutes_buffer[NUMBER_OF_BUFFERS][MINUTES_GRAPH_BUFFER_MAX]; // first value is amount of rows
                                                                    // second is size of row
 float minutes_buffer_min[NUMBER_OF_BUFFERS]  ; 
 float minutes_buffer_max[NUMBER_OF_BUFFERS]  ; 
 
 #define CHUNKS_PER_DRAW 32 // define how many chunks will be drawn per update
-uint8_t current_graph = 0 ; // index of buffer used for current graph
+int current_graph = 0 ; // index of buffer used for current graph
+uint8_t current_buffer = 0 ; // index of current buffer used 
+
+//combining graphs helper variables
+
+int graph_order[NUMBER_OF_GRAPHS];       // Declare the array
+int graph_orderSize = 0;         // Keep track of the number of valid elements in the array
+
+
+
 // LABELS of graphs
 #define LABEL_SIZE 16 // size of labels , in chars
 
 // SETUP of apperance
 
 
-const char graph_labels[NUMBER_OF_BUFFERS][LABEL_SIZE] = {"TX active time ",
+const char graph_labels[NUMBER_OF_GRAPHS][LABEL_SIZE] = {"TX active time ",
                                                           "    voltage    ",
                                                           " signal level  ",
                                                           "    humidity   ",
                                                           "    temperature"
                                                           
                                                           } ;
+//                                                         0123456789012345,   0123456789012345
+const char graph_labels_img[NUMBER_OF_GRAPHS_IMG][LABEL_SIZE] = {
+                                                          "    combined   "
+                                                          };                                                     
 //                                                         0123456789012345,   0123456789012345
 const color16_t GRAPH_COLOR[NUMBER_OF_BUFFERS] ={ COLOR16_RED,    // tx active time
                                                   COLOR16_GREEN,  // voltage

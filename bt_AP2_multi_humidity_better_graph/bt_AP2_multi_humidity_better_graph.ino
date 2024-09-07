@@ -10,6 +10,86 @@
 // a string buffer for any purpose...
 char sStringBuffer[32];
 
+//helper for order of graphs array 
+// Function prototypes
+void initializeArray();
+void addNumber(int number);
+void removeNumber(int number);
+void printArray();
+bool numberExists(int number);
+
+// Function to initialize the array with -1
+void initializeArray() {
+  for (int i = 0; i < NUMBER_OF_GRAPHS; i++) {
+    graph_order[i] = -1;
+  }
+}
+
+// Function to add a number to the array at the last available position if it doesn't already exist
+void addNumber(int number) {
+  if (numberExists(number)) {
+    Serial0.println("Number already exists in the array. No action taken.");
+    return;
+  }
+
+  if (graph_orderSize < NUMBER_OF_GRAPHS) {
+    graph_order[graph_orderSize] = number;
+    graph_orderSize++;
+  } else {
+    Serial0.println("Array is full. Cannot add more numbers.");
+  }
+}
+
+// Function to remove a number from the array and shift elements if necessary
+void removeNumber(int number) {
+  int index = -1;
+
+  // Find the index of the number to be removed
+  for (int i = 0; i < graph_orderSize; i++) {
+    if (graph_order[i] == number) {
+      index = i;
+      break;
+    }
+  }
+
+  // If the number was found, remove it and shift the elements
+  if (index != -1) {
+    for (int i = index; i < graph_orderSize - 1; i++) {
+      graph_order[i] = graph_order[i + 1];
+    }
+    graph_order[graph_orderSize - 1] = -1; // Mark the last position as empty
+    graph_orderSize--;
+  } else {
+    Serial0.println("Number not found in the array.");
+  }
+}
+
+// Function to check if a number exists in the array
+bool numberExists(int number) {
+  for (int i = 0; i < graph_orderSize; i++) {
+    if (graph_order[i] == number) {
+      return true;
+    }
+  }
+  return false;
+}
+
+// Function to print the current state of the array
+void printArray(uint16_t x0 = 12*32 , uint16_t y0 = 16 ) {
+//  Serial0.print("Array: ");
+  for (int i = 0; i < NUMBER_OF_GRAPHS; i++) {
+//    Serial0.print(graph_order[i]);
+//    Serial0.print(" ");
+    if (graph_order[i] > -1) {
+      sprintf(sStringBuffer,"%d", graph_order[i]);
+      BlueDisplay1.drawText(x0+i*LEGEND_LABEL_FONT_WIDTH, y0, sStringBuffer,LEGEND_LABEL_FONT_SIZE, COLOR_BACKGROUND, GRAPH_COLOR[graph_order[i]]);
+          } else {
+      BlueDisplay1.drawText(x0+i*LEGEND_LABEL_FONT_WIDTH, y0,"-",LEGEND_LABEL_FONT_SIZE, COLOR_BACKGROUND, COLOR16_GREY);      
+          }
+    }
+  Serial0.println();
+}
+
 // BlueDisplay object
 //BlueDisplay bluedisplay; // this is hardcoded for some weird reason
 
@@ -71,9 +151,15 @@ void DisplayDebug() {
     BlueDisplay1.drawRect(x0, 0, LEGEND_LABEL_FONT_WIDTH*16, y3, COLOR_FOREGROUND,1);
 
     if (graphComplete){
-    BlueDisplay1.drawText(x0, y0, graph_labels[current_graph], LEGEND_LABEL_FONT_SIZE, COLOR_FOREGROUND, COLOR_BACKGROUND);
+        if (current_graph >=0 ) {
+          BlueDisplay1.drawText(x0, y0, graph_labels[current_graph], LEGEND_LABEL_FONT_SIZE, COLOR_FOREGROUND, COLOR_BACKGROUND);
+          } else { 
+            printArray(LEGEND_LABEL_FONT_WIDTH*8,LEGEND_LABEL_FONT_SIZE); 
+            }
     } else {
-    BlueDisplay1.drawText(x0, y0, graph_labels[current_graph], LEGEND_LABEL_FONT_SIZE, COLOR_BACKGROUND, COLOR_FOREGROUND); // indicate that graph drawing is not finished
+        if (current_graph >=0 ) {
+          BlueDisplay1.drawText(x0, y0, graph_labels[current_graph], LEGEND_LABEL_FONT_SIZE, COLOR_BACKGROUND, COLOR_FOREGROUND);
+          } // indicate that graph drawing is not finished
     }
     
     sprintf(sStringBuffer,"Res: x:%u, y:%u",displayWidth,displayHeight);
@@ -102,13 +188,65 @@ void DisplayDebug() {
 //void handleSwipe(struct Swipe*);
 void handleSwipe(struct Swipe *const swipe_param) ;
 
-void setup() {
+void disableUnnecessaryBtFeatures() {
+  // Disable scanning
+  esp_bt_gap_cancel_discovery();
+  
+  // Disable device discovery
+  //esp_bt_gap_set_scan_mode(ESP_BT_NON_CONNECTABLE, ESP_BT_NON_DISCOVERABLE);
+  
+  // Disable sniff mode
+  esp_bt_sleep_disable();
+  
+  // Disable Secure Simple Pairing
+ // esp_bt_gap_set_security_param(ESP_BT_SP_IOCAP_MODE, &esp_bt_io_cap_none, sizeof(uint8_t));
+}
 
+void configureCoexistence() {
+  // Set WiFi as the preferred mode in coexistence
+  esp_coex_preference_set(ESP_COEX_PREFER_WIFI);
+  
+  // Optionally, adjust other coexistence parameters
+  // esp_coex_set_bt_tx_power(ESP_COEX_BT_TX_PWR_LOW);
+  // esp_coex_set_wifi_tx_power(ESP_COEX_WIFI_TX_PWR_HIGH);
+}
+
+
+bool btStartMinimal() {
+  esp_bt_controller_config_t bt_cfg = BT_CONTROLLER_INIT_CONFIG_DEFAULT();
+  
+  // Minimize memory usage
+  bt_cfg.mode = ESP_BT_MODE_CLASSIC_BT;
+  bt_cfg.bt_max_acl_conn = 1;
+  bt_cfg.bt_max_sync_conn = 0;
+  
+  if (esp_bt_controller_init(&bt_cfg) != ESP_OK) {
+    return false;
+  }
+  
+  if (esp_bt_controller_enable(ESP_BT_MODE_CLASSIC_BT) != ESP_OK) {
+    return false;
+  }
+  
+  if (esp_bluedroid_init() != ESP_OK) {
+    return false;
+  }
+  
+  if (esp_bluedroid_enable() != ESP_OK) {
+    return false;
+  }
+
+  return true;
+}
+
+void setup() {
+    
     // Initialize BlueDisplay
 //    bluedisplay.begin("ESP32 BlueDisplay");
 #if defined(ESP32)
     Serial0.begin(115200); // disabled to save memory. 
  //   Serial.println(StartMessage);
+    btStartMinimal();
     initSerial("voltage2");
 //    Serial0.println("Start ESP32 BT-client with name \"voltage\""); // who cares
 #else
@@ -137,6 +275,24 @@ void setup() {
     esp_wifi_set_country(&wifi_country) ; /* set country for channel range [1, 13] */
     esp_wifi_set_max_tx_power(84);
 //    WiFi.setTxPower(WIFI_POWER_20_5dBm); // 
+
+    //debug wifi
+    esp_wifi_scan_stop();
+    esp_wifi_set_protocol(WIFI_IF_AP, WIFI_PROTOCOL_11B);
+
+
+ // Set Bluetooth interrupt priority lower than WiFi
+  esp_intr_alloc(ETS_BT_MAC_INTR_SOURCE, ESP_INTR_FLAG_IRAM, NULL, NULL, NULL);
+  esp_intr_alloc(ETS_WIFI_MAC_INTR_SOURCE, ESP_INTR_FLAG_IRAM, NULL, NULL, NULL);
+  esp_intr_set_in_iram(ETS_WIFI_MAC_INTR_SOURCE, true);
+//  esp_intr_set_in_iram(ETS_WIFI_MAC_INTR_SOURCE, true);
+  
+ // Disable unnecessary Bluetooth features
+  disableUnnecessaryBtFeatures();
+
+  // Configure coexistence
+  configureCoexistence();
+   
     
   // Initialize the asyncUDP object
   if (udp.listenMulticast(multicastIP, multicastPort)) {
@@ -198,6 +354,10 @@ void setup() {
 //        Serial0.println(myCountry.cc);
 //        Serial0.println(myCountry.max_tx_power);
 //      }      
+
+  initializeArray();  // Initialize the array with -1
+
+
 }
 
 
@@ -776,7 +936,26 @@ void plotGraph(float *data, uint16_t dataSize, uint16_t graphPosX, uint16_t grap
     graphComplete = true;
 }
 
+//TODO : passing pointers and array parameters instead of short circuit. 
 
+void plotGraphMulti(uint16_t dataSize, uint16_t graphPosX, uint16_t graphPosY,
+               uint16_t graphWidth, uint16_t graphHeight ){ //,
+               // float graph_min, float graph_max, color16_t graphColor, bool clear_under = false) {
+    for (int j = 0; j < (dataSize-1); j++) {
+        for (uint8_t i = 0 ; i < NUMBER_OF_GRAPHS; i++ ) {
+          bool clear_under; 
+          if (i == 0) {clear_under=true;} else {clear_under=false;}
+          if (graph_order[i] >=0 ){
+            plotGraphSection(minutes_buffer[graph_order[i]], j, dataSize, graphPosX, graphPosY,
+                graphWidth, graphHeight, minutes_buffer_min[graph_order[i]], minutes_buffer_max[graph_order[i]], GRAPH_COLOR[graph_order[i]],clear_under);
+          //plotGraph(minutes_buffer[graph_order[i]],minutes_dataArraySize, GRAPH_X, GRAPH_Y, displayWidth-GRAPH_X,displayHeight-(GRAPH_Y),
+          //      minutes_buffer_min[graph_order[i]], minutes_buffer_max[graph_order[i]],GRAPH_COLOR[graph_order[i]], clear_under );       
+          }  
+        }
+    }
+    graphComplete = true;
+
+}
 void loop() {
      if (debug_millis_last<millis()) {      
       DisplayDebug();
@@ -787,7 +966,9 @@ void loop() {
  //     drawLabels(minutes_buffer[current_graph], minutes_dataArraySize, GRAPH_X, GRAPH_Y, displayWidth-GRAPH_X,displayHeight-(GRAPH_Y), minutes_buffer_min[current_graph], minutes_buffer_max[current_graph),GRAPH_COLOR[current_graph]);    
       labels_millis_last=millis()+LABELS_INTERVAL;
      if (graphComplete){
-      drawLabels(minutes_buffer[current_graph], minutes_dataArraySize, GRAPH_X, GRAPH_Y, displayWidth-GRAPH_X,displayHeight-(GRAPH_Y), minutes_buffer_min[current_graph], minutes_buffer_max[current_graph],GRAPH_COLOR[current_graph]);     
+        if (current_graph>=0){
+            drawLabels(minutes_buffer[current_graph], minutes_dataArraySize, GRAPH_X, GRAPH_Y, displayWidth-GRAPH_X,displayHeight-(GRAPH_Y), minutes_buffer_min[current_graph], minutes_buffer_max[current_graph],GRAPH_COLOR[current_graph]);     
+        }
       }
      } 
 
@@ -796,12 +977,15 @@ void loop() {
       update_minute_buffer();      
 //    plotGraph_buffered(minutes_buffer, minutes_dataArraySize, GRAPH_X, GRAPH_Y, displayWidth-GRAPH_X,displayHeight-(GRAPH_Y), minutes_buffer_min, minutes_buffer_max,GRAPH1_COLOR);
    if (graphComplete){
-         plotGraph(minutes_buffer[current_graph], minutes_dataArraySize, GRAPH_X, GRAPH_Y, displayWidth-GRAPH_X,displayHeight-(GRAPH_Y),
+         if (current_graph>=0) { // positive graph values mean real graphs
+            plotGraph(minutes_buffer[current_graph], minutes_dataArraySize, GRAPH_X, GRAPH_Y, displayWidth-GRAPH_X,displayHeight-(GRAPH_Y),
                   minutes_buffer_min[current_graph], minutes_buffer_max[current_graph],GRAPH_COLOR[current_graph],true);     
-    
 //      plotGraph_buffered(minutes_buffer[current_graph], minutes_dataArraySize, GRAPH_X, GRAPH_Y, displayWidth-GRAPH_X,displayHeight-(GRAPH_Y), minutes_buffer_min[current_graph], minutes_buffer_max[current_graph],GRAPH_COLOR[current_graph]);
+         }
       }    
-    }
+    }//if (minutes_millis_last<millis()) {
+
+    
  
 //    drawSequentialLines(int numLinesToDraw)
 //    if (!graphComplete) { drawSequentialLines(2);} // draws from left to right , sequential 
@@ -862,23 +1046,53 @@ void drawGui(void) {
 #endif //#ifdef DO_NOT_NEED_BASIC_TOUCH_EVENTS 
 
     BlueDisplay1.clearDisplay(COLOR_BACKGROUND);
-    plotGraph(minutes_buffer[current_graph], minutes_dataArraySize, GRAPH_X, GRAPH_Y, displayWidth-GRAPH_X,displayHeight-(GRAPH_Y),
+    if (current_graph>=0) { // positive graph values mean real graphs
+      plotGraph(minutes_buffer[current_graph], minutes_dataArraySize, GRAPH_X, GRAPH_Y, displayWidth-GRAPH_X,displayHeight-(GRAPH_Y),
               minutes_buffer_min[current_graph], minutes_buffer_max[current_graph],GRAPH_COLOR[current_graph],true);
-      
-  //  plotGraph(minutes_buffer, minutes_dataArraySize, GRAPH_X, GRAPH_Y, displayWidth-GRAPH_X, displayHeight-(GRAPH_Y), minutes_buffer_min, minutes_buffer_max,GRAPH1_COLOR,clear_under);
+      //  plotGraph(minutes_buffer, minutes_dataArraySize, GRAPH_X, GRAPH_Y, displayWidth-GRAPH_X, displayHeight-(GRAPH_Y), minutes_buffer_min, minutes_buffer_max,GRAPH1_COLOR,clear_under);
+    }
 
+    
 //    TouchButtonBlinkStartStop.drawButton();
 }
 
 void handleSwipe(struct Swipe *const swipe_param) {
   if (swipe_param->SwipeMainDirectionIsX && swipe_param->TouchDeltaAbsMax > 100) {
     BlueDisplay1.clearDisplay(COLOR_BACKGROUND);
-    if (swipe_param->TouchDeltaX > 0 && current_graph < (NUMBER_OF_BUFFERS-1)) {current_graph++;} // swipe right
-    if (swipe_param->TouchDeltaX < 0 && current_graph > 0) {current_graph--;} // swipe left
-    //Serial0.println(current_graph);
-    plotGraph(minutes_buffer[current_graph], minutes_dataArraySize, GRAPH_X, GRAPH_Y, displayWidth-GRAPH_X,displayHeight-(GRAPH_Y),
-              minutes_buffer_min[current_graph], minutes_buffer_max[current_graph],GRAPH_COLOR[current_graph],true);     
+    if (swipe_param->TouchDeltaX < 0 && current_graph < (NUMBER_OF_BUFFERS-1)) {current_graph++;} // swipe right
+    if (swipe_param->TouchDeltaX > 0 && current_graph > -1) {current_graph--;} // swipe left
+    Serial0.println(current_graph);
+
+    if (current_graph>=0) { // positive graph values mean real graphs
+      plotGraph(minutes_buffer[current_graph], minutes_dataArraySize, GRAPH_X, GRAPH_Y, displayWidth-GRAPH_X,displayHeight-(GRAPH_Y),
+              minutes_buffer_min[current_graph], minutes_buffer_max[current_graph],GRAPH_COLOR[current_graph],true);
+    } else {
+/*
+      for (uint8_t i = 0 ; i < NUMBER_OF_GRAPHS; i++ ) {
+        bool clear_under; 
+        if (i == 0) {clear_under=true;} else {clear_under=false;}
+        if (graph_order[i] >=0 ){
+          plotGraph(minutes_buffer[graph_order[i]],minutes_dataArraySize, GRAPH_X, GRAPH_Y, displayWidth-GRAPH_X,displayHeight-(GRAPH_Y),
+                minutes_buffer_min[graph_order[i]], minutes_buffer_max[graph_order[i]],GRAPH_COLOR[graph_order[i]], clear_under );       
+        }  
+      }
+ */
+      plotGraphMulti(minutes_dataArraySize, GRAPH_X, GRAPH_Y, displayWidth-GRAPH_X,displayHeight-(GRAPH_Y)); 
+      //          minutes_buffer_min[graph_order[i]], minutes_buffer_max[graph_order[i]],GRAPH_COLOR[graph_order[i]], clear_under );
+    }
+
+    
     DisplayDebug();
+  }else {
+// vertical swipe adds or removes graphs to the graph order array
+    if (swipe_param->TouchDeltaY < 0 ) {
+        if (current_graph>=0) {addNumber(current_graph);};
+          }// swipe up
+    if (swipe_param->TouchDeltaY > 0 ) {
+          if (current_graph>=0) {removeNumber(current_graph);}
+          }// swipe down 
   }
+    printArray(LEGEND_LABEL_FONT_WIDTH*16,LEGEND_LABEL_FONT_SIZE);
+
   
 }
