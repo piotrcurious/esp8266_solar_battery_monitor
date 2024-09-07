@@ -87,7 +87,7 @@ void printArray(uint16_t x0 = 12*32 , uint16_t y0 = 16 ) {
       BlueDisplay1.drawText(x0+i*LEGEND_LABEL_FONT_WIDTH, y0,"-",LEGEND_LABEL_FONT_SIZE, COLOR_BACKGROUND, COLOR16_GREY);      
           }
     }
-  Serial0.println();
+  //Serial0.println();
 }
 
 // BlueDisplay object
@@ -356,9 +356,7 @@ void setup() {
 
   initializeArray();  // Initialize the array with -1
 
-
 }
-
 
 // Function to handle the UDP packet
 IRAM_ATTR void handlePacket(AsyncUDPPacket packet) { // there is 128k of IRAM and it does not overlap with heap and DRAM. 
@@ -396,7 +394,6 @@ void update_minute_buffer () {
     }
 }
 */
-
 
 void update_minute_buffer () {
 
@@ -718,12 +715,12 @@ void drawLabels (float *data, uint16_t dataSize, uint16_t graphPosX, uint16_t gr
 
     // Draw the axis boundaries and graph labels
     sprintf(sStringBuffer, "%.2f", graph_min);    
-    BlueDisplay1.drawText(graphPosX + graphWidth - (LEGEND_LABEL_FONT_SIZE*LEGEND_LABEL_CHARS), graphPosY + graphHeight - 8, sStringBuffer, 16, COLOR_FOREGROUND, COLOR_BACKGROUND);
+    BlueDisplay1.drawText(graphPosX + graphWidth - (LEGEND_LABEL_FONT_WIDTH*LEGEND_LABEL_CHARS), graphPosY + graphHeight - 8, sStringBuffer, 16, graphColor, COLOR_BACKGROUND);
 //    bufferLine(xStart, yStart + graphHeight - 1, xStart + graphWidth, yStart + graphHeight - 1, COLOR16_RED);
     BlueDisplay1.drawLine(graphPosX, graphPosY + graphHeight - 1, graphPosX + graphWidth, graphPosY + graphHeight - 1, COLOR16_RED);
 
     sprintf(sStringBuffer, "%.2f", graph_max);    
-    BlueDisplay1.drawText(graphPosX + graphWidth - (LEGEND_LABEL_FONT_SIZE*LEGEND_LABEL_CHARS), graphPosY+LEGEND_LABEL_FONT_SIZE, sStringBuffer, 16, COLOR_FOREGROUND, COLOR_BACKGROUND);
+    BlueDisplay1.drawText(graphPosX + graphWidth - (LEGEND_LABEL_FONT_WIDTH*LEGEND_LABEL_CHARS), graphPosY+LEGEND_LABEL_FONT_SIZE, sStringBuffer, 16, graphColor, COLOR_BACKGROUND);
 //    bufferLine(xStart, yStart, xStart + graphWidth, yStart, COLOR16_RED);
     BlueDisplay1.drawLine(graphPosX, graphPosY, graphPosX + graphWidth, graphPosY, COLOR16_RED);
 
@@ -734,7 +731,7 @@ void drawLabels (float *data, uint16_t dataSize, uint16_t graphPosX, uint16_t gr
 
     sprintf(sStringBuffer, "%.2f", data[dataSize - 1]);    // Get the last data point
     lastDataY = graphPosY + graphHeight - (uint16_t)((data[dataSize - 1] - graph_min) * yScale);
-    BlueDisplay1.drawText(graphPosX + graphWidth - (LEGEND_LABEL_FONT_SIZE*LEGEND_LABEL_CHARS), lastDataY, sStringBuffer, 16, graphColor, COLOR_BACKGROUND);
+    BlueDisplay1.drawText(graphPosX + graphWidth - (LEGEND_LABEL_FONT_WIDTH*LEGEND_LABEL_CHARS), lastDataY, sStringBuffer, 16, graphColor, COLOR_BACKGROUND);
 //    bufferLine(xStart, lastDataY, xStart + graphWidth, lastDataY, COLOR16_LIGHT_GREY);
     BlueDisplay1.drawLine(graphPosX, lastDataY, graphPosX + graphWidth, lastDataY, grayishColor);
 }
