@@ -3,6 +3,7 @@
 
 
 <antArtifact identifier="c-style-plot-graph-multi" type="application/vnd.ant.code" language="c" title="Revised C-style plotGraphMulti solution using struct">
+ ```
 #include <stdint.h>
 #include <stdbool.h>
 
@@ -76,6 +77,7 @@ void example_usage() {
     };
     plotGraphMultiStruct(&buf_1d, 10, 10, 100, 100);
 }
+```
 </antArtifact>
 
 Here's an explanation of the changes and how this solution addresses your needs:
