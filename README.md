@@ -51,3 +51,4 @@ TODO : couple with better ADC as built-in ADC is horrible.
 TODO : timestamps . so far i work on creating some reliable time synchronization across nodes , see 
 https://github.com/piotrcurious/esp_UDP_broadcast_time_synchronizer - created by AI , but never tested yet. 
 
+Ad. why it doesn't use ESP-NOW etc. - i chosen esp8266/esp32 because i had it in my junkbox, but ideally i would like to port it to something less entangled with countries involved in human rights violations. If you are manufacturer without blood on your hands - contact me, even if you can not send free samples. 
