@@ -1,5 +1,5 @@
-#define AP_SSID "voltage2"
-#define BT_SSID "voltage2"
+#define AP_SSID "voltage"
+#define BT_SSID "voltage"
 
 #include <WiFi.h>
 #include <AsyncUDP.h>

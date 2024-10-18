@@ -976,6 +976,12 @@ void scheduleGraphMulti(uint16_t dataSize, uint16_t graphPosX, uint16_t graphPos
 //void plotGraph(float *data, uint16_t dataSize, uint16_t graphPosX, uint16_t graphPosY,
 //               uint16_t graphWidth, uint16_t graphHeight, float graph_min, float graph_max, color16_t graphColor, bool clear_under = false) {
 
+#define LFSR_debug // uncomment to emit total iterations 
+
+#ifdef LFSR_debug
+uint32_t LFSR_total = 0; // debug : how many times got called 
+#endif // #ifdef LFSR_debug
+
 void scheduleGraphSingle(uint8_t data_pointer, uint16_t dataSize, uint16_t graphPosX, uint16_t graphPosY,
                   uint16_t graphWidth, uint16_t graphHeight, float graph_min, float graph_max, color16_t graphColor, bool clear_under , uint8_t graph_index, uint16_t numLinesToDraw) {
                   graphSchedule[graph_index].data_pointer   = data_pointer;
@@ -993,8 +999,17 @@ void scheduleGraphSingle(uint8_t data_pointer, uint16_t dataSize, uint16_t graph
                   graphSchedule[graph_index].graphComplete  = false;            // mark as incomplete
                   graphSchedule[graph_index].graph_multi    = false;            // single graph logic                  
                   graphSchedule[graph_index].numLinesToDraw = numLinesToDraw;   // set up how many lines are drawn by scheduler per update                                  
+
+
+
+
+#ifdef LFSR_debug
+                  LFSR_total = 0; // debug: reset total LFSR count 
+#endif // #ifdef LFSR_debug
+
                   }
 
+/*
 // Function to implement a 16-bit Galois LFSR for each graph in scheduler
 uint16_t multi_galoisLFSR(bool *wrapped, uint8_t graph_index) {
     static uint16_t initialSeed = 1;  // Track the initial seed to detect wraparound
@@ -1007,12 +1022,101 @@ uint16_t multi_galoisLFSR(bool *wrapped, uint8_t graph_index) {
 
         graphSchedule[graph_index].lfsr ^= LFSR_POLYNOMIAL; // use polynomial defined in graph settings , matching the maximum possible width
     }
+#ifdef LFSR_debug
     // Check if the LFSR has wrapped around to the initial seed value
+    LFSR_total++; //debug : increase total count
+#endif // #ifdef LFSR_debug
+
     if (graphSchedule[graph_index].lfsr == initialSeed) {
         *wrapped = true;
+#ifdef LFSR_debug
+        Serial0.print(LFSR_total);// print total iterations until wrapped
+#endif // #ifdef LFSR_debug
+
     }
     return graphSchedule[graph_index].lfsr ;
 }
+*/
+
+
+// Predefined taps for maximal-length LFSR for each bit length (1-16)
+static const uint16_t taps[] = {
+    0x0,    // 0-bit doesn't exist
+    0x1,    // 1-bit LFSR taps
+    0x3,    // 2-bit LFSR taps
+    0x6,    // 3-bit LFSR taps
+    0xC,    // 4-bit LFSR taps
+    0x14,   // 5-bit LFSR taps
+    0x30,   // 6-bit LFSR taps
+    0x60,   // 7-bit LFSR taps
+    0xB4,   // 8-bit LFSR taps
+    0x110,  // 9-bit LFSR taps
+    0x240,  // 10-bit LFSR taps
+    0x500,  // 11-bit LFSR taps
+    0x829,  // 12-bit LFSR taps
+    0x100D, // 13-bit LFSR taps
+    0x2015, // 14-bit LFSR taps
+    0x4023, // 15-bit LFSR taps
+    0x8016  // 16-bit LFSR taps
+};
+
+
+// Function to find the smallest bit length to cover a given dataSize
+static uint16_t find_min_bit_length(uint16_t dataSize) {
+    uint16_t bit_length = 0;
+    
+    // Increment bit length until 2^bit_length - 1 >= dataSize
+    while ((1 << bit_length) - 1 < dataSize) {
+        bit_length++;
+    }
+    
+    return bit_length;
+}
+
+// Function to generate maximal length LFSR sequence based on graph schedule dataSize
+//void generate_lfsr_from_schedule(uint8_t graph_index) {
+uint16_t multi_galoisLFSR(bool *wrapped, uint8_t graph_index) {
+    uint16_t dataSize = graphSchedule[graph_index].dataSize;
+
+    // Find the smallest bit length such that (2^n - 1) >= dataSize
+    uint16_t bit_length = find_min_bit_length(dataSize);
+
+//    if (bit_length == 0 || bit_length > 16) {
+//        printf("Invalid bit length determined from dataSize.\n");
+//        return;
+//   }
+
+//    uint16_t max_steps = (1 << bit_length) - 1; // Max sequence length for n-bit LFSR
+//    uint16_t lfsr = 1; // Initial state (must not be 0)
+    uint16_t polynomial = taps[bit_length]; // Select tap configuration based on bit length
+    uint16_t bit;
+
+    //printf("LFSR sequence for graph index %d with %d-bit length (dataSize: %d):\n", graph_index, bit_length, dataSize);
+    
+        bit = graphSchedule[graph_index].lfsr & 1;       // Get the last bit (LSB)
+
+        graphSchedule[graph_index].lfsr >>= 1;           // Shift the register
+        if (bit) {
+            graphSchedule[graph_index].lfsr ^= polynomial; // Apply feedback based on the taps
+        }
+    
+#ifdef LFSR_debug
+    // Check if the LFSR has wrapped around to the initial seed value
+    LFSR_total++; //debug : increase total count
+#endif // #ifdef LFSR_debug
+
+    if (graphSchedule[graph_index].lfsr == 1) { // check if wrapped around to 1
+        *wrapped = true;
+#ifdef LFSR_debug
+        Serial0.print(LFSR_total);// print total iterations until wrapped
+#endif // #ifdef LFSR_debug
+
+    }
+    return graphSchedule[graph_index].lfsr ;
+
+}
+
+
 
 void drawLinesUsingLFSR(uint8_t graph_index) {
     uint16_t linesDrawn = 0;

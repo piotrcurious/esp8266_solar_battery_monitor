@@ -121,8 +121,15 @@ const uint32_t minutes_dataArraySize = sizeof(minutes_buffer[0]) / sizeof(minute
 #define LFSR_POLYNOMIAL 0xD008 ;  // Use the 12bit polynomial
         //  (0xD008 corresponds to the polynomial x^12 + x^11 + x^10 + x^4 + 1)
 
+#define LFSR_MAX_ITERATIONS 4096  // We will work with 4095 iterations
+#define LFSR_POLYNOMIAL 0x829 ;  // Use the 12bit polynomial
+        //  
+
 //#define LFSR_MAX_ITERATIONS 65535  // 16bit polynomial with 65535 iterations
 //#define LFSR_POLYNOMIAL 0xB400 ;  // 16bit polynomial (0xB400 corresponds to the polynomial x^16 + x^14 + x^13 + x^11 + 1)
+
+
+
 
 // Variables to store the current state of the LFSR and maximum lines
 uint16_t lfsr = 1;  // Initial seed value for the LFSR
