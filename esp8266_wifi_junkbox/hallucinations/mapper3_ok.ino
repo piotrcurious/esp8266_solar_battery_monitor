@@ -1,3 +1,6 @@
+//hallucination
+//the macro cannot expand the reflection
+
 /*
  * ESP8266 D1 Mini Pin Layout with Preprocessor Reflection
  * 
