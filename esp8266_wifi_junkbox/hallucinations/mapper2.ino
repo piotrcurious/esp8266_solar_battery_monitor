@@ -1,3 +1,14 @@
+//hallucination :
+/*
+mapper2:76:38: error: '#' is not followed by a macro parameter
+   76 | #define PRINT_ROW(left_pin, right_pin)                                     \
+      |                                      ^
+exit status 1
+'#' is not followed by a macro parameter
+*/
+// chatGPT tried to fool me by ommiting impossible macro and pretending it will work. 
+
+
 /*
  * ==================================================================
  * ESP8266 D1 Mini Board with Dynamic Pin Layout and Device Mappings
