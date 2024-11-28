@@ -3,10 +3,19 @@
 #include <Adafruit_GFX.h>    // Adafruit GFX library for font support
 
 //#include "open_sans_quick_16.h"
-//#define VOLTAGE_FONT &Open_Sans_Light_16Bitmaps
+//#define VOLTAGE_FONT &Open_Sans_Light_16
 
-#include <Fonts/FreeSansBold18pt7b.h>
-#define VOLTAGE_FONT &FreeSansBold18pt7b
+//#include <Fonts/FreeSansBold18pt7b.h>
+//#define VOLTAGE_FONT &FreeSansBold18pt7b
+
+//#include "Special_Elite_Regular_48.h"
+//#define VOLTAGE_FONT &Special_Elite_Regular_48
+
+#include "Special_Elite_Regular_64.h"
+#define VOLTAGE_FONT &Special_Elite_Regular_64
+
+#define VOLTAGE_X 0
+#define VOLTAGE_Y 64
 
 #include "board_d1.h" // custom board pin definitions
 #include "pins.h"     // pins definition
@@ -20,6 +29,10 @@
 GxEPD2_3C<GxEPD2_213_Z98c, GxEPD2_213_Z98c::HEIGHT> \
             display(GxEPD2_213_Z98c(EPAPER_CS, EPAPER_DC, EPAPER_RESET, EPAPER_BUSY)); // GDEY0213Z98 122x250, SSD1680
 
+uint32_t lastRefreshTime = 0 ;
+#define REFRESH_INTERVAL 1000*40 // define refresh interval 
+#define LOW_VOLTAGE_SLEEP 25 // define how long to sleep when voltage is low 
+
 //GxEPD2_BW<GxEPD2_213_B74, GxEPD2_213_B74::HEIGHT> display(GxEPD2_213_B74(/*CS=D8*/ 15, /*DC=D3*/ 0, /*RST=D4*/ 2, /*BUSY=D2*/ 4)); // GDEM0213B74 122x250, SSD1680
 
 const int gpioPin = PWM_PIN ;  // GPIO10 (S3) to control
@@ -29,10 +42,62 @@ const float highThreshold = 14.0;       // Voltage threshold to stay awake
 const float lowThreshold = 13.8;        // Voltage threshold to go back to deep sleep
 const float redThreshold = 12.8;        // Display red for voltages below this
 
+// Define a struct to store data
+struct RTCData {
+  uint32_t bootCount = 0 ; // Example: Incremental boot counter
+  uint32_t lastMillis; // Last millis
+};
+
+// Create an instance of the struct
+RTCData rtcData;
+
+// Define the RTC memory range
+#define RTC_START_ADDRESS 64 // Start address (avoid first 64 bytes used by system)
+
+// Function to write struct to RTC memory
+bool saveRTCData() {
+  ESP.rtcUserMemoryWrite(RTC_START_ADDRESS, (uint32_t*)&rtcData, sizeof(rtcData));
+  return true; // You can add error checking if needed
+}
+
+// Function to read struct from RTC memory
+bool loadRTCData() {
+  return ESP.rtcUserMemoryRead(RTC_START_ADDRESS, (uint32_t*)&rtcData, sizeof(rtcData));
+}
+
+uint32_t millisOffset ; 
+
+void setMillis(unsigned long new_millis){
+  noInterrupts();
+ millisOffset = new_millis;
+  interrupts();
+}
+
+uint32 getMillis() {
+ return millis()+millisOffset;
+}
 void setup() {
+  Serial.flush();  
   Serial.begin(115200);
+//  Serial.begin(74880);
+
   pinMode(gpioPin, OUTPUT);
   digitalWrite(gpioPin, LOW);  // Start with gpio off
+  
+  if (loadRTCData()) {
+    Serial.println("RTC data loaded successfully!");
+    Serial.printf("Boot count: %u\n", rtcData.bootCount);
+    Serial.printf("Last millis: %u\n", rtcData.lastMillis);
+
+    // Increment boot count
+    rtcData.bootCount++;
+    setMillis(rtcData.lastMillis);
+    
+    // Update other data (example)
+  } else {
+    Serial.println("Failed to load RTC data. ");
+  }
+  Serial.flush();  
 
   // Initialize the ePaper display
   display.init(115200);
@@ -48,33 +113,42 @@ void setup() {
 }
 
 void loop() {
+  yield();// for WDT
   float batteryVoltage = readBatteryVoltage();
 
   Serial.print("Battery Voltage: ");
   Serial.println(batteryVoltage);
   displayVoltage(batteryVoltage); // Display the current voltage on ePaper
 
+  if (getMillis() - lastRefreshTime > REFRESH_INTERVAL) {
+      display.refresh();  // Refresh the ePaper display to show changes
+      lastRefreshTime = millis();
+      }
+
   if (batteryVoltage > highThreshold) {
     Serial.println("Voltage is above 14V, staying awake...");
     digitalWrite(gpioPin, HIGH);  // Turn on GPIO4
     
     // Monitor the voltage every 60 seconds
-    while (batteryVoltage > lowThreshold) {
-      delay(60000);  // Wait for 60 seconds
+    if (batteryVoltage > lowThreshold) {
+      //delay(60000);  // Wait for 60 seconds
       batteryVoltage = readBatteryVoltage();
       Serial.print("Monitoring Voltage: ");
       Serial.println(batteryVoltage);
       displayVoltage(batteryVoltage); // Update voltage on ePaper
-    }
-
-    // Once voltage falls below 13.8V, turn off GPIO4 and go back to sleep
-    Serial.println("Voltage dropped below 13.8V, turning off GPIO4 and going to sleep...");
+    } else {
+    // Once voltage falls below 13.8V, turn off GPIO4 //and go back to sleep
+    Serial.println("Voltage dropped below 13.8V, turning off GPIO4");
     digitalWrite(gpioPin, LOW);
-    goToDeepSleep();
+ //   goToDeepSleep();
+    }
   } else {
-    Serial.println("Voltage is below 14V, going to deep sleep...");
+    if (batteryVoltage < lowThreshold) {    // for hysteresis
+    Serial.println("Voltage is below 13.8V, going to deep sleep...");
+    digitalWrite(gpioPin, LOW);
 //    delay(5000);
-    goToDeepSleep();
+    goToDeepSleep(LOW_VOLTAGE_SLEEP);
+    } 
   }
 }
 
@@ -91,12 +165,14 @@ void displayVoltage(float voltage) {
   }
 
   // Display the voltage on ePaper
-  display.setCursor(00, 30);  // Adjust position if necessary
+  display.setCursor(VOLTAGE_X, VOLTAGE_Y);  // Adjust position if necessary
 //  display.print("Voltage: ");
   display.print(voltage, 2);  // Print voltage with 2 decimal places
   display.println("V");
-    
-  display.display();  // Refresh the ePaper display to show changes
+
+    display.display();  // Refresh the ePaper display to show changes
+
+
 }
 
 // Function to read the battery voltage from ADC
@@ -107,8 +183,15 @@ float readBatteryVoltage() {
 }
 
 // Function to go to deep sleep
-void goToDeepSleep() {
+void goToDeepSleep(uint16_t sleep_period) {
   Serial.flush();
   display.hibernate();  // Put ePaper display in low-power mode
-  ESP.deepSleep(60*1000000);  // Sleep for 10 seconds (in microseconds)
+  // Save updated data back to RTC memory
+  rtcData.lastMillis=getMillis()+sleep_period*1000;
+  if (saveRTCData()) {
+    Serial.println("RTC data saved successfully!");
+  } else {
+    Serial.println("Failed to save RTC data.");
+  }
+  ESP.deepSleep(sleep_period*1000000);  // Sleep for 10 seconds (in microseconds)
 }
