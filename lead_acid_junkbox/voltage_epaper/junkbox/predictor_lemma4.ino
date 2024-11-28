@@ -135,3 +135,28 @@ float monitorMeasurement(float measurement, unsigned long currentTime, float &ti
     timeWithinBounds = fmin(fmax(0, timeToUpper), fmax(0, timeToLower));
     return deviationRate;
 }
+
+void setup() {
+    Serial.begin(9600);
+}
+
+void loop() {
+    float measurement = analogRead(A0) * (5.0 / 1023.0); // Convert ADC to voltage
+    unsigned long currentTime = millis();
+
+    float timeWithinBounds;
+    float deviationRate = checkMeasurement(measurement, currentTime, timeWithinBounds);
+
+    Serial.print("Deviation Rate: ");
+    Serial.println(deviationRate);
+    Serial.print("Time Within Bounds: ");
+    if (isinf(timeWithinBounds)) {
+        Serial.println("Infinite (Stable)");
+    } else {
+        Serial.print(timeWithinBounds);
+        Serial.println(" seconds");
+    }
+
+    delay(random(50, 150)); // Simulate variable sampling rate
+}
+
