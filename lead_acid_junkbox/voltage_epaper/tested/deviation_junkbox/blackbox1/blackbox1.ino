@@ -40,7 +40,7 @@ void initializeMonitor(MeasurementMonitor &mon) {
     mon.threshold = 0.01f; // Set a default threshold for anomaly detection
     mon.noise = 0.0f; // Initialize noise model
     mon.minBound = 0.0f; // Set minimum bound for predictions
-    mon.maxBound = 5.0f; // Set maximum bound for predictions
+    mon.maxBound = 17.0f; // Set maximum bound for predictions
 }
 
 // Add a new measurement sample to the buffer
@@ -121,10 +121,16 @@ float kalmanFilter(float measurement, float &estimation, float &errorEstimation,
     return estimation;
 }
 
-// Constant model prediction
-float constantModelPrediction(float currentValue) {
-    return currentValue; // No change
+float exponentialSmoothingPrediction(MeasurementMonitor &mon, float alpha = 0.5) {
+    if (mon.count < 2) return mon.values[mon.count - 1];
+
+    float smoothedValue = mon.values[0];
+    for (int i = 1; i < mon.count; i++) {
+        smoothedValue = alpha * mon.values[i] + (1 - alpha) * smoothedValue;
+    }
+    return smoothedValue;
 }
+
 
 // Update model weights based on cumulative error history
 void updateWeights(MeasurementMonitor &mon) {
@@ -149,7 +155,7 @@ float combinedPrediction(MeasurementMonitor &mon, float timeIncrement) {
     // Get predictions from each model
     predictions[0] = polynomialFitPrediction(mon, timeIncrement);
     predictions[1] = kalmanFilter(mon.values[mon.count - 1], mon.predictions[1], mon.noise, 0.01f, 0.1f); // Example noise parameters
-    predictions[2] = constantModelPrediction(mon.values[mon.count - 1]);
+    predictions[2] = exponentialSmoothingPrediction(monitor,mon.weights[2]*0.1);
     Serial.print("model0: ");
     Serial.println(predictions[0]);
     Serial.print("model1: ");
@@ -161,8 +167,8 @@ float combinedPrediction(MeasurementMonitor &mon, float timeIncrement) {
     float derivatives[NUM_MODELS];
     derivatives[0] = calculateDerivative(mon); // For polynomial
     derivatives[1] = (predictions[1] - mon.values[mon.count - 1]); // For Kalman (simple derivative)
-    derivatives[2] = 0.0f; // Constant model has no derivative
-
+    derivatives[2] = (predictions[2] - mon.values[mon.count - 1]); // simple derivative for exponental smoothing
+    
     // Predict time to bounds for each model
     for (int i = 0; i < NUM_MODELS; i++) {
         timeToBounds[i] = predictTimeToBounds(predictions[i], derivatives[i], mon.minBound, mon.maxBound);
