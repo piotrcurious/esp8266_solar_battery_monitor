@@ -22,7 +22,11 @@ struct MeasurementMonitor {
 //};
 MeasurementMonitor monitor ;
 
-
+float performMeasurement (){  
+  float measurement = analogRead(A0) * (17.0 / 1023.0); // Convert ADC to voltage
+  return measurement; 
+ }
+ 
 // Add a new sample to the rolling buffer
 void addSample(float measurement, unsigned long currentTime, MeasurementMonitor &mon) {
     if (mon.count < BUFFER_SIZE) {
@@ -44,13 +48,15 @@ void addSample(float measurement, unsigned long currentTime, MeasurementMonitor 
 void calculateDerivatives(MeasurementMonitor &mon) {
     if (mon.count < 2) return; // Not enough samples
     for (int i = 0; i < mon.count - 1; i++) {
-        unsigned long dt = mon.times[i + 1] - mon.times[i];
-        //float dt = mon.times[i + 1] - mon.times[i];
+        //unsigned long dt = mon.times[i + 1] - mon.times[i];
+        float dt = mon.times[i + 1] - mon.times[i];
 
+        mon.derivatives[i] = 0.0; // Avoid division by zero
         if (dt > 0) {
             mon.derivatives[i] = (mon.values[i + 1] - mon.values[i]) / dt;
         } else {
-            mon.derivatives[i] = 0.0; // Avoid division by zero
+            mon.derivatives[i] = (mon.values[i + 1] - mon.values[i]) / dt;
+            //mon.derivatives[i] = 0.0; // Avoid division by zero
         }
     }
 }
@@ -104,7 +110,10 @@ float weightedPrediction(MeasurementMonitor &mon) {
     for (int i = 0; i < 3; i++) {
         float error = fabs(mon.values[mon.count - 1] - predictions[i]);
         mon.errors[i] = error;
-        mon.weights[i] = exp(-error / (avgNoise + 1e-6)) * mon.confidence[i];
+//        mon.weights[i] = exp(-error / (avgNoise + 1e-6)) * mon.confidence[i];
+        mon.weights[i] = exp(-mon.errors[i] / (avgNoise + 1e-6)) * mon.confidence[i];
+        mon.weights[i] = exp(-mon.errors[i] / (avgNoise )) * mon.confidence[i];
+
     }
     float totalWeight = mon.weights[0] + mon.weights[1] + mon.weights[2];
     return (mon.weights[0] * linearPred + mon.weights[1] * polyPred + mon.weights[2] * smoothPred) / totalWeight;
@@ -123,7 +132,9 @@ float monitorMeasurement(float measurement, unsigned long currentTime, float &ti
     }
 
     // Weighted prediction using higher-order derivatives
-    float predictedValue = monitor.values[monitor.count - 1];
+    //float predictedValue = monitor.values[monitor.count - 1];
+    float predictedValue = weightedPrediction(monitor);
+    
     float deltaTime = (monitor.times[monitor.count - 1] - monitor.times[monitor.count - 2]) / 1000.0;
 
     // First-order derivative (drift)
@@ -146,8 +157,11 @@ float monitorMeasurement(float measurement, unsigned long currentTime, float &ti
     }
 
     // Update noise model
+ 
     if (!isnan(deviationRate) && !isinf(deviationRate)) {
-        monitor.noiseModel = 0.9 * monitor.noiseModel + 0.1 * fabs(predictedValue - measurement);
+//        monitor.noiseModel = 0.9 * monitor.noiseModel + 0.1 * fabs(predictedValue - measurement);
+        monitor.noiseModel = 0.9 * monitor.noiseModel + 0.1 * fabs(predictedValue - performMeasurement()); // instant measurement to verify measurement noise
+
     }
 
     // Drift estimation with directionality
@@ -191,7 +205,7 @@ void initializeMonitor(MeasurementMonitor &mon) {
     for (int i = 0; i < 4; i++) {
         mon.errors[i] = 0.0f;
         mon.weights[i] = 0.001f;
-        mon.confidence[i] = 0.1f;
+        mon.confidence[i] = 1.0f;
     }
     for (int i = 0; i < BUFFER_SIZE - 1; i++) {
         mon.derivatives[i] = 0.0f;
@@ -210,7 +224,9 @@ void setup() {
 }
 
 void loop() {
-    float measurement = analogRead(A0) * (17.0 / 1023.0); // Convert ADC to voltage
+//    float measurement = analogRead(A0) * (17.0 / 1023.0); // Convert ADC to voltage
+    float measurement = performMeasurement(); // perform measurement . it is called from within monitorMeasurement too to determine noise model
+
     unsigned long currentTime = millis();
 
     float timeWithinBounds;
@@ -218,6 +234,9 @@ void loop() {
 
     Serial.print("measurement: ");
     Serial.println(measurement);
+
+    Serial.print("mon.noiseModel: ");
+    Serial.println(monitor.noiseModel,6);
 
     Serial.print("Deviation Rate: ");
     Serial.println(deviationRate,6);
