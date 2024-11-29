@@ -5,7 +5,7 @@
 
 struct MeasurementMonitor {
     float values[BUFFER_SIZE];          // Rolling buffer for measurements
-    unsigned long times[BUFFER_SIZE];   // Rolling buffer for timestamps
+    //unsigned long times[BUFFER_SIZE];   // Rolling buffer for timestamps
     float timestamps[BUFFER_SIZE];      // Precise time points in seconds
     float errors[4];                    // Errors for each candidate model
     int count;                          // Number of samples in the buffer
@@ -31,7 +31,7 @@ float performMeasurement() {
 // Initialize the monitor with default values
 void initializeMonitor(MeasurementMonitor &mon) {
     for (int i = 0; i < BUFFER_SIZE; i++) {
-        mon.values[i] = mon.times[i] = 0;
+        //mon.values[i] = mon.times[i] = 0;
         mon.timestamps[i] = 0.0f;
     }
     for (int i = 0; i < 4; i++) {
@@ -53,18 +53,18 @@ void initializeMonitor(MeasurementMonitor &mon) {
 void addSample(float measurement, unsigned long currentTime, MeasurementMonitor &mon) {
     if (mon.count < BUFFER_SIZE) {
         mon.values[mon.count] = measurement;
-        mon.times[mon.count] = currentTime;
+        //mon.times[mon.count] = currentTime;
         mon.timestamps[mon.count] = (float)currentTime / 1000.0f;  // Convert to seconds
         mon.count++;
     } else {
         // Shift values, times, and timestamps to make space for the new sample
         for (int i = 1; i < BUFFER_SIZE; i++) {
             mon.values[i - 1] = mon.values[i];
-            mon.times[i - 1] = mon.times[i];
+            //mon.times[i - 1] = mon.times[i];
             mon.timestamps[i - 1] = mon.timestamps[i];
         }
         mon.values[BUFFER_SIZE - 1] = measurement;
-        mon.times[BUFFER_SIZE - 1] = currentTime;
+        //mon.times[BUFFER_SIZE - 1] = currentTime;
         mon.timestamps[BUFFER_SIZE - 1] = (float)currentTime / 1000.0f;
     }
 }
