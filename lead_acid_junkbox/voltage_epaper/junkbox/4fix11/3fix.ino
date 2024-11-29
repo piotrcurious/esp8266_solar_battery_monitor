@@ -51,49 +51,45 @@ void initializeMonitor(MeasurementMonitor &mon) {
 }
 // Add a new sample to the rolling buffer
 void addSample(float measurement, unsigned long currentTime, MeasurementMonitor &mon) {
+    float timeInSeconds = (float)currentTime / 1000.0f;
     if (mon.count < BUFFER_SIZE) {
         mon.values[mon.count] = measurement;
-        //mon.times[mon.count] = currentTime;
-        mon.timestamps[mon.count] = (float)currentTime / 1000.0f;  // Convert to seconds
+        mon.timestamps[mon.count] = timeInSeconds;
         mon.count++;
     } else {
-        // Shift values, times, and timestamps to make space for the new sample
         for (int i = 1; i < BUFFER_SIZE; i++) {
             mon.values[i - 1] = mon.values[i];
-            //mon.times[i - 1] = mon.times[i];
             mon.timestamps[i - 1] = mon.timestamps[i];
         }
         mon.values[BUFFER_SIZE - 1] = measurement;
-        //mon.times[BUFFER_SIZE - 1] = currentTime;
-        mon.timestamps[BUFFER_SIZE - 1] = (float)currentTime / 1000.0f;
+        mon.timestamps[BUFFER_SIZE - 1] = timeInSeconds;
     }
 }
 
 // Calculate derivatives using nonlinear regression
 void calculateDerivatives(MeasurementMonitor &mon) {
-    if (mon.count < 3) return; // Need at least 3 points for second derivatives
-
-    // First derivatives
+    if (mon.count < 2) return; // Need at least 2 points for first derivatives
     for (int i = 0; i < mon.count - 1; i++) {
         float dt = mon.timestamps[i + 1] - mon.timestamps[i];
-        mon.derivatives[i] = (dt > 0) ? (mon.values[i + 1] - mon.values[i]) / dt : 0.0f;
+        mon.derivatives[i] = (dt > 1e-6) ? (mon.values[i + 1] - mon.values[i]) / dt : 0.0f;
     }
-
-    // Second derivatives
+    if (mon.count < 3) return; // Need at least 3 points for second derivatives
     for (int i = 0; i < mon.count - 2; i++) {
         float dt = mon.timestamps[i + 2] - mon.timestamps[i];
-        mon.secondDerivatives[i] = (dt > 0) ? 
+        mon.secondDerivatives[i] = (dt > 1e-6) ? 
             (mon.derivatives[i + 1] - mon.derivatives[i]) / dt : 0.0f;
     }
 }
 
+
 // Candidate models for prediction
 float linearModelPrediction(MeasurementMonitor &mon) {
-    if (mon.count < 2) return mon.values[mon.count - 1];
+    if (mon.count < 2) return mon.shadowValue; // Fallback to shadow value
     float slope = mon.derivatives[mon.count - 2];
-    unsigned long dt = mon.times[mon.count - 1] - mon.times[mon.count - 2];
+    float dt = mon.timestamps[mon.count - 1] - mon.timestamps[mon.count - 2];
     return mon.values[mon.count - 1] + slope * dt;
 }
+
 
 float polynomialModelPrediction(MeasurementMonitor &mon) {
     if (mon.count < 3) return linearModelPrediction(mon);
