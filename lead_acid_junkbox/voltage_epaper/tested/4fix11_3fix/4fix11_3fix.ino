@@ -356,19 +356,26 @@ float monitorMeasurement(float measurement, unsigned long currentTime, float &ti
 
     // Time-to-bounds estimation based on evolved predictions
     float currentValue = refined;
-    float predictedDrift = predictedValue - currentValue;
+//    float predictedDrift = predictedValue - currentValue;
+    float predictedDrift = predictedValue - refined;
 
     // Upper and lower bounds
-    float upperBound = currentValue * (1.0f + monitor.threshold);
-    float lowerBound = currentValue * (1.0f - monitor.threshold);
+ //   float upperBound = currentValue * (1.0f + monitor.threshold);
+ //   float lowerBound = currentValue * (1.0f - monitor.threshold);
+
+    float upperBound = refined * (1.0f + monitor.threshold);
+    float lowerBound = refined * (1.0f - monitor.threshold);
 
     // Time-to-bound estimations based on the predicted evolution
     float timeToUpper = INFINITY;
     float timeToLower = INFINITY;
 
     if (fabs(predictedDrift) > 1e-6f) {
-        timeToUpper = (predictedDrift > 0) ? (upperBound - currentValue) / predictedDrift : INFINITY;
-        timeToLower = (predictedDrift < 0) ? (lowerBound - currentValue) / predictedDrift : INFINITY;
+//        timeToUpper = (predictedDrift > 0) ? (upperBound - currentValue) / predictedDrift : INFINITY;
+//        timeToLower = (predictedDrift < 0) ? (lowerBound - currentValue) / predictedDrift : INFINITY;
+        timeToUpper = (predictedDrift > 0) ? (upperBound - refined) / predictedDrift : INFINITY;
+        timeToLower = (predictedDrift < 0) ? (lowerBound - refined) / predictedDrift : INFINITY;
+
     }
 
     // Compute the time within bounds as the minimum valid time
@@ -427,7 +434,7 @@ void loop() {
     float deviationRate = monitorMeasurement(measurement, currentTime, timeWithinBounds);
 
 // Compute adaptive delay based on time within bounds
-    unsigned long adaptiveDelay = (unsigned long)timeWithinBounds;
+    float adaptiveDelay = timeWithinBounds;
 
     // Constrain the delay within defined limits
     if (adaptiveDelay < MIN_DELAY) {
@@ -453,8 +460,8 @@ void loop() {
     }
 
     Serial.print(" | Adaptive Delay: ");
-    Serial.println(adaptiveDelay);
-    delay(adaptiveDelay*1000);
+    Serial.println(adaptiveDelay,6);
+    delay(adaptiveDelay*1000.0);
     //delay(random(500, 3000)); // Simulate variable sampling rate
 }
 
