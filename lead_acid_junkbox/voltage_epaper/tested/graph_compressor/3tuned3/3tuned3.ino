@@ -618,11 +618,11 @@ void compress(DataPoint* buffer, int bufferCount) {
     Polynomial nextPoly = {0, 0, 0, 0, 0};
     float coeffs[4] = {0};
 
-    if (bufferCount-start <segmentSize*2) {
+    if (bufferCount-start <=segmentSize*2) {
       segmentSize = (bufferCount-start)/2; // equalize last two segments
     }
 
-    if (bufferCount-start <segmentSize) { // trim any excess data
+    if (bufferCount-start <=segmentSize) { // trim any excess data
       segmentSize = bufferCount-start;
       }
 
@@ -638,7 +638,8 @@ void compress(DataPoint* buffer, int bufferCount) {
     if (segmentSize < 4) break;
     
     }
-
+    if (segmentSize == 0) break;
+    
 //    segmentSize--;  // Step back to the last valid size
 
     // Fit the polynomial for this segment
@@ -869,7 +870,7 @@ void graph_data(){
 
 }
 void loop() {
-//  graph_data();
+  graph_data();
   yield();
   delay(1000);
   }
