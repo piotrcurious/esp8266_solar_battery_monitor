@@ -109,9 +109,7 @@ void loop() {
     // Update the raw data graph
     updateRawGraph(sampledData);
 
-    // Periodically update the compressed data graph
-    if (segmentCount > 0) {
-        updateCompressedGraph(segmentBuffer[0]); // Show the first segment as an example
-    }
+    // Update the compressed data graph
+    updateCompressedGraph(segmentBuffer, segmentCount);
 }
 
