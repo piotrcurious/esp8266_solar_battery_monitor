@@ -49,55 +49,89 @@ void removeOldestTwo() {
 
 #include <math.h>
 
-// Function to fit data into a 5th-degree polynomial
-// `data` is an array of raw scalar data, `size` is the number of samples
+
+
+// Function to fit scalar data into a normalized 5th-degree polynomial
+// `data` contains the scalar data
+// `timestamps` contains corresponding 16-bit timestamps
+// `size` is the number of data points
 // `coefficients` stores the resulting quantized 8-bit polynomial coefficients
-void fitPolynomial(const float *data, uint16_t size, int8_t *coefficients) {
-    float a[6] = {0}; // Holds double-precision polynomial coefficients
+void fitNormalizedPolynomial(const float *data, const uint16_t *timestamps, uint16_t size, int8_t *coefficients) {
+    if (size < 2) return; // Insufficient data to fit a polynomial
 
-    // Perform a least-squares fit (simplified example for brevity)
+    // Step 1: Normalize timestamps to avoid large values
+    uint16_t tMin = timestamps[0];
+    float tRange = (float)(timestamps[size - 1] - tMin);
+    if (tRange == 0) tRange = 1; // Avoid division by zero
+
+    float normalizedT[size];
     for (uint16_t i = 0; i < size; i++) {
-        float x = (float)i;
-        float y = data[i];
-
-        // Construct polynomial terms
-        a[0] += 1;
-        a[1] += x;
-        a[2] += x * x;
-        a[3] += x * x * x;
-        a[4] += x * x * x * x;
-        a[5] += x * x * x * x * x;
-        // Accumulate weighted sums (simplified, you can replace with matrix inversion)
+        normalizedT[i] = (float)(timestamps[i] - tMin) / tRange;
     }
 
-    // Quantize coefficients to 8-bit integers
-    for (int i = 0; i < 6; i++) {
-        coefficients[i] = (int8_t)(a[i] / 256.0f); // Normalize and quantize
+    // Step 2: Construct and solve least squares system
+    float A[6][6] = {0}; // Normal equations matrix
+    float B[6] = {0};    // Right-hand side vector
+
+    for (uint16_t i = 0; i < size; i++) {
+        float t = normalizedT[i];
+        float y = data[i];
+        float powers[6] = {1, t, t * t, t * t * t, t * t * t * t, t * t * t * t * t};
+
+        // Accumulate contributions to A and B
+        for (uint8_t row = 0; row < 6; row++) {
+            for (uint8_t col = 0; col < 6; col++) {
+                A[row][col] += powers[row] * powers[col];
+            }
+            B[row] += powers[row] * y;
+        }
+    }
+
+    // Solve Ax = B using Gaussian elimination (simplified for brevity)
+    float x[6] = {0}; // Polynomial coefficients in double precision
+    for (uint8_t i = 0; i < 6; i++) {
+        for (uint8_t j = i + 1; j < 6; j++) {
+            float factor = A[j][i] / A[i][i];
+            for (uint8_t k = 0; k < 6; k++) {
+                A[j][k] -= factor * A[i][k];
+            }
+            B[j] -= factor * B[i];
+        }
+    }
+    for (int8_t i = 5; i >= 0; i--) {
+        x[i] = B[i];
+        for (int8_t j = i + 1; j < 6; j++) {
+            x[i] -= A[i][j] * x[j];
+        }
+        x[i] /= A[i][i];
+    }
+
+    // Step 3: Quantize coefficients to 8-bit integers
+    for (uint8_t i = 0; i < 6; i++) {
+        coefficients[i] = (int8_t)(x[i] * 256); // Scale for 8-bit representation
     }
 }
 
-// Function to compress raw data into a polynomial segment
-// `rawData` is the input scalar data, `timeStamps` are the corresponding timestamps
-// `segment` is the output polynomial segment
-void compressDataToSegment(const float *rawData, const uint16_t *timeStamps, uint16_t dataSize, PolynomialSegment &segment) {
+
+void compressDataToSegment(const float *rawData, const uint16_t *timestamps, uint16_t dataSize, PolynomialSegment &segment) {
     uint16_t segmentIndex = 0;
 
-    // Divide raw data into chunks for each polynomial
+    // Divide data into chunks for each polynomial
     for (uint16_t i = 0; i < dataSize; i += POLY_COUNT) {
         uint16_t chunkSize = (i + POLY_COUNT < dataSize) ? POLY_COUNT : (dataSize - i);
 
         // Fit a polynomial for the current chunk
-        fitPolynomial(&rawData[i], chunkSize, segment.coefficients[segmentIndex]);
+        fitNormalizedPolynomial(&rawData[i], &timestamps[i], chunkSize, segment.coefficients[segmentIndex]);
 
-        // Calculate time deltas for the chunk
-        segment.timeDeltas[segmentIndex] = (timeStamps[i + chunkSize - 1] - timeStamps[i]);
+        // Store the time delta of the chunk
+        segment.timeDeltas[segmentIndex] = timestamps[i + chunkSize - 1] - timestamps[i];
 
         segmentIndex++;
-        if (segmentIndex >= POLY_COUNT) {
-            break;
-        }
+        if (segmentIndex >= POLY_COUNT) break;
     }
 }
+
+
 
 // Function to recompress two segments into one
 // `oldest` and `secondOldest` are the input segments
