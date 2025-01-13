@@ -131,43 +131,74 @@ void compressDataToSegment(const float *rawData, const uint16_t *timestamps, uin
     }
 }
 
+// Evaluate a polynomial at a given timestamp
+float evaluatePolynomial(const int8_t *coefficients, float tNormalized) {
+    float tPower = 1.0;
+    float result = 0.0;
 
+    for (int i = 0; i < 6; i++) {
+        result += coefficients[i] * tPower / 256.0; // Scale back from quantized 8-bit format
+        tPower *= tNormalized;
+    }
+    return result;
+}
 
-// Function to recompress two segments into one
-// `oldest` and `secondOldest` are the input segments
-// `result` is the output recompressed segment
-void recompressSegments(const PolynomialSegment &oldest, const PolynomialSegment &secondOldest, PolynomialSegment &result) {
-    uint16_t combinedIndex = 0;
+// Combine two segments by evaluating their polynomials at normalized timestamps
+void generateCombinedData(const PolynomialSegment &seg1, const PolynomialSegment &seg2,
+                          float *combinedData, uint16_t *combinedTimestamps, uint16_t &combinedSize) {
+    combinedSize = 0;
 
-    // Combine coefficients and time deltas
+    // Step 1: Evaluate and append data from the first segment
+    uint16_t tBase = 0;
     for (uint16_t i = 0; i < POLY_COUNT; i++) {
-        if (combinedIndex >= POLY_COUNT) break;
+        if (seg1.timeDeltas[i] == 0) break; // End of valid data
+        uint16_t tStart = tBase;
+        uint16_t tEnd = tBase + seg1.timeDeltas[i];
+        tBase = tEnd;
 
-        // Combine coefficients by averaging
-        for (uint8_t j = 0; j < 6; j++) {
-            result.coefficients[combinedIndex][j] = (oldest.coefficients[i][j] + secondOldest.coefficients[i][j]) / 2;
+        // Sample data at regular intervals within this segment
+        for (uint16_t j = 0; j <= 8; j++) { // Sample 8 points per polynomial
+            float tNormalized = (float)j / 8.0; // Normalize within [0, 1]
+            uint16_t tActual = tStart + (uint16_t)(tNormalized * (tEnd - tStart));
+            combinedTimestamps[combinedSize] = tActual;
+            combinedData[combinedSize] = evaluatePolynomial(seg1.coefficients[i], tNormalized);
+            combinedSize++;
         }
-
-        // Combine time deltas by summing
-        result.timeDeltas[combinedIndex] = oldest.timeDeltas[i] + secondOldest.timeDeltas[i];
-        combinedIndex++;
     }
 
-    // Handle remaining polynomials if the second segment is larger
-    if (combinedIndex < POLY_COUNT) {
-        for (uint16_t i = 0; i < POLY_COUNT && combinedIndex < POLY_COUNT; i++) {
-            // Copy remaining secondOldest data
-            for (uint8_t j = 0; j < 6; j++) {
-                result.coefficients[combinedIndex][j] = secondOldest.coefficients[i][j];
-            }
-            result.timeDeltas[combinedIndex] = secondOldest.timeDeltas[i];
-            combinedIndex++;
+    // Step 2: Evaluate and append data from the second segment
+    for (uint16_t i = 0; i < POLY_COUNT; i++) {
+        if (seg2.timeDeltas[i] == 0) break; // End of valid data
+        uint16_t tStart = tBase;
+        uint16_t tEnd = tBase + seg2.timeDeltas[i];
+        tBase = tEnd;
+
+        // Sample data at regular intervals within this segment
+        for (uint16_t j = 0; j <= 8; j++) { // Sample 8 points per polynomial
+            float tNormalized = (float)j / 8.0; // Normalize within [0, 1]
+            uint16_t tActual = tStart + (uint16_t)(tNormalized * (tEnd - tStart));
+            combinedTimestamps[combinedSize] = tActual;
+            combinedData[combinedSize] = evaluatePolynomial(seg2.coefficients[i], tNormalized);
+            combinedSize++;
         }
     }
 }
 
-// Recompress the oldest two segments in the buffer
-void recompressOldestSegments() {
+// Stack two segments and fit new polynomials to the combined data
+void stackPolynomials(const PolynomialSegment &seg1, const PolynomialSegment &seg2, PolynomialSegment &result) {
+    float combinedData[POLY_COUNT * 2 * 9];  // 9 samples per polynomial
+    uint16_t combinedTimestamps[POLY_COUNT * 2 * 9];
+    uint16_t combinedSize = 0;
+
+    // Generate combined timestamp/value data
+    generateCombinedData(seg1, seg2, combinedData, combinedTimestamps, combinedSize);
+
+    // Compress the combined data into a new segment
+    compressDataToSegment(combinedData, combinedTimestamps, combinedSize, result);
+}
+
+
+void recompressSegments() {
     if (count < 2) {
         // Not enough segments to recompress
         return;
@@ -178,8 +209,8 @@ void recompressOldestSegments() {
     // Retrieve the oldest and second-oldest segments
     getOldestSegments(oldest, secondOldest);
 
-    // Recompress the two segments
-    recompressSegments(oldest, secondOldest, recompressedSegment);
+    // Stack and recompress the two segments
+    stackPolynomials(oldest, secondOldest, recompressedSegment);
 
     // Remove the two oldest segments
     removeOldestTwo();
