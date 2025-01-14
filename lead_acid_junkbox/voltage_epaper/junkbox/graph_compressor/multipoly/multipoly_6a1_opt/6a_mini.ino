@@ -196,3 +196,64 @@ void updateCompressedGraph(const PolySeg *segments, uint8_t count) {
     }
 }
 
+void updateCompressedGraphBackwards(const PolynomialSegment *segments, uint8_t count) {
+    if (!count) return;
+
+    uint32_t wStart = raw_timestamps[0], wEnd = raw_timestamps[raw_dataIndex - 1];
+    float minY = INFINITY, maxY = -INFINITY;
+
+    // First pass: find min/max value range (backwards)
+    uint8_t segIdx = (head + count - 1) % SEGMENTS;
+    for (int8_t i = count - 1; i >= 0; i--) {
+        const PolynomialSegment &seg = segments[segIdx];
+        for (uint8_t p = 0; p < POLY_COUNT; p++) {
+            if (!seg.timeDeltas[p]) break;
+            for (uint32_t t = seg.timeDeltas[p]; t > 0; t -= seg.timeDeltas[p] / 10) {
+                float v = evaluatePolynomial(seg.coefficients[p], t);
+                minY = min(minY, v);
+                maxY = max(maxY, v);
+            }
+        }
+        segIdx = (segIdx + SEGMENTS - 1) % SEGMENTS;
+    }
+
+    // Ensure valid min/max values
+    if (isinf(minY) || isinf(maxY)) {
+        minY = raw_graphMinY;
+        maxY = raw_graphMaxY;
+    }
+
+    // Add margin
+    float range = maxY - minY;
+    minY -= range * 0.05;
+    maxY += range * 0.05;
+
+    // Second pass: plot the data (backwards)
+    uint32_t tCur = wEnd;
+    segIdx = (head + count - 1) % SEGMENTS;
+    for (int8_t i = count - 1; i >= 0; i--) {
+        const PolynomialSegment &seg = segments[segIdx];
+        for (uint8_t p = 0; p < POLY_COUNT; p++) {
+            if (!seg.timeDeltas[p]) break;
+
+            uint32_t stepSize = seg.timeDeltas[p] / min(100UL, seg.timeDeltas[p]);
+            float lastX = -1, lastY = -1;
+
+            for (uint32_t t = seg.timeDeltas[p]; t > 0; t -= stepSize) {
+                float v = evaluatePolynomial(seg.coefficients[p], t);
+                uint16_t x = constrain(mapFloat(tCur - t, wStart, wEnd, 0, SCREEN_WIDTH - 1), 0, SCREEN_WIDTH - 1);
+                uint16_t y = constrain(mapFloat(v, minY, maxY, SCREEN_HEIGHT - 1, 0), 0, SCREEN_HEIGHT - 1);
+
+                if (lastX >= 0 && lastY >= 0)
+                    tft.drawLine(lastX, lastY, x, y, TFT_YELLOW);
+                else
+                    tft.drawPixel(x, y, TFT_YELLOW);
+
+                lastX = x;
+                lastY = y;
+            }
+            tCur -= seg.timeDeltas[p];
+        }
+        segIdx = (segIdx + SEGMENTS - 1) % SEGMENTS;
+    }
+}
