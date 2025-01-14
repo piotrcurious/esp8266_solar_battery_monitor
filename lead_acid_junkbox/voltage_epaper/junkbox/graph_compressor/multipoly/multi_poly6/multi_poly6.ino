@@ -13,7 +13,7 @@ TFT_eSPI tft = TFT_eSPI(); // Create TFT instance
 //for debug
 #define MAX_RAW_DATA 1024
 //#define MAX_RAW_DATA_GRAIN 32 // after how many points added to the raw data buffer data is recompressed. 
-#define LOG_BUFFER_POINTS_PER_POLY 64 // replaced by this
+#define LOG_BUFFER_POINTS_PER_POLY 16 // replaced by this
 
 static float    raw_Data[MAX_RAW_DATA];
 static uint32_t raw_timestamps[MAX_RAW_DATA];
@@ -133,100 +133,86 @@ float evaluatePolynomial(const float *coefficients, float t) {
 */
 
 
-// Combine two segments by evaluating their polynomials at normalized timestamps
 
-void generateCombinedData(PolynomialSegment &seg1, uint8_t poly1_start, uint8_t poly1_end,
-                         PolynomialSegment &seg2, uint8_t poly2_start, uint8_t poly2_end,
-                         float *combinedData, uint32_t *combinedTimestamps, uint16_t &combinedSize) {
-    combinedSize = 0;
-    const uint16_t SAMPLES_PER_POLY = 16;  // Increased for better accuracy
-    uint32_t timeOffset = 0;
 
-    // Process polynomials from first segment
-    for (uint8_t i = poly1_start; i <= poly1_end && i < POLY_COUNT; i++) {
-        if (seg1.timeDeltas[i] == 0) break;
-        
-        uint32_t tDelta = seg1.timeDeltas[i];
-        float stepSize = (float)tDelta / (SAMPLES_PER_POLY - 1);
-        
-        for (uint16_t j = 0; j < SAMPLES_PER_POLY && combinedSize < POLY_COUNT * SAMPLES_PER_POLY; j++) {
-            float t = j * stepSize;  // Time in milliseconds from start of polynomial
-            
-            combinedData[combinedSize] = evaluatePolynomial(seg1.coefficients[i], t);
-            combinedTimestamps[combinedSize] = (j == 0 && i > poly1_start) ? 0 : stepSize+timeOffset;
-            combinedSize++;
+void combinePolynomials(const PolynomialSegment &oldest, const PolynomialSegment &secondOldest, PolynomialSegment &recompressedSegment) {
+    AdvancedPolynomialFitter fitter;
+
+    uint16_t currentPolyIndex = 0;
+
+    for (uint16_t i = 0; i < POLY_COUNT; i=i+2) {
+        // Stop if no more valid time deltas
+        if (oldest.timeDeltas[i] == 0 || oldest.timeDeltas[i+1] == 0) break;
+        // Reconstruct data from both polynomials
+        std::vector<float> timestamps;
+        std::vector<float> values;
+
+        // Reconstruct data points from the first polynomial
+        uint32_t tStart = 0;
+        for (float t = 0; t <= oldest.timeDeltas[i]; t += oldest.timeDeltas[i] / 5.0) {
+            timestamps.push_back(tStart + t);
+            values.push_back(evaluatePolynomial(oldest.coefficients[i], t));
         }
-        timeOffset += tDelta;
+
+        // Adjust second polynomial's timestamps to continue from the end of the first
+        tStart += oldest.timeDeltas[i];
+        for (float t = 0; t <= oldest.timeDeltas[i+1]; t += oldest.timeDeltas[i+1] / 5.0) {
+            timestamps.push_back(tStart + t);
+            values.push_back(evaluatePolynomial(oldest.coefficients[i+1], t));
+        }
+
+        // Fit a new polynomial to the combined data
+        std::vector<float> newCoefficients = fitter.fitPolynomial(timestamps, values, 5, AdvancedPolynomialFitter::NONE);
+
+        // Store the new polynomial in the recompressed segment
+        for (uint8_t j = 0; j < newCoefficients.size() && j < 6; j++) {
+            recompressedSegment.coefficients[currentPolyIndex][j] = newCoefficients[j];
+        }
+
+        // Store the combined time delta
+        recompressedSegment.timeDeltas[currentPolyIndex] = oldest.timeDeltas[i] + oldest.timeDeltas[i+1];
+        //Serial.println(recompressedSegment.timeDeltas[currentPolyIndex]);
+        currentPolyIndex++;
     }
 
-    // Process polynomials from second segment with proper time continuation
-    for (uint8_t i = poly2_start; i <= poly2_end && i < POLY_COUNT; i++) {
-        if (seg2.timeDeltas[i] == 0) break;
-        
-        uint32_t tDelta = seg2.timeDeltas[i];
-        float stepSize = (float)tDelta / (SAMPLES_PER_POLY - 1);
-        
-        for (uint16_t j = 0; j < SAMPLES_PER_POLY && combinedSize < POLY_COUNT * SAMPLES_PER_POLY; j++) {
-            float t = j * stepSize;  // Time in milliseconds from start of polynomial
-            
-            combinedData[combinedSize] = evaluatePolynomial(seg2.coefficients[i], t);
-            combinedTimestamps[combinedSize] = (j == 0 && i > poly2_start) ? 0 : stepSize+timeOffset;
-            combinedSize++;
+// add secondOldest segment
+        currentPolyIndex =0 ; 
+        for (uint16_t i = 0; i < POLY_COUNT; i=i+2) {
+        // Stop if no more valid time deltas
+        if (secondOldest.timeDeltas[i] == 0 || secondOldest.timeDeltas[i+1] == 0) break;
+        // Reconstruct data from both polynomials
+        std::vector<float> timestamps;
+        std::vector<float> values;
+
+        // Reconstruct data points from the first polynomial
+        uint32_t tStart = 0;
+        for (float t = 0; t <= secondOldest.timeDeltas[i]; t += secondOldest.timeDeltas[i] / 5.0) {
+            timestamps.push_back(tStart + t);
+            values.push_back(evaluatePolynomial(secondOldest.coefficients[i], t));
         }
-        timeOffset += tDelta;
+
+        // Adjust second polynomial's timestamps to continue from the end of the first
+        tStart += secondOldest.timeDeltas[i];
+        for (float t = 0; t <= secondOldest.timeDeltas[i+1]; t += secondOldest.timeDeltas[i+1] / 5.0) {
+            timestamps.push_back(tStart + t);
+            values.push_back(evaluatePolynomial(secondOldest.coefficients[i+1], t));
+        }
+
+        // Fit a new polynomial to the combined data
+        std::vector<float> newCoefficients = fitter.fitPolynomial(timestamps, values, 5, AdvancedPolynomialFitter::NONE);
+
+        // Store the new polynomial in the recompressed segment
+        for (uint8_t j = 0; j < newCoefficients.size() && j < 6; j++) {
+            recompressedSegment.coefficients[currentPolyIndex][j] = newCoefficients[j];
+        }
+
+        // Store the combined time delta
+        recompressedSegment.timeDeltas[currentPolyIndex] = secondOldest.timeDeltas[i] + secondOldest.timeDeltas[i+1];
+        currentPolyIndex++;
     }
-}
 
-// Stack two segments and fit new polynomials to the combined data
-
-
-void stackPolynomials(const PolynomialSegment &seg1, const PolynomialSegment &seg2, PolynomialSegment &result) {
-    const uint8_t POLYS_TO_COMBINE = 2;  // Reduced to improve accuracy
-    uint8_t resultPolyIndex = 0;
     
-    // Initialize result
-    for (uint8_t i = 0; i < POLY_COUNT; i++) {
-        result.timeDeltas[i] = 0;
-        for (uint8_t j = 0; j < 6; j++) {
-            result.coefficients[i][j] = 0;
-        }
-    }
-    
-    // Process segments sequentially
-    for (uint8_t segIndex = 0; segIndex < 2; segIndex++) {
-        const PolynomialSegment &currentSeg = (segIndex == 0) ? seg1 : seg2;
-        
-        for (uint8_t i = 0; i < POLY_COUNT && resultPolyIndex < POLY_COUNT; i += POLYS_TO_COMBINE) {
-            if (currentSeg.timeDeltas[i] == 0) continue;
-            
-            uint8_t endIdx = min(i + POLYS_TO_COMBINE - 1, POLY_COUNT - 1);
-            while (endIdx > i && currentSeg.timeDeltas[endIdx] == 0) endIdx--;
-            
-            float combinedData[POLY_COUNT * 16];
-            uint32_t combinedTimestamps[POLY_COUNT * 16];
-            uint16_t combinedSize = 0;
-            
-            generateCombinedData(const_cast<PolynomialSegment&>(currentSeg), i, endIdx,
-                               const_cast<PolynomialSegment&>(currentSeg), 0, -1,
-                               combinedData, combinedTimestamps, combinedSize);
-            
-            if (combinedSize >= 4) {
-                float coefficients[6];
-                uint32_t timeDelta;
-                
-                compressDataToSegment(combinedData, combinedTimestamps, combinedSize,
-                                    coefficients, timeDelta);
-                
-                for (uint8_t j = 0; j < 6; j++) {
-                    result.coefficients[resultPolyIndex][j] = coefficients[j];
-                }
-                result.timeDeltas[resultPolyIndex] = timeDelta;
-                resultPolyIndex++;
-            }
-        }
-    }
 }
-
 
 void recompressSegments() {
     if (segmentCount < 2) return;
@@ -240,7 +226,7 @@ void recompressSegments() {
         recompressedSegment.timeDeltas[i] = 0;
     }
 
-    stackPolynomials(oldest, secondOldest, recompressedSegment);
+    combinePolynomials(oldest, secondOldest, recompressedSegment);
   
     // Add recompressed segment at the correct position (head)
     uint8_t insertPos = head;
@@ -468,7 +454,7 @@ void updateCompressedGraph(const PolynomialSegment *segments, uint8_t count) {
             if (segment.timeDeltas[polyIndex] == 0) break;
             
             uint32_t tDelta = segment.timeDeltas[polyIndex];
-            uint32_t numSteps = min(50UL, tDelta);
+            uint32_t numSteps = min(100UL, tDelta);
             uint32_t stepSize = tDelta / numSteps;
             float lastX = -1, lastY = -1;
             
@@ -477,7 +463,7 @@ void updateCompressedGraph(const PolynomialSegment *segments, uint8_t count) {
                 float value = evaluatePolynomial(segment.coefficients[polyIndex], t);
                 uint16_t x = mapFloat(tCurrent + t, windowStart, windowEnd, 0, SCREEN_WIDTH - 1);
                 uint16_t y = mapFloat(value, minValue, maxValue, SCREEN_HEIGHT - 1, 0);
-                
+
                 x = constrain(x, 0, SCREEN_WIDTH - 1);
                 y = constrain(y, 0, SCREEN_HEIGHT - 1);
                 
@@ -486,7 +472,7 @@ void updateCompressedGraph(const PolynomialSegment *segments, uint8_t count) {
                 } else {
                     tft.drawPixel(x, y, TFT_YELLOW);
                 }
-                
+
                 lastX = x;
                 lastY = y;
             }
