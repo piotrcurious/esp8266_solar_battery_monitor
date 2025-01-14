@@ -11,9 +11,9 @@ TFT_eSPI tft = TFT_eSPI(); // Create TFT instance
 #include <Arduino.h>
 
 //for debug
-#define MAX_RAW_DATA 1024
+#define MAX_RAW_DATA 2048
 //#define MAX_RAW_DATA_GRAIN 32 // after how many points added to the raw data buffer data is recompressed. 
-#define LOG_BUFFER_POINTS_PER_POLY 64 // replaced by this
+#define LOG_BUFFER_POINTS_PER_POLY 16 // replaced by this
 
 static float    raw_Data[MAX_RAW_DATA];
 static uint32_t raw_timestamps[MAX_RAW_DATA];
@@ -24,7 +24,7 @@ float raw_graphMaxY = 0;
 
 #include <stdint.h>
 
-#define POLY_COUNT 8 // Number of polynomials in each segment
+#define POLY_COUNT 4 // Number of polynomials in each segment
 #define SEGMENTS 4    // Total number of segments
 const uint8_t POLYS_TO_COMBINE = 2;  // Number of polynomials to combine into one when recompression is triggered
 
@@ -248,6 +248,11 @@ void recompressSegments() {
     
     Serial.print("Recompressed. New segment count: ");
     Serial.println(segmentCount-1);
+    Serial.print("poly size: ");
+    Serial.print(sizeof(segmentBuffer));
+    Serial.print(" raw size: ");
+    Serial.println(sizeof(raw_Data)+sizeof(raw_timestamps));
+
 
 }
 
@@ -503,4 +508,6 @@ void loop() {
 
     // Update the compressed data graph
     updateCompressedGraph(segmentBuffer, segmentCount);
+
+ 
 }
