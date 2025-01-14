@@ -127,3 +127,72 @@ void setup() {
     tft.setTextColor(TFT_WHITE);
     tft.drawString("Raw", 10, 5, 2);
 }
+
+
+void drawRawGraph() {
+    tft.drawRect(0, 0, W, H - 1, TFT_RED);
+
+    for (uint16_t i = 0; i < rawIdx; i++) {
+        uint16_t y = mapF(rawData[i], rawMinY, rawMaxY, H - 1, 0);
+        uint16_t x = mapF(rawTimestamps[i], rawTimestamps[0], rawTimestamps[rawIdx - 1], 0, W);
+        tft.drawPixel(x, y, TFT_GREEN);
+    }
+}
+
+void updateCompressedGraph(const PolySeg *segments, uint8_t count) {
+    if (!count) return;
+
+    uint32_t wStart = rawTimestamps[0], wEnd = rawTimestamps[rawIdx - 1];
+    float minY = INFINITY, maxY = -INFINITY;
+
+    for (uint8_t seg = head, i = 0; i < count; i++, seg = (seg + 1) % SEG_CT) {
+        const PolySeg &s = segments[seg];
+        for (uint8_t poly = 0; poly < POLY_CT; poly++) {
+            if (!s.deltas[poly]) break;
+            for (float t = 0; t <= s.deltas[poly]; t += s.deltas[poly] / 10) {
+                float v = evalPoly(s.coeffs[poly], t);
+                minY = min(minY, v);
+                maxY = max(maxY, v);
+            }
+        }
+    }
+
+    if (isinf(minY) || isinf(maxY)) {
+        minY = rawMinY;
+        maxY = rawMaxY;
+    }
+
+    float range = maxY - minY;
+    minY -= range * 0.05;
+    maxY += range * 0.05;
+
+    for (uint8_t seg = head, i = 0; i < count; i++, seg = (seg + 1) % SEG_CT) {
+        const PolySeg &s = segments[seg];
+        uint32_t tCur = wStart;
+
+        for (uint8_t poly = 0; poly < POLY_CT; poly++) {
+            if (!s.deltas[poly]) break;
+
+            uint32_t steps = min(100UL, s.deltas[poly]);
+            uint32_t step = s.deltas[poly] / steps;
+            float lastX = -1, lastY = -1;
+
+            for (uint32_t t = 0; t <= s.deltas[poly]; t += step) {
+                float v = evalPoly(s.coeffs[poly], t);
+                uint16_t x = constrain(mapF(tCur + t, wStart, wEnd, 0, W - 1), 0, W - 1);
+                uint16_t y = constrain(mapF(v, minY, maxY, H - 1, 0), 0, H - 1);
+
+                if (lastX >= 0 && lastY >= 0)
+                    tft.drawLine(lastX, lastY, x, y, TFT_YELLOW);
+                else
+                    tft.drawPixel(x, y, TFT_YELLOW);
+
+                lastX = x;
+                lastY = y;
+            }
+
+            tCur += s.deltas[poly];
+        }
+    }
+}
+
