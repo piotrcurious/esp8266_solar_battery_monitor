@@ -257,3 +257,16 @@ void updateCompressedGraphBackwards(const PolynomialSegment *segments, uint8_t c
         segIdx = (segIdx + SEGMENTS - 1) % SEGMENTS;
     }
 }
+
+void loop() {
+    delay(random(10, 100)); // Simulate random sampling interval
+    uint32_t now = millis();
+
+    float data = sampleScalarData(now);
+    logSampledData(data, now);
+    raw_logSampledData(data, now); // Debug log
+
+    tft.fillScreen(TFT_BLACK);
+    drawRawGraph(); // Update raw data graph
+    updateCompressedGraph(segmentBuffer, segmentCount); // Update compressed graph
+}
