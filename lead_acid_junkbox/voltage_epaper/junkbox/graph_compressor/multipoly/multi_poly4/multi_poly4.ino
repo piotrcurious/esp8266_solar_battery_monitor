@@ -13,7 +13,7 @@ TFT_eSPI tft = TFT_eSPI(); // Create TFT instance
 //for debug
 #define MAX_RAW_DATA 1024
 //#define MAX_RAW_DATA_GRAIN 32 // after how many points added to the raw data buffer data is recompressed. 
-#define LOG_BUFFER_POINTS_PER_POLY 32 // replaced by this
+#define LOG_BUFFER_POINTS_PER_POLY 64 // replaced by this
 
 static float    raw_Data[MAX_RAW_DATA];
 static uint32_t raw_timestamps[MAX_RAW_DATA];
@@ -23,8 +23,8 @@ static uint16_t dataIndex = 0;
 
 #include <stdint.h>
 
-#define POLY_COUNT 64 // Number of polynomials in each segment
-#define SEGMENTS 8    // Total number of segments
+#define POLY_COUNT 8 // Number of polynomials in each segment
+#define SEGMENTS 4    // Total number of segments
 
 // Storage structure
 struct PolynomialSegment {
@@ -301,8 +301,11 @@ float sampleScalarData(uint32_t timestamp) {
 
 
 void logSampledData(float data, uint32_t currentTimestamp) {
-    static float rawData[POLY_COUNT];
-    static uint16_t timestamps[POLY_COUNT];
+ //   static float rawData[POLY_COUNT];
+ //   static uint16_t timestamps[POLY_COUNT];
+    static float rawData[LOG_BUFFER_POINTS_PER_POLY];
+    static uint16_t timestamps[LOG_BUFFER_POINTS_PER_POLY];
+ 
     static uint16_t dataIndex = 0;
     static uint16_t currentPolyIndex = 0;  // Track position within current segment
 
