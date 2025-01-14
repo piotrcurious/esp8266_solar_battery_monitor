@@ -1,0 +1,77 @@
+void updateCompressedGraphBackwards(const PolynomialSegment *segments, uint8_t count) {
+    if (count == 0) return;
+
+    // Get the time window from raw data graph for alignment
+    uint32_t windowStart = raw_timestamps[0];
+    uint32_t windowEnd = raw_timestamps[raw_dataIndex - 1];
+    uint32_t timeSpan = windowEnd - windowStart;
+
+    // Find min/max values for Y-axis scaling
+    float minValue = INFINITY;
+    float maxValue = -INFINITY;
+    
+    // First pass: find value range across all valid segments (backwards)
+    uint8_t currentSegment = (head + count - 1) % SEGMENTS;
+    for (int8_t i = count - 1; i >= 0; i--) {
+        const PolynomialSegment &segment = segments[currentSegment];
+        
+        for (uint16_t polyIndex = 0; polyIndex < POLY_COUNT; polyIndex++) {
+            if (segment.timeDeltas[polyIndex] == 0) break;
+            
+            uint32_t tDelta = segment.timeDeltas[polyIndex];
+            for (uint32_t t = tDelta; t > 0; t -= tDelta / 10) {
+                float value = evaluatePolynomial(segment.coefficients[polyIndex], t);
+                minValue = min(minValue, value);
+                maxValue = max(maxValue, value);
+            }
+        }
+        currentSegment = (currentSegment + SEGMENTS - 1) % SEGMENTS;
+    }
+
+    // Ensure valid min/max values
+    if (isinf(minValue) || isinf(maxValue)) {
+        minValue = raw_graphMinY;
+        maxValue = raw_graphMaxY;
+    }
+
+    // Add margin to prevent edge touching
+    float valueRange = maxValue - minValue;
+    minValue -= valueRange * 0.05;
+    maxValue += valueRange * 0.05;
+
+    // Second pass: plot the data (backwards)
+    uint32_t tCurrent = windowEnd;
+    currentSegment = (head + count - 1) % SEGMENTS;
+    for (int8_t i = count - 1; i >= 0; i--) {
+        const PolynomialSegment &segment = segments[currentSegment];    
+        for (uint16_t polyIndex = 0; polyIndex < POLY_COUNT; polyIndex++) {
+            if (segment.timeDeltas[polyIndex] == 0) break;
+            
+            uint32_t tDelta = segment.timeDeltas[polyIndex];
+            uint32_t numSteps = min(100UL, tDelta);
+            uint32_t stepSize = tDelta / numSteps;
+            float lastX = -1, lastY = -1;
+            
+            for (uint32_t t = tDelta; t > 0; t -= stepSize) {
+                float value = evaluatePolynomial(segment.coefficients[polyIndex], t);
+                uint16_t x = mapFloat(tCurrent - t, windowStart, windowEnd, 0, SCREEN_WIDTH - 1);
+                uint16_t y = mapFloat(value, minValue, maxValue, SCREEN_HEIGHT - 1, 0);
+
+                x = constrain(x, 0, SCREEN_WIDTH - 1);
+                y = constrain(y, 0, SCREEN_HEIGHT - 1);
+                
+                if (lastX >= 0 && lastY >= 0) {
+                    tft.drawLine(lastX, lastY, x, y, TFT_YELLOW);
+                } else {
+                    tft.drawPixel(x, y, TFT_YELLOW);
+                }
+
+                lastX = x;
+                lastY = y;
+            }
+            
+            tCurrent -= tDelta;
+        }
+        currentSegment = (currentSegment + SEGMENTS - 1) % SEGMENTS;
+    }
+}
