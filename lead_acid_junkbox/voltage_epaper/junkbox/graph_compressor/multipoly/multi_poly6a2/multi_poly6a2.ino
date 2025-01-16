@@ -55,10 +55,6 @@ uint32_t mapUint(uint32_t x, uint32_t in_min, uint32_t in_max, uint32_t out_min,
     return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
 }
 
-uint32_t mapUint64(uint32_t x, uint32_t in_min, uint32_t in_max, uint32_t out_min, uint32_t out_max) {
-    return (uint64_t)(x - in_min) * (uint64_t)(out_max - out_min) / (in_max - in_min) + out_min;
-}
-
 
 // Add a new segment to the buffer
 void addSegment(const PolynomialSegment &newSegment) {
@@ -279,9 +275,9 @@ void recompressSegments() {
 // Sample scalar data (simulated random data for now)
 float sampleScalarData(uint32_t timestamp) {
     float scalar = random(0, 1000) / 100.0; // background noise
-    scalar = scalar + 20 * sin((float)timestamp * 0.0001);
+    scalar = scalar + 10 * sin((float)timestamp * 0.0001)+20*sin((float)timestamp * 0.00001);
 
-    return scalar; // Random data in range [0, 10.0]
+    return scalar; // Random data
 }
 
 void logSampledData(float data, uint32_t currentTimestamp) {
@@ -413,13 +409,23 @@ void setup() {
 }
 
 void drawRawGraph() {
-    tft.drawRect(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT - 1, TFT_RED);
+    // Time window for alignment
+    uint32_t windowStart = raw_timestamps[0];
+    uint32_t windowEnd = raw_timestamps[raw_dataIndex -1] ;
 
+      uint32_t xMin = windowStart, xMax = windowEnd - raw_log_delta;    
+    uint16_t SWdelta = mapFloat(raw_log_delta+xMin, xMin, windowEnd, 0, SCREEN_WIDTH-1);
+    uint16_t Swidth = SCREEN_WIDTH-SWdelta;
+    uint32_t lastDataX = xMax;
+    
+    if(SWdelta){tft.fillRect(SCREEN_WIDTH-SWdelta,0,SWdelta,SCREEN_HEIGHT,0x0821);}
+   // if(SWdelta){tft.drawRect(SCREEN_WIDTH-1-SWdelta,0,SWdelta,SCREEN_HEIGHT-1,TFT_RED);}   
+    
     // Draw the new point
     for (uint16_t i = 0; i < raw_dataIndex; i++) {
         uint16_t y = mapFloat(raw_Data[i], raw_graphMinY, raw_graphMaxY, SCREEN_HEIGHT - 1, 0);
         uint16_t x = mapFloat(raw_timestamps[i], raw_timestamps[0], raw_timestamps[raw_dataIndex - 1], 0, SCREEN_WIDTH);
-        tft.drawPixel(x, y, TFT_GREEN);
+        tft.drawPixel(x, y, TFT_BLUE);
     }
 }
 
@@ -771,7 +777,7 @@ void updateCompressedGraphBackwardsFast(const PolynomialSegment *segments, uint8
 
 }
 
-void updateCompressedGraphBackwardsFastOpt(const PolynomialSegment *segments, uint8_t count, uint16_t polyindex) {
+void updateCompressedGraphBackwardsFastOpt(const PolynomialSegment *segments, uint8_t count, uint16_t polyindex,bool clear_under, bool draw_lines) {
     if (count == 0) return;
 
     // Time window for alignment
@@ -828,29 +834,39 @@ void updateCompressedGraphBackwardsFastOpt(const PolynomialSegment *segments, ui
     segmentIndex = count - 1;
     polyIndex = polyindex;
 
+
+ 
+    uint32_t lastDataX = xMax;
     uint16_t SWdelta = mapFloat(raw_log_delta+xMin, xMin, windowEnd, 0, SCREEN_WIDTH-1);
     uint16_t Swidth = SCREEN_WIDTH-SWdelta;
-    uint32_t lastDataX = xMax;
+/*
+ 
 //tft.setCursor(5,40);
 //tft.setTextColor(TFT_WHITE);
 //tft.setTextSize(2);
 //tft.print("SW:");
 //tft.print(SWdelta);
-
     if(SWdelta){tft.drawRect(SCREEN_WIDTH-1-SWdelta,0,SWdelta,SCREEN_HEIGHT-1,TFT_RED);}   
     if(SWdelta){tft.fillRect(SCREEN_WIDTH-1-SWdelta,0,SWdelta,SCREEN_HEIGHT-1,TFT_DARKGREY);}
-    
-
+ */  
+    uint16_t lastY = 0 ;
     for (int x = Swidth - 1; x >= 0; --x) {
         uint32_t dataX = mapUint(x, 0, Swidth - 1, xMin, xMax);
-        tft.drawLine(x, 0, x, SCREEN_HEIGHT, TFT_BLACK);
+//        tft.drawLine(x, 0, x, SCREEN_HEIGHT-1, TFT_BLACK);
+  
+        if(clear_under){tft.drawFastVLine(x, 0, SCREEN_HEIGHT, TFT_BLACK);}
+
         while (segmentIndex >= 0 && lastDataX - dataX >= segments[segmentIndex].timeDeltas[polyIndex]) {
-            tft.drawLine(x, 0, x, SCREEN_HEIGHT-1, TFT_DARKGREY);
+  //          tft.drawLine(x, 0, x, SCREEN_HEIGHT-1, TFT_DARKGREY);
+            tft.drawFastVLine(x, 0, SCREEN_HEIGHT, 0x0821 );
+  
             lastDataX -= segments[segmentIndex].timeDeltas[polyIndex];
             if (--polyIndex < 0) {
                 polyIndex = POLY_COUNT - 1;
                 if (--segmentIndex < 0) break;
-                tft.drawLine(x, 0, x, SCREEN_HEIGHT-1, TFT_RED);
+  //              tft.drawLine(x, 0, x, SCREEN_HEIGHT-1, TFT_RED);
+               tft.drawFastVLine(x, 0, SCREEN_HEIGHT, TFT_RED);
+  
             }
         }
 
@@ -871,13 +887,20 @@ void updateCompressedGraphBackwardsFastOpt(const PolynomialSegment *segments, ui
         yFitted += segment.coefficients[polyIndex][i] * tPower;
         tPower *= tDelta;  // More efficient than pow()
     }
-    
+
+        uint16_t y =0;
         if (!isnan(yFitted)) {
-            uint16_t y = mapFloat(yFitted, minValue, maxValue, SCREEN_HEIGHT - 1, 0);
+            y = mapFloat(yFitted, minValue, maxValue, SCREEN_HEIGHT - 1, 0);
             if (y < SCREEN_HEIGHT) {
-                tft.drawPixel(x, y, TFT_CYAN);
+                if(draw_lines&&lastY!=0){
+                tft.drawLine(x,y, x+1,lastY,TFT_YELLOW);  
+                }else{
+                tft.drawPixel(x, y, TFT_WHITE);  
+                }
+                
             }
         }
+        lastY = y;
     }
 }
 
@@ -897,12 +920,15 @@ void loop() {
 
    // tft.fillScreen(TFT_BLACK);
     // Update the raw data graph
-  //  drawRawGraph();
-
+      drawRawGraph();
     // Update the compressed data graph
 //     updateCompressedGraphBackwards(segmentBuffer, segmentCount,currentPolyIndex);
 //     updateCompressedGraphBackwardsFast(segmentBuffer, segmentCount,currentPolyIndex);
-     updateCompressedGraphBackwardsFastOpt(segmentBuffer, segmentCount,currentPolyIndex);
+     updateCompressedGraphBackwardsFastOpt(segmentBuffer, segmentCount,currentPolyIndex,true,true); 
+                                          // buffer_segment[n].coeffs[degree],segment_count,poly_index_in_last_seg, if_clear_under, if_draw_lines 
+     drawRawGraph();
+     updateCompressedGraphBackwardsFastOpt(segmentBuffer, segmentCount,currentPolyIndex,false,true);
+
 //tft.setCursor(5,20);
 //tft.setTextColor(TFT_WHITE);
 //tft.setTextSize(2);
@@ -913,7 +939,7 @@ void loop() {
      //updateCompressedGraph(segmentBuffer, segmentCount);
 
   // Update the raw data graph
-    drawRawGraph();
+  //  drawRawGraph();
 
  
 }
