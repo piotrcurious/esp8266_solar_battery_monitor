@@ -23,6 +23,9 @@ float raw_graphMaxY = 0;
 //static uint16_t dataIndex = 0;
 uint32_t raw_log_delta = 0 ; // delta to last logged data, for the offset the compressed graph
 
+ // Min/Max values for Y-axis scaling of the polynomial graph
+    float minValue = INFINITY, maxValue = -INFINITY;
+
 #include <stdint.h>
 
 #define POLY_COUNT 16 // Number of polynomials in each segment
@@ -104,7 +107,8 @@ void compressDataToSegment(const float *rawData, const uint32_t *timestamps, uin
     }
 
     // Fit polynomial to this chunk
-    std::vector<float> fitted_coefficients = fitter.fitPolynomial(x, y, 5, AdvancedPolynomialFitter::LEVENBERG_MARQUARDT);
+//    std::vector<float> fitted_coefficients = fitter.fitPolynomial(x, y, 5, AdvancedPolynomialFitter::LEVENBERG_MARQUARDT);
+    std::vector<float> fitted_coefficients = fitter.fitPolynomial(x, y, 5, AdvancedPolynomialFitter::NONE); // good enough
 
     // Store coefficients
     for (uint8_t j = 0; j < fitted_coefficients.size() && j < 6; j++) {
@@ -157,7 +161,8 @@ void combinePolynomials(const PolynomialSegment &oldest, const PolynomialSegment
         std::vector<float> timestamps;
         std::vector<float> values;
         float RECOMPRESS_RESOLUTION =  (oldest.timeDeltas[i] + oldest.timeDeltas[i+1])/MEMORY_LIMIT;
-
+        Serial.print("resolution:");
+        Serial.println(RECOMPRESS_RESOLUTION);
         // Reconstruct data points from the first polynomial
         uint32_t tStart = 0;
  //       for (float t = 0; t <= oldest.timeDeltas[i]; t += oldest.timeDeltas[i] / 50.0) {
@@ -178,6 +183,8 @@ void combinePolynomials(const PolynomialSegment &oldest, const PolynomialSegment
 
         // Fit a new polynomial to the combined data
         std::vector<float> newCoefficients = fitter.fitPolynomial(timestamps, values, 5, AdvancedPolynomialFitter::NONE);
+//        std::vector<float> newCoefficients = fitter.fitPolynomial(timestamps, values, 5, AdvancedPolynomialFitter::LEVENBERG_MARQUARDT);
+
 
         // Store the new polynomial in the recompressed segment
         for (uint8_t j = 0; j < newCoefficients.size() && j < 6; j++) {
@@ -202,8 +209,8 @@ void combinePolynomials(const PolynomialSegment &oldest, const PolynomialSegment
 
         // Reconstruct data points from the first polynomial
         uint32_t tStart = 0;
-//        for (float t = 0; t <= secondOldest.timeDeltas[i]; t += secondOldest.timeDeltas[i] / 50.0) {
-        for (float t = 0; t <= secondOldest.timeDeltas[i]; t += RECOMPRESS_RESOLUTION) {
+        for (float t = 0; t <= secondOldest.timeDeltas[i]; t += secondOldest.timeDeltas[i] / 50.0) {
+//        for (float t = 0; t <= secondOldest.timeDeltas[i]; t += RECOMPRESS_RESOLUTION) {
             timestamps.push_back(tStart + t);
             values.push_back(evaluatePolynomial(secondOldest.coefficients[i], t));
         }
@@ -218,6 +225,7 @@ void combinePolynomials(const PolynomialSegment &oldest, const PolynomialSegment
 
         // Fit a new polynomial to the combined data
         std::vector<float> newCoefficients = fitter.fitPolynomial(timestamps, values, 5, AdvancedPolynomialFitter::NONE);
+//      std::vector<float> newCoefficients = fitter.fitPolynomial(timestamps, values, 5, AdvancedPolynomialFitter::LEVENBERG_MARQUARDT);
 
         // Store the new polynomial in the recompressed segment
         for (uint8_t j = 0; j < newCoefficients.size() && j < 6; j++) {
@@ -228,6 +236,9 @@ void combinePolynomials(const PolynomialSegment &oldest, const PolynomialSegment
         recompressedSegment.timeDeltas[currentPolyIndex] = secondOldest.timeDeltas[i] + secondOldest.timeDeltas[i+1];
         currentPolyIndex++;
     }    
+//               minValue = 0;
+//               maxValue = 0;
+
 }
 
 void recompressSegments() {
@@ -268,8 +279,6 @@ void recompressSegments() {
     Serial.print(sizeof(segmentBuffer));
     Serial.print(" raw size: ");
     Serial.println(sizeof(raw_Data)+sizeof(raw_timestamps));
-
-
 }
 
 // Sample scalar data (simulated random data for now)
@@ -298,7 +307,7 @@ void logSampledData(float data, uint32_t currentTimestamp) {
     raw_log_delta += timeDelta;
     
     // Check if we have enough data for a polynomial
-    if (dataIndex >= LOG_BUFFER_POINTS_PER_POLY) {
+    if (dataIndex >= LOG_BUFFER_POINTS_PER_POLY-1) {
         // Initialize first segment if needed
         if (segmentCount == 0) {
             addSegment(PolynomialSegment());
@@ -777,23 +786,15 @@ void updateCompressedGraphBackwardsFast(const PolynomialSegment *segments, uint8
 
 }
 
-void updateCompressedGraphBackwardsFastOpt(const PolynomialSegment *segments, uint8_t count, uint16_t polyindex,bool clear_under, bool draw_lines) {
-    if (count == 0) return;
-
-    // Time window for alignment
-    uint32_t windowStart = raw_timestamps[0];
-    uint32_t windowEnd = raw_timestamps[raw_dataIndex -1] ;
-
-    // Min/Max values for Y-axis scaling
-    float minValue = INFINITY, maxValue = -INFINITY;
-
+void updateMinMax(const PolynomialSegment *segments, uint8_t count, uint16_t polyindex,uint32_t windowStart, uint32_t windowEnd, bool clear_under, bool draw_lines) {
     // Initialize tracking indices
     int16_t segmentIndex = count - 1;
     int16_t polyIndex = polyindex;
-
     // First pass: Calculate min/max values
     uint32_t tCurrent = windowEnd;
-
+    minValue = INFINITY;
+    maxValue = -INFINITY;
+ 
     for (int16_t i = 0; i < count; ++i) {
         const PolynomialSegment &segment = segments[segmentIndex];
         for (int16_t j = (i == 0 ? polyIndex : POLY_COUNT - 1); j >= 0; --j) {
@@ -816,6 +817,8 @@ void updateCompressedGraphBackwardsFastOpt(const PolynomialSegment *segments, ui
         }
         if (--segmentIndex < 0) break;
     }
+ // use min/max value from previous graph pass 
+ 
 
     if (isinf(minValue) || isinf(maxValue)) {
         minValue = raw_graphMinY;
@@ -823,86 +826,99 @@ void updateCompressedGraphBackwardsFastOpt(const PolynomialSegment *segments, ui
     }
 
     // Add margin for aesthetics
-    float valueRange = maxValue - minValue;
-    minValue -= valueRange * 0.05f;
-    maxValue += valueRange * 0.05f;
+ //   float valueRange = maxValue - minValue;
+ //   minValue -= valueRange * 0.05f;
+ //   maxValue += valueRange * 0.05f;
+    
+}
+
+void updateCompressedGraphBackwardsFastOpt(const PolynomialSegment *segments, uint8_t count, uint16_t polyindex,bool clear_under, bool draw_lines) {
+    if (count == 0) return;
+
+    // Time window for alignment
+    uint32_t windowStart = raw_timestamps[0];
+    uint32_t windowEnd = raw_timestamps[raw_dataIndex -1] ;
+
+
+    // Min/Max values for Y-axis scaling
+//    float minValue = INFINITY, maxValue = -INFINITY;
 
     // Plotting the compressed graph
     uint32_t xMin = windowStart, xMax = windowEnd - raw_log_delta;
 //    uint32_t lastDataX = xMax;
-    
+
+int16_t    segmentIndex = count - 1;
+int16_t    polyIndex = polyindex;
     segmentIndex = count - 1;
     polyIndex = polyindex;
 
-
  
     uint32_t lastDataX = xMax;
-    uint16_t SWdelta = mapFloat(raw_log_delta+xMin, xMin, windowEnd, 0, SCREEN_WIDTH-1);
-    uint16_t Swidth = SCREEN_WIDTH-SWdelta;
-/*
+    uint16_t SWdelta = mapFloat(raw_log_delta,0, windowEnd-windowStart, 0, SCREEN_WIDTH);
+    uint16_t Swidth = SCREEN_WIDTH-SWdelta-1;
  
 //tft.setCursor(5,40);
 //tft.setTextColor(TFT_WHITE);
 //tft.setTextSize(2);
 //tft.print("SW:");
-//tft.print(SWdelta);
-    if(SWdelta){tft.drawRect(SCREEN_WIDTH-1-SWdelta,0,SWdelta,SCREEN_HEIGHT-1,TFT_RED);}   
-    if(SWdelta){tft.fillRect(SCREEN_WIDTH-1-SWdelta,0,SWdelta,SCREEN_HEIGHT-1,TFT_DARKGREY);}
- */  
-    uint16_t lastY = 0 ;
-    for (int x = Swidth - 1; x >= 0; --x) {
-        uint32_t dataX = mapUint(x, 0, Swidth - 1, xMin, xMax);
-//        tft.drawLine(x, 0, x, SCREEN_HEIGHT-1, TFT_BLACK);
-  
+//tft.print(Swidth);
+    if(SWdelta){tft.drawRect(SCREEN_WIDTH-SWdelta,0,SWdelta,SCREEN_HEIGHT-1,TFT_RED);}   
+//    if(SWdelta){tft.fillRect(SCREEN_WIDTH-1-SWdelta,0,SWdelta,SCREEN_HEIGHT-1,TFT_DARKGREY);}
+   
+    int16_t lastY = -1 ;
+    for (int x = Swidth; x >= 0; --x) {
+        float dataX = mapFloat(x, +0.0, Swidth, 0, xMax);  
+        const PolynomialSegment &segment = segments[segmentIndex];
+        float tDelta = segment.timeDeltas[polyIndex]-(lastDataX - dataX);   
         if(clear_under){tft.drawFastVLine(x, 0, SCREEN_HEIGHT, TFT_BLACK);}
-
-        while (segmentIndex >= 0 && lastDataX - dataX >= segments[segmentIndex].timeDeltas[polyIndex]) {
-  //          tft.drawLine(x, 0, x, SCREEN_HEIGHT-1, TFT_DARKGREY);
+        while (segmentIndex >= 0 && ((lastDataX - dataX) >= segments[segmentIndex].timeDeltas[polyIndex])) {
             tft.drawFastVLine(x, 0, SCREEN_HEIGHT, 0x0821 );
-  
             lastDataX -= segments[segmentIndex].timeDeltas[polyIndex];
             if (--polyIndex < 0) {
                 polyIndex = POLY_COUNT - 1;
                 if (--segmentIndex < 0) break;
-  //              tft.drawLine(x, 0, x, SCREEN_HEIGHT-1, TFT_RED);
                tft.drawFastVLine(x, 0, SCREEN_HEIGHT, TFT_RED);
-  
             }
         }
-
+//        const PolynomialSegment &segment = segments[segmentIndex];
+        tDelta = segment.timeDeltas[polyIndex]-(lastDataX - dataX);   
+        
         // Compute the fitted Y value
-        const PolynomialSegment &segment = segments[segmentIndex];
-        uint32_t tDelta = segment.timeDeltas[polyIndex]-(lastDataX - dataX);
-        float yFitted = 0.0f;
+//        const PolynomialSegment &segment = segments[segmentIndex];
+ //       float tDelta = segment.timeDeltas[polyIndex]-(lastDataX - dataX);
 
+        float yFitted = 0.0f;
+       // Serial.print(x);Serial.print(":");Serial.print(tDelta);Serial.print("mapped:");Serial.print(lastDataX-dataX);Serial.print("dSeg:");Serial.println(segment.timeDeltas[polyIndex]);
 /*
         for (uint8_t j = 0; j < 6; ++j) {
             yFitted += segment.coefficients[polyIndex][j] * powf(tDelta, j);
         }
 */ //on some systems this is faster
 
-    float tPower = 1.0;  // t^0 = 1
-    
+    float tPower = 1.0;  // t^0 = 1  
     for (uint8_t i = 0; i < 6; i++) {
         yFitted += segment.coefficients[polyIndex][i] * tPower;
         tPower *= tDelta;  // More efficient than pow()
     }
+                // update the min-max values
+        //        minValue = min(minValue, yFitted);
+        //        maxValue = max(maxValue, yFitted);
 
         uint16_t y =0;
         if (!isnan(yFitted)) {
             y = mapFloat(yFitted, minValue, maxValue, SCREEN_HEIGHT - 1, 0);
             if (y < SCREEN_HEIGHT) {
-                if(draw_lines&&lastY!=0){
+                if(draw_lines&&lastY>0){
                 tft.drawLine(x,y, x+1,lastY,TFT_YELLOW);  
                 }else{
                 tft.drawPixel(x, y, TFT_WHITE);  
-                }
-                
+                }                
             }
         }
         lastY = y;
     }
 }
+//==================================================================
 
 void loop() {
     // Simulate sampling at random intervals
@@ -918,9 +934,13 @@ void loop() {
     // Log in the raw form (for debug purposes)
     raw_logSampledData(sampledData, currentTimestamp);
 
-   // tft.fillScreen(TFT_BLACK);
-    // Update the raw data graph
-      drawRawGraph();
+     // tft.fillScreen(TFT_BLACK);
+     uint32_t windowStart = raw_timestamps[0];
+     uint32_t windowEnd = raw_timestamps[raw_dataIndex -1] ;
+     updateMinMax(segmentBuffer, segmentCount,currentPolyIndex,windowStart,windowEnd,false,true);
+     // Update the raw data graph
+     drawRawGraph();
+     
     // Update the compressed data graph
 //     updateCompressedGraphBackwards(segmentBuffer, segmentCount,currentPolyIndex);
 //     updateCompressedGraphBackwardsFast(segmentBuffer, segmentCount,currentPolyIndex);
