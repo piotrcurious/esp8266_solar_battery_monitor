@@ -33,11 +33,6 @@ std::vector<float> AdvancedPolynomialFitter::fitPolynomial(const std::vector<flo
 
     size_t n = x_norm.size(), m = degree + 1;
 
-//    std::vector<std::vector<double>> A(n, std::vector<double>(m));
-//    for (size_t i = 0; i < n; ++i)
-//        for (size_t j = 0, xi = 1; j < m; ++j, xi *= x_norm[i])
-//            A[i][j] = xi;
-
  // Construct the Vandermonde matrix
         std::vector<std::vector<double>> A(n, std::vector<double>(m, 0.0));
         for (size_t i = 0; i < n; ++i) {
