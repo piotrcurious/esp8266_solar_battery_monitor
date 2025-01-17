@@ -283,7 +283,7 @@ void recompressSegments() {
 
 // Sample scalar data (simulated random data for now)
 float sampleScalarData(uint32_t timestamp) {
-    float scalar = random(0, 1000) / 100.0; // background noise
+    float scalar = random(0, 1000) / 1000.0; // background noise
     scalar = scalar + 10 * sin((float)timestamp * 0.0001)+20*sin((float)timestamp * 0.00001);
 
     return scalar; // Random data
@@ -321,7 +321,7 @@ void logSampledData(float data, uint32_t currentTimestamp) {
         // Fit polynomial to current data chunk
         float new_coefficients[6];
         uint32_t new_timeDelta;
-        compressDataToSegment(rawData, timestamps, LOG_BUFFER_POINTS_PER_POLY, new_coefficients, new_timeDelta);
+        compressDataToSegment(rawData, timestamps, LOG_BUFFER_POINTS_PER_POLY-1, new_coefficients, new_timeDelta);
 
         // Store the polynomial in current segment
         for (uint8_t i = 0; i < 6; i++) {
@@ -879,9 +879,14 @@ int16_t    polyIndex = polyindex;
                 if (--segmentIndex < 0) break;
                tft.drawFastVLine(x, 0, SCREEN_HEIGHT, TFT_RED);
             }
+    //    Serial.println("boundary");
+    //    Serial.print(x);Serial.print(":");Serial.print(tDelta);Serial.print("mapped:");Serial.print(lastDataX-dataX);Serial.print("dSeg:");Serial.println(segment.timeDeltas[polyIndex]);
+        tDelta = segment.timeDeltas[polyIndex]-(lastDataX - dataX);   // recompute if changed polynomial or segment
+    //    Serial.print(x);Serial.print(":");Serial.print(tDelta);Serial.print("mapped:");Serial.print(lastDataX-dataX);Serial.print("dSeg:");Serial.println(segment.timeDeltas[polyIndex]);
+ 
         }
 //        const PolynomialSegment &segment = segments[segmentIndex];
-        tDelta = segment.timeDeltas[polyIndex]-(lastDataX - dataX);   
+//        tDelta = segment.timeDeltas[polyIndex]-(lastDataX - dataX);   
         
         // Compute the fitted Y value
 //        const PolynomialSegment &segment = segments[segmentIndex];
