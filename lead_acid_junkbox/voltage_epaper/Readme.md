@@ -12,4 +12,6 @@ extras :
 
   TODO :
   RTC memory and graphing
-  
+  enabling RX/TX pins in esp8266 as GPIO does not work,
+  one has to use i2c pins . sorry.
+   
