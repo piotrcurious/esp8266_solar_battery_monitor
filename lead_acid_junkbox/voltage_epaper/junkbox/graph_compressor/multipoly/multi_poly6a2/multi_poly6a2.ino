@@ -114,7 +114,7 @@ void compressDataToSegment(const float *rawData, const uint32_t *timestamps, uin
         timestamp_absolute += timestamps[j];
     }
    for (uint8_t i = 0 ; i<BOUNDARY_MARGIN3/2; i++){
-    x3[dataSize+(BOUNDARY_MARGIN3/2)+i]= (((BOUNDARY_MARGIN3/2)*i)*BOUNDARY_DELTA3) ; // add data on the boundary to improve edge fitting
+    x3[dataSize+(BOUNDARY_MARGIN3/2)+i]= timestamp_absolute+(((BOUNDARY_MARGIN3/2)*i)*BOUNDARY_DELTA3) ; // add data on the boundary to improve edge fitting
     y3[dataSize+(BOUNDARY_MARGIN3/2)+i]= rawData[dataSize]; // duplicate data
     }
  
@@ -133,8 +133,8 @@ void compressDataToSegment(const float *rawData, const uint32_t *timestamps, uin
         coefficients[j] = fitted_coefficients3[j];
     }
 
-    #define BOUNDARY_MARGIN 32 // duplicate data across margin for better fit, multiple of 2
-    #define BOUNDARY_DELTA 100 // time window of margin.
+    #define BOUNDARY_MARGIN 16 // duplicate data across margin for better fit, multiple of 2
+    #define BOUNDARY_DELTA 5 // time window of margin.
     std::vector<float> x(dataSize+BOUNDARY_MARGIN); // +2 front and back datapoints
     std::vector<float> y(dataSize+BOUNDARY_MARGIN);
 
@@ -151,7 +151,7 @@ void compressDataToSegment(const float *rawData, const uint32_t *timestamps, uin
         timestamp_absolute += timestamps[j];
     }
    for (uint8_t i = 0 ; i<BOUNDARY_MARGIN/2; i++){
-    x[dataSize+(BOUNDARY_MARGIN/2)+i]= (((BOUNDARY_MARGIN/2)*i)*BOUNDARY_DELTA) ; // add data on the boundary to improve edge fitting
+    x[dataSize+(BOUNDARY_MARGIN/2)+i]= timestamp_absolute+(((BOUNDARY_MARGIN/2)*i)*BOUNDARY_DELTA) ; // add data on the boundary to improve edge fitting
     y[dataSize+(BOUNDARY_MARGIN/2)+i]= evaluatePolynomial(coefficients,4,x[dataSize+(BOUNDARY_MARGIN/2)+i]); // data from fitted 3rd order poly
     }
 
@@ -327,6 +327,7 @@ void recompressSegments() {
     Serial.print(sizeof(segmentBuffer));
     Serial.print(" raw size: ");
     Serial.println(sizeof(raw_Data)+sizeof(raw_timestamps));
+    
 }
 
 // Sample scalar data (simulated random data for now)
@@ -357,14 +358,41 @@ void logSampledData(float data, uint32_t currentTimestamp) {
    if (dataIndex >= LOG_BUFFER_POINTS_PER_POLY) {
 
          // Initialize first segment if needed
- //       if (segmentCount == 0) {
- //          addSegment(PolynomialSegment());
- //           currentPolyIndex = 0 ;  
- //           // Initialize new segment's timeDeltas
- //           for (uint16_t i = 0; i < POLY_COUNT; i++) {
- //               segmentBuffer[segmentCount-1].timeDeltas[i] = 0;
- //           }
- //       } // moved to setup
+        if (segmentCount == 0) {
+           addSegment(PolynomialSegment());
+            currentPolyIndex = 0 ;  
+            // Initialize new segment's timeDeltas
+            for (uint16_t i = 0; i < POLY_COUNT; i++) {
+                segmentBuffer[segmentCount-1].timeDeltas[i] = 0;
+            }
+            segmentBuffer[segmentCount-1].timeDeltas[currentPolyIndex]=1; // initalize first poly. it acts as extra storage for oldest data.       
+        } 
+     currentPolyIndex++;
+
+        // If current segment is full, prepare for next segment
+        if (currentPolyIndex >= POLY_COUNT) {
+            
+            if (segmentCount < SEGMENTS) {
+                // Create new segment
+                addSegment(PolynomialSegment());
+                // Initialize timeDeltas for new segment
+                for (uint16_t i = 0; i < POLY_COUNT; i++) {
+                    segmentBuffer[segmentCount-1].timeDeltas[i] = 0;
+                }
+                currentPolyIndex = 0;
+                Serial.print("Created new segment ");
+                Serial.println(segmentCount-1);
+            } else {
+                // Trigger recompression when buffer is full
+                recompressSegments();
+                // initalize time deltas for freshly cleared segment
+                for (uint16_t i = 0; i < POLY_COUNT; i++) {
+                    segmentBuffer[segmentCount-1].timeDeltas[i] = 0;
+                }
+                currentPolyIndex = 0;
+ 
+            }
+        }
 
         // Fit polynomial to current data chunk
         float new_coefficients[6];
@@ -379,43 +407,17 @@ void logSampledData(float data, uint32_t currentTimestamp) {
         }
         segmentBuffer[segmentCount-1].timeDeltas[currentPolyIndex] = new_timeDelta;
 
-            // Check if we have enough data for a polynomial
-
         raw_log_delta = 0; 
         Serial.print("Added polynomial ");
         Serial.print(currentPolyIndex);
         Serial.print(" to segment ");
         Serial.println(segmentCount-1);
-        currentPolyIndex++;
-
-        // If current segment is full, prepare for next segment
-        if (currentPolyIndex >= POLY_COUNT) {
-            currentPolyIndex = 0;
-            
-            if (segmentCount < SEGMENTS) {
-                // Create new segment
-                addSegment(PolynomialSegment());
-                // Initialize timeDeltas for new segment
-                for (uint16_t i = 0; i < POLY_COUNT; i++) {
-                    segmentBuffer[segmentCount-1].timeDeltas[i] = 0;
-                }
-                Serial.print("Created new segment ");
-                Serial.println(segmentCount-1);
-            } else {
-                // Trigger recompression when buffer is full
-                recompressSegments();
-                // initalize time deltas for freshly cleared segment
-                for (uint16_t i = 0; i < POLY_COUNT; i++) {
-                    segmentBuffer[segmentCount-1].timeDeltas[i] = 0;
-                }
-            }
-        }
 
         // Reset data buffer
         dataIndex = 0;
+
     }
 }
-
 
 
 // Log sampled data into the current segment
@@ -465,15 +467,15 @@ void setup() {
     tft.setTextColor(TFT_WHITE);
     tft.setTextSize(1);
 
-        // Initialize first segment if needed
-        if (segmentCount == 0) {
-           addSegment(PolynomialSegment());
-            currentPolyIndex = 0 ;  
-            // Initialize new segment's timeDeltas
-            for (uint16_t i = 0; i < POLY_COUNT; i++) {
-                segmentBuffer[segmentCount-1].timeDeltas[i] = 0;
-            }
-        }
+//        // Initialize first segment if needed
+//        if (segmentCount == 0) {
+//           addSegment(PolynomialSegment());
+//            currentPolyIndex = 0 ;  
+//            // Initialize new segment's timeDeltas
+//            for (uint16_t i = 0; i < POLY_COUNT; i++) {
+//                segmentBuffer[segmentCount-1].timeDeltas[i] = 0;
+//            }
+//        }
 
     // Draw static labels
 //    tft.drawString("Raw Data", 10, 5, 2);
@@ -912,8 +914,8 @@ void updateCompressedGraphBackwardsFastOpt(const PolynomialSegment *segments, ui
 
 int16_t    segmentIndex = count - 1;
 int16_t    polyIndex = polyindex;
-    segmentIndex = count - 1;
-    polyIndex = polyindex;
+//    segmentIndex = count - 1;
+//    polyIndex = polyindex;
 
  
     uint32_t lastDataX = xMax;
@@ -990,7 +992,7 @@ int16_t    polyIndex = polyindex;
 
 void loop() {
     // Simulate sampling at random intervals
-    delay(random(100, 1000)); // Random delay between 50 ms to 500 ms
+    delay(random(100, 500)); // Random delay between 50 ms to 500 ms
     uint32_t currentTimestamp = millis();
 
     // Sample scalar data
