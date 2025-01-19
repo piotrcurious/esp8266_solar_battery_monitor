@@ -16,6 +16,9 @@ public:
     double calculateMSE(const std::vector<float>& coeffs, const std::vector<float>& x, const std::vector<float>& y);
     std::vector<float> fitPolynomial(const std::vector<float>& x, const std::vector<float>& y, int degree,
                                      OptimizationMethod method = GRADIENT_DESCENT);
+    std::vector<float> NormalizeAndFitPolynomial(const std::vector<float>& x, const std::vector<float>& y, int degree,
+                                     OptimizationMethod method = GRADIENT_DESCENT);
+                                                                      
     std::vector<float> fitSegmentedPolynomials(const std::vector<float>& x, const std::vector<float>& y, int degree, int segments);
     std::vector<float> levenbergMarquardt(std::vector<float>& coeffs, const std::vector<float>& x, const std::vector<float>& y, int degree);
 

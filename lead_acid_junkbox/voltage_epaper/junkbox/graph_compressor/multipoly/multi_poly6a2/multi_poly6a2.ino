@@ -9,11 +9,13 @@ TFT_eSPI tft = TFT_eSPI(); // Create TFT instance
 #include "AdvancedPolynomialFitter.hpp" // Include the advanced fitter
 #include <vector>
 #include <Arduino.h>
+#include <algorithm>
+#include <cmath>
 
 //for debug
 #define MAX_RAW_DATA 2048
 //#define MAX_RAW_DATA_GRAIN 32 // after how many points added to the raw data buffer data is recompressed. 
-#define LOG_BUFFER_POINTS_PER_POLY 64 // replaced by this
+#define LOG_BUFFER_POINTS_PER_POLY 5*10 // replaced by this
 
 static float    raw_Data[MAX_RAW_DATA];
 static uint32_t raw_timestamps[MAX_RAW_DATA];
@@ -95,20 +97,66 @@ void removeOldestTwo() {
 void compressDataToSegment(const float *rawData, const uint32_t *timestamps, uint16_t dataSize, float *coefficients, uint32_t &timeDelta) {
     AdvancedPolynomialFitter fitter;
 
-    std::vector<float> x(dataSize);
-    std::vector<float> y(dataSize);
+    #define BOUNDARY_MARGIN3 2 // duplicate data across margin for better fit, multiple of 2
+    #define BOUNDARY_DELTA3 1 // time window of margin.
+    std::vector<float> x3(dataSize+BOUNDARY_MARGIN3); // +2 front and back datapoints
+    std::vector<float> y3(dataSize+BOUNDARY_MARGIN3);
 
     float timestamp_absolute = 0;
     // Accumulate timestamps and collect data points
+    for (uint8_t i = 0 ; i<BOUNDARY_MARGIN3/2; i++){
+    x3[i]= -(((BOUNDARY_MARGIN3/2)-i)*BOUNDARY_DELTA3) ; // add data on the boundary to improve edge fitting
+    y3[i]= rawData[0]; // duplicate data
+    }
     for (uint16_t j = 0; j < dataSize; j++) {
-        x[j] = timestamp_absolute;
-        y[j] = rawData[j];
+        x3[j+(BOUNDARY_MARGIN3/2)] = timestamp_absolute;
+        y3[j+(BOUNDARY_MARGIN3/2)] = rawData[j]; // correct to 0
         timestamp_absolute += timestamps[j];
     }
+   for (uint8_t i = 0 ; i<BOUNDARY_MARGIN3/2; i++){
+    x3[dataSize+(BOUNDARY_MARGIN3/2)+i]= (((BOUNDARY_MARGIN3/2)*i)*BOUNDARY_DELTA3) ; // add data on the boundary to improve edge fitting
+    y3[dataSize+(BOUNDARY_MARGIN3/2)+i]= rawData[dataSize]; // duplicate data
+    }
+ 
+
+//    x[dataSize+1]=timestamp_absolute+10; // add data on the boundary to improve edge fitting
+//    y[dataSize+1]=rawData[dataSize-1]; // duplicate data
 
     // Fit polynomial to this chunk
 //    std::vector<float> fitted_coefficients = fitter.fitPolynomial(x, y, 5, AdvancedPolynomialFitter::LEVENBERG_MARQUARDT);
-    std::vector<float> fitted_coefficients = fitter.fitPolynomial(x, y, 5, AdvancedPolynomialFitter::NONE); // good enough
+//    std::vector<float> fitted_coefficients3 = fitter.fitPolynomial(x, y, 2, AdvancedPolynomialFitter::NONE); // good enough
+    std::vector<float> fitted_coefficients3 = fitter.fitPolynomial(x3, y3, 3, AdvancedPolynomialFitter::LEVENBERG_MARQUARDT); // good enough
+
+    // fit with degree of 3 to redefine boundaries
+// Store coefficients
+    for (uint8_t j = 0; j < fitted_coefficients3.size() && j < 4; j++) {
+        coefficients[j] = fitted_coefficients3[j];
+    }
+
+    #define BOUNDARY_MARGIN 32 // duplicate data across margin for better fit, multiple of 2
+    #define BOUNDARY_DELTA 100 // time window of margin.
+    std::vector<float> x(dataSize+BOUNDARY_MARGIN); // +2 front and back datapoints
+    std::vector<float> y(dataSize+BOUNDARY_MARGIN);
+
+    
+    timestamp_absolute = 0;
+    // Accumulate timestamps and collect data points
+    for (uint8_t i = 0 ; i<BOUNDARY_MARGIN/2; i++){
+    x[i]= -(((BOUNDARY_MARGIN/2)-i)*BOUNDARY_DELTA) ; // add data on the boundary to improve edge fitting
+    y[i]= evaluatePolynomial(coefficients,4,x[i]); // data from fitted 3rd order poly
+    }
+    for (uint16_t j = 0; j < dataSize; j++) {
+        x[j+(BOUNDARY_MARGIN/2)] = timestamp_absolute;
+        y[j+(BOUNDARY_MARGIN/2)] = rawData[j]; // correct to 0
+        timestamp_absolute += timestamps[j];
+    }
+   for (uint8_t i = 0 ; i<BOUNDARY_MARGIN/2; i++){
+    x[dataSize+(BOUNDARY_MARGIN/2)+i]= (((BOUNDARY_MARGIN/2)*i)*BOUNDARY_DELTA) ; // add data on the boundary to improve edge fitting
+    y[dataSize+(BOUNDARY_MARGIN/2)+i]= evaluatePolynomial(coefficients,4,x[dataSize+(BOUNDARY_MARGIN/2)+i]); // data from fitted 3rd order poly
+    }
+
+//    std::vector<float> fitted_coefficients = fitter.fitPolynomial(x, y, 5, AdvancedPolynomialFitter::NONE); // good enough
+    std::vector<float> fitted_coefficients = fitter.fitPolynomial(x, y, 5, AdvancedPolynomialFitter::LEVENBERG_MARQUARDT); // good enough
 
     // Store coefficients
     for (uint8_t j = 0; j < fitted_coefficients.size() && j < 6; j++) {
@@ -132,12 +180,12 @@ float evaluatePolynomial(const float *coefficients, float tNormalized) {
 */
 
  // on some systems this is faster
-float evaluatePolynomial(const float *coefficients, float t) {
+float evaluatePolynomial(const float *coefficients, uint8_t degree, float t) {
     // t is already in milliseconds within the segment's time delta range
     float result = 0.0;
     float tPower = 1.0;  // t^0 = 1
     
-    for (int i = 0; i < 6; i++) {
+    for (int i = 0; i < degree; i++) {
         result += coefficients[i] * tPower;
         tPower *= t;  // More efficient than pow()
     }
@@ -169,7 +217,7 @@ void combinePolynomials(const PolynomialSegment &oldest, const PolynomialSegment
         for (float t = 0; t <= oldest.timeDeltas[i]; t += RECOMPRESS_RESOLUTION) {
 
             timestamps.push_back(tStart + t);
-            values.push_back(evaluatePolynomial(oldest.coefficients[i], t));
+            values.push_back(evaluatePolynomial(oldest.coefficients[i],6, t));
         }
 
         // Adjust second polynomial's timestamps to continue from the end of the first
@@ -178,7 +226,7 @@ void combinePolynomials(const PolynomialSegment &oldest, const PolynomialSegment
         for (float t = 0; t <= oldest.timeDeltas[i+1]; t += RECOMPRESS_RESOLUTION) {
 
             timestamps.push_back(tStart + t);
-            values.push_back(evaluatePolynomial(oldest.coefficients[i+1], t));
+            values.push_back(evaluatePolynomial(oldest.coefficients[i+1],6, t));
         }
 
         // Fit a new polynomial to the combined data
@@ -212,7 +260,7 @@ void combinePolynomials(const PolynomialSegment &oldest, const PolynomialSegment
         for (float t = 0; t <= secondOldest.timeDeltas[i]; t += secondOldest.timeDeltas[i] / 50.0) {
 //        for (float t = 0; t <= secondOldest.timeDeltas[i]; t += RECOMPRESS_RESOLUTION) {
             timestamps.push_back(tStart + t);
-            values.push_back(evaluatePolynomial(secondOldest.coefficients[i], t));
+            values.push_back(evaluatePolynomial(secondOldest.coefficients[i],6, t));
         }
 
         // Adjust second polynomial's timestamps to continue from the end of the first
@@ -220,7 +268,7 @@ void combinePolynomials(const PolynomialSegment &oldest, const PolynomialSegment
 //        for (float t = 0; t <= secondOldest.timeDeltas[i+1]; t += secondOldest.timeDeltas[i+1] / 50.0) {
         for (float t = 0; t <= secondOldest.timeDeltas[i+1]; t += RECOMPRESS_RESOLUTION) {
             timestamps.push_back(tStart + t);
-            values.push_back(evaluatePolynomial(secondOldest.coefficients[i+1], t));
+            values.push_back(evaluatePolynomial(secondOldest.coefficients[i+1],6, t));
         }
 
         // Fit a new polynomial to the combined data
@@ -283,7 +331,7 @@ void recompressSegments() {
 
 // Sample scalar data (simulated random data for now)
 float sampleScalarData(uint32_t timestamp) {
-    float scalar = random(0, 1000) / 1000.0; // background noise
+    float scalar = random(0, 1000*sin((float)timestamp * 0.00002)) / 100.0; // background noise
     scalar = scalar + 10 * sin((float)timestamp * 0.0001)+20*sin((float)timestamp * 0.00001);
 
     return scalar; // Random data
@@ -305,29 +353,34 @@ void logSampledData(float data, uint32_t currentTimestamp) {
     dataIndex++;
 
     raw_log_delta += timeDelta;
-    
-    // Check if we have enough data for a polynomial
-    if (dataIndex >= LOG_BUFFER_POINTS_PER_POLY-1) {
-        // Initialize first segment if needed
-        if (segmentCount == 0) {
-            addSegment(PolynomialSegment());
-            currentPolyIndex = 0 ;  
-            // Initialize new segment's timeDeltas
-            for (uint16_t i = 0; i < POLY_COUNT; i++) {
-                segmentBuffer[segmentCount-1].timeDeltas[i] = 0;
-            }
-        }
+  
+   if (dataIndex >= LOG_BUFFER_POINTS_PER_POLY) {
+
+         // Initialize first segment if needed
+ //       if (segmentCount == 0) {
+ //          addSegment(PolynomialSegment());
+ //           currentPolyIndex = 0 ;  
+ //           // Initialize new segment's timeDeltas
+ //           for (uint16_t i = 0; i < POLY_COUNT; i++) {
+ //               segmentBuffer[segmentCount-1].timeDeltas[i] = 0;
+ //           }
+ //       } // moved to setup
 
         // Fit polynomial to current data chunk
         float new_coefficients[6];
         uint32_t new_timeDelta;
-        compressDataToSegment(rawData, timestamps, LOG_BUFFER_POINTS_PER_POLY-1, new_coefficients, new_timeDelta);
+        compressDataToSegment(rawData, timestamps, dataIndex-1, new_coefficients, new_timeDelta);
+
+//        compressDataToSegment(rawData, timestamps, LOG_BUFFER_POINTS_PER_POLY-2, new_coefficients, new_timeDelta);
 
         // Store the polynomial in current segment
         for (uint8_t i = 0; i < 6; i++) {
             segmentBuffer[segmentCount-1].coefficients[currentPolyIndex][i] = new_coefficients[i];
         }
         segmentBuffer[segmentCount-1].timeDeltas[currentPolyIndex] = new_timeDelta;
+
+            // Check if we have enough data for a polynomial
+
         raw_log_delta = 0; 
         Serial.print("Added polynomial ");
         Serial.print(currentPolyIndex);
@@ -412,6 +465,16 @@ void setup() {
     tft.setTextColor(TFT_WHITE);
     tft.setTextSize(1);
 
+        // Initialize first segment if needed
+        if (segmentCount == 0) {
+           addSegment(PolynomialSegment());
+            currentPolyIndex = 0 ;  
+            // Initialize new segment's timeDeltas
+            for (uint16_t i = 0; i < POLY_COUNT; i++) {
+                segmentBuffer[segmentCount-1].timeDeltas[i] = 0;
+            }
+        }
+
     // Draw static labels
 //    tft.drawString("Raw Data", 10, 5, 2);
 //    tft.drawString("Compressed Data", 10, COMPRESSED_GRAPH_Y - 15, 2);
@@ -465,7 +528,7 @@ void updateCompressedGraph(const PolynomialSegment *segments, uint8_t count) {
             
             uint32_t tDelta = segment.timeDeltas[polyIndex];
             for (uint32_t t = 0; t <= tDelta; t += tDelta/10) {
-                float value = evaluatePolynomial(segment.coefficients[polyIndex], t);
+                float value = evaluatePolynomial(segment.coefficients[polyIndex],6, t);
                 minValue = min(minValue, value);
                 maxValue = max(maxValue, value);
             }
@@ -499,7 +562,7 @@ void updateCompressedGraph(const PolynomialSegment *segments, uint8_t count) {
             
             for (uint32_t t = 0; t <= tDelta; t += stepSize) {
              // Serial.println(t);
-                float value = evaluatePolynomial(segment.coefficients[polyIndex], t);
+                float value = evaluatePolynomial(segment.coefficients[polyIndex],6, t);
                 uint16_t x = mapFloat(tCurrent + t, windowStart, windowEnd, 0, SCREEN_WIDTH - 1);
                 uint16_t y = mapFloat(value, minValue, maxValue, SCREEN_HEIGHT - 1, 0);
 
@@ -576,7 +639,7 @@ void updateCompressedGraphBackwards(const PolynomialSegment *segments, uint8_t c
                 uint32_t actualTime = tCurrent - (tDelta - t);
                 // Only consider values within the time window
                 if (actualTime >= windowStart && actualTime <= windowEnd) {
-                    float value = evaluatePolynomial(segment.coefficients[polyIndex], t);
+                    float value = evaluatePolynomial(segment.coefficients[polyIndex],6, t);
                     minValue = min(minValue, value);
                     maxValue = max(maxValue, value);
                 }
@@ -625,7 +688,7 @@ void updateCompressedGraphBackwards(const PolynomialSegment *segments, uint8_t c
 
                 // Only plot points within the time window
                 if (actualTime >= windowStart && actualTime <= windowEnd) {
-                    float value = evaluatePolynomial(segment.coefficients[polyIndex], t);
+                    float value = evaluatePolynomial(segment.coefficients[polyIndex],6, t);
                     uint16_t x = mapFloat(actualTime, windowStart, windowEnd, 0, SCREEN_WIDTH - 1);
                     uint16_t y = mapFloat(value, minValue, maxValue, SCREEN_HEIGHT - 1, 0);
 
@@ -709,7 +772,7 @@ void updateCompressedGraphBackwardsFast(const PolynomialSegment *segments, uint8
                 uint32_t actualTime = tCurrent - (tDelta - t);
                 // Only consider values within the time window
                 if (actualTime >= windowStart && actualTime <= windowEnd) {
-                    float value = evaluatePolynomial(segment.coefficients[polyIndex], t);
+                    float value = evaluatePolynomial(segment.coefficients[polyIndex],6, t);
                     minValue = min(minValue, value);
                     maxValue = max(maxValue, value);
                 }
@@ -808,7 +871,7 @@ void updateMinMax(const PolynomialSegment *segments, uint8_t count, uint16_t pol
                 uint32_t actualTime = tCurrent - t;
                 if (actualTime < windowStart || actualTime > windowEnd) break;
 
-                float value = evaluatePolynomial(segment.coefficients[j], t);
+                float value = evaluatePolynomial(segment.coefficients[j],6, t);
                 minValue = min(minValue, value);
                 maxValue = max(maxValue, value);
             }
@@ -854,7 +917,7 @@ int16_t    polyIndex = polyindex;
 
  
     uint32_t lastDataX = xMax;
-    uint16_t SWdelta = mapFloat(raw_log_delta,0, windowEnd-windowStart, 0, SCREEN_WIDTH);
+    uint16_t SWdelta = mapFloat(raw_log_delta+windowStart,windowStart, windowEnd, 0, SCREEN_WIDTH);
     uint16_t Swidth = SCREEN_WIDTH-SWdelta-1;
  
 //tft.setCursor(5,40);
@@ -867,7 +930,7 @@ int16_t    polyIndex = polyindex;
    
     int16_t lastY = -1 ;
     for (int x = Swidth; x >= 0; --x) {
-        float dataX = mapFloat(x, +0.0, Swidth, 0, xMax);  
+        float dataX = mapFloat(x, +0.0, Swidth, xMin, xMax);  
         const PolynomialSegment &segment = segments[segmentIndex];
         float tDelta = segment.timeDeltas[polyIndex]-(lastDataX - dataX);   
         if(clear_under){tft.drawFastVLine(x, 0, SCREEN_HEIGHT, TFT_BLACK);}
@@ -927,7 +990,7 @@ int16_t    polyIndex = polyindex;
 
 void loop() {
     // Simulate sampling at random intervals
-    delay(random(10, 100)); // Random delay between 50 ms to 500 ms
+    delay(random(100, 1000)); // Random delay between 50 ms to 500 ms
     uint32_t currentTimestamp = millis();
 
     // Sample scalar data
