@@ -94,30 +94,59 @@ void removeOldestTwo() {
 
 #include <math.h>
 
-void compressDataToSegment(const float *rawData, const uint32_t *timestamps, uint16_t dataSize, float *coefficients, uint32_t &timeDelta) {
+void compressDataToSegment(const PolynomialSegment *segments, uint8_t count, uint16_t polyindex,  const float *rawData, const uint32_t *timestamps, uint16_t dataSize, float *coefficients, uint32_t &timeDelta) {
     AdvancedPolynomialFitter fitter;
 
-    #define BOUNDARY_MARGIN3 2 // duplicate data across margin for better fit, multiple of 2
-    #define BOUNDARY_DELTA3 1 // time window of margin.
+    int8_t segmentIndex = count -1;
+    int16_t polyIndex = polyindex; 
+    
+    #define BOUNDARY_MARGIN3 16 // duplicate data across margin for better fit, multiple of 2
+    #define BOUNDARY_DELTA3 100 // time window of margin.
     std::vector<float> x3(dataSize+BOUNDARY_MARGIN3); // +2 front and back datapoints
     std::vector<float> y3(dataSize+BOUNDARY_MARGIN3);
 
     float timestamp_absolute = 0;
     // Accumulate timestamps and collect data points
-    for (uint8_t i = 0 ; i<BOUNDARY_MARGIN3/2; i++){
-    x3[i]= -(((BOUNDARY_MARGIN3/2)-i)*BOUNDARY_DELTA3) ; // add data on the boundary to improve edge fitting
-    y3[i]= rawData[0]; // duplicate data
+//    for (uint8_t i = 0 ; i<BOUNDARY_MARGIN3/2; i++){
+    for (uint8_t i = 0 ; i<BOUNDARY_MARGIN3; i++){
+    if(currentPolyIndex == 0){
+      if (segmentIndex>0){
+//        x3[i]= -(((BOUNDARY_MARGIN3/2)-i)*BOUNDARY_DELTA3) ; // add data on the boundary to improve edge fitting
+        x3[i]= -(((BOUNDARY_MARGIN3)-i)*BOUNDARY_DELTA3) ; // add data on the boundary to improve edge fitting
+        uint32_t previous_poly_range = segments[segmentIndex-1].timeDeltas[POLY_COUNT-1];
+        y3[i]= evaluatePolynomial(segments[segmentIndex-1].coefficients[POLY_COUNT-1],6,(float)previous_poly_range+x3[i]); // data from previous poly    
+      } else {
+        //x[i]= -(((BOUNDARY_MARGIN3/2)-i)*BOUNDARY_DELTA3) ; // add data on the boundary to improve edge fitting
+        //y[i]= evaluatePolynomial(coefficients,4,x[i]); // data from fitted 3rd order poly
+//        x3[i]= -(((BOUNDARY_MARGIN3/2)-i)*BOUNDARY_DELTA3) ; // add data on the boundary to improve edge fitting
+        x3[i]= -(((BOUNDARY_MARGIN3)-i)*BOUNDARY_DELTA3) ; // add data on the boundary to improve edge fitting
+        y3[i]= rawData[0]; // no better data - duplicate data
+      }
+    }else{
+//    x3[i]= -(((BOUNDARY_MARGIN3/2)-i)*BOUNDARY_DELTA3) ; // add data on the boundary to improve edge fitting
+    x3[i]= -(((BOUNDARY_MARGIN3)-i)*BOUNDARY_DELTA3) ; // add data on the boundary to improve edge fitting
+    uint32_t previous_poly_range = segments[segmentIndex].timeDeltas[polyIndex-1];
+    y3[i]= evaluatePolynomial(segments[segmentIndex].coefficients[polyIndex-1],6,(float)previous_poly_range+x3[i]); // data from previous poly
+    }
+
+ //   x3[i]= -(((BOUNDARY_MARGIN3/2)-i)*BOUNDARY_DELTA3) ; // add data on the boundary to improve edge fitting
+ //   y3[i]= rawData[0]; // duplicate data
+
     }
     for (uint16_t j = 0; j < dataSize; j++) {
-        x3[j+(BOUNDARY_MARGIN3/2)] = timestamp_absolute;
-        y3[j+(BOUNDARY_MARGIN3/2)] = rawData[j]; // correct to 0
+//        x3[j+(BOUNDARY_MARGIN3/2)] = timestamp_absolute;
+        x3[j+(BOUNDARY_MARGIN3)] = timestamp_absolute;
+//        y3[j+(BOUNDARY_MARGIN3/2)] = rawData[j]; // correct to 0
+        y3[j+(BOUNDARY_MARGIN3)] = rawData[j]; // correct to 0
         timestamp_absolute += timestamps[j];
     }
-   for (uint8_t i = 0 ; i<BOUNDARY_MARGIN3/2; i++){
-    x3[dataSize+(BOUNDARY_MARGIN3/2)+i]= timestamp_absolute+(((BOUNDARY_MARGIN3/2)*i)*BOUNDARY_DELTA3) ; // add data on the boundary to improve edge fitting
-    y3[dataSize+(BOUNDARY_MARGIN3/2)+i]= rawData[dataSize-1]; // duplicate data
-    }
- 
+
+// adding data forward is problematic.
+
+ //  for (uint8_t i = 0 ; i<BOUNDARY_MARGIN3/2; i++){
+ //   x3[dataSize+(BOUNDARY_MARGIN3/2)+i]= timestamp_absolute+(((BOUNDARY_MARGIN3/2)*i)*BOUNDARY_DELTA3) ; // add data on the boundary to improve edge fitting
+ //   y3[dataSize+(BOUNDARY_MARGIN3/2)+i]= rawData[dataSize-1]; // duplicate data
+ //   }
 
 //    x[dataSize+1]=timestamp_absolute+10; // add data on the boundary to improve edge fitting
 //    y[dataSize+1]=rawData[dataSize-1]; // duplicate data
@@ -134,21 +163,28 @@ void compressDataToSegment(const float *rawData, const uint32_t *timestamps, uin
     }
 
     #define BOUNDARY_MARGIN 16 // duplicate data across margin for better fit, multiple of 2
-    #define BOUNDARY_DELTA 50 // time window of margin.
+    #define BOUNDARY_DELTA 100 // time window of margin.
     std::vector<float> x(dataSize+BOUNDARY_MARGIN); // +2 front and back datapoints
     std::vector<float> y(dataSize+BOUNDARY_MARGIN);
 
-    
     timestamp_absolute = 0;
     // Accumulate timestamps and collect data points
     for (uint8_t i = 0 ; i<BOUNDARY_MARGIN/2; i++){
     if(currentPolyIndex == 0){
-    x[i]= -(((BOUNDARY_MARGIN/2)-i)*BOUNDARY_DELTA) ; // add data on the boundary to improve edge fitting
-    y[i]= evaluatePolynomial(coefficients,4,x[i]); // data from fitted 3rd order poly
+      if (segmentIndex>0){
+        x[i]= -(((BOUNDARY_MARGIN/2)-i)*BOUNDARY_DELTA) ; // add data on the boundary to improve edge fitting
+        uint32_t previous_poly_range = segments[segmentIndex-1].timeDeltas[POLY_COUNT-1];
+        y[i]= evaluatePolynomial(segments[segmentIndex-1].coefficients[POLY_COUNT-1],6,(float)previous_poly_range+x[i]); // data from previous poly    
+      } else {
+        x[i]= -(((BOUNDARY_MARGIN/2)-i)*BOUNDARY_DELTA) ; // add data on the boundary to improve edge fitting
+        y[i]= evaluatePolynomial(coefficients,4,x[i]); // data from fitted 3rd order poly
+      }
     }else{
     x[i]= -(((BOUNDARY_MARGIN/2)-i)*BOUNDARY_DELTA) ; // add data on the boundary to improve edge fitting
-    y[i]= evaluatePolynomial(coefficients,4,x[i]); // data from fitted 3rd order poly TODO: include data from previous poly
+    uint32_t previous_poly_range = segments[segmentIndex].timeDeltas[polyIndex-1];
+    y[i]= evaluatePolynomial(segments[segmentIndex].coefficients[polyIndex-1],6,(float)previous_poly_range+x[i]); // data from previous poly
     }
+    
     }
     for (uint16_t j = 0; j < dataSize; j++) {
         x[j+(BOUNDARY_MARGIN/2)] = timestamp_absolute;
@@ -414,7 +450,7 @@ void logSampledData(float data, uint32_t currentTimestamp) {
         // Fit polynomial to current data chunk
         float new_coefficients[6];
         uint32_t new_timeDelta;
-        compressDataToSegment(rawData, timestamps, dataIndex, new_coefficients, new_timeDelta);
+        compressDataToSegment(segmentBuffer,segmentCount,currentPolyIndex,rawData, timestamps, dataIndex, new_coefficients, new_timeDelta);
 
 //        compressDataToSegment(rawData, timestamps, LOG_BUFFER_POINTS_PER_POLY-2, new_coefficients, new_timeDelta);
 
@@ -1014,7 +1050,7 @@ int16_t    polyIndex = polyindex;
 
 void loop() {
     // Simulate sampling at random intervals
-    delay(random(100, 500)); // Random delay between 50 ms to 500 ms
+    delay(random(1, 200)); // Random delay between 50 ms to 500 ms
     uint32_t currentTimestamp = millis();
 
     // Sample scalar data
