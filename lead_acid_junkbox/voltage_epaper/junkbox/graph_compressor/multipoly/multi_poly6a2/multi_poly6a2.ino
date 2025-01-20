@@ -115,7 +115,7 @@ void compressDataToSegment(const float *rawData, const uint32_t *timestamps, uin
     }
    for (uint8_t i = 0 ; i<BOUNDARY_MARGIN3/2; i++){
     x3[dataSize+(BOUNDARY_MARGIN3/2)+i]= timestamp_absolute+(((BOUNDARY_MARGIN3/2)*i)*BOUNDARY_DELTA3) ; // add data on the boundary to improve edge fitting
-    y3[dataSize+(BOUNDARY_MARGIN3/2)+i]= rawData[dataSize]; // duplicate data
+    y3[dataSize+(BOUNDARY_MARGIN3/2)+i]= rawData[dataSize-1]; // duplicate data
     }
  
 
@@ -134,7 +134,7 @@ void compressDataToSegment(const float *rawData, const uint32_t *timestamps, uin
     }
 
     #define BOUNDARY_MARGIN 16 // duplicate data across margin for better fit, multiple of 2
-    #define BOUNDARY_DELTA 5 // time window of margin.
+    #define BOUNDARY_DELTA 50 // time window of margin.
     std::vector<float> x(dataSize+BOUNDARY_MARGIN); // +2 front and back datapoints
     std::vector<float> y(dataSize+BOUNDARY_MARGIN);
 
@@ -142,8 +142,13 @@ void compressDataToSegment(const float *rawData, const uint32_t *timestamps, uin
     timestamp_absolute = 0;
     // Accumulate timestamps and collect data points
     for (uint8_t i = 0 ; i<BOUNDARY_MARGIN/2; i++){
+    if(currentPolyIndex == 0){
     x[i]= -(((BOUNDARY_MARGIN/2)-i)*BOUNDARY_DELTA) ; // add data on the boundary to improve edge fitting
     y[i]= evaluatePolynomial(coefficients,4,x[i]); // data from fitted 3rd order poly
+    }else{
+    x[i]= -(((BOUNDARY_MARGIN/2)-i)*BOUNDARY_DELTA) ; // add data on the boundary to improve edge fitting
+    y[i]= evaluatePolynomial(coefficients,4,x[i]); // data from fitted 3rd order poly TODO: include data from previous poly
+    }
     }
     for (uint16_t j = 0; j < dataSize; j++) {
         x[j+(BOUNDARY_MARGIN/2)] = timestamp_absolute;
@@ -378,6 +383,12 @@ void logSampledData(float data, uint32_t currentTimestamp) {
                 // Initialize timeDeltas for new segment
                 for (uint16_t i = 0; i < POLY_COUNT; i++) {
                     segmentBuffer[segmentCount-1].timeDeltas[i] = 0;
+                    segmentBuffer[segmentCount-1].coefficients[i][0] = 0;
+                    segmentBuffer[segmentCount-1].coefficients[i][1] = 0;
+                    segmentBuffer[segmentCount-1].coefficients[i][2] = 0;
+                    segmentBuffer[segmentCount-1].coefficients[i][3] = 0;
+                    segmentBuffer[segmentCount-1].coefficients[i][4] = 0;
+                    segmentBuffer[segmentCount-1].coefficients[i][5] = 0;
                 }
                 currentPolyIndex = 0;
                 Serial.print("Created new segment ");
@@ -388,6 +399,12 @@ void logSampledData(float data, uint32_t currentTimestamp) {
                 // initalize time deltas for freshly cleared segment
                 for (uint16_t i = 0; i < POLY_COUNT; i++) {
                     segmentBuffer[segmentCount-1].timeDeltas[i] = 0;
+                    segmentBuffer[segmentCount-1].coefficients[i][0] = 0;
+                    segmentBuffer[segmentCount-1].coefficients[i][1] = 0;
+                    segmentBuffer[segmentCount-1].coefficients[i][2] = 0;
+                    segmentBuffer[segmentCount-1].coefficients[i][3] = 0;
+                    segmentBuffer[segmentCount-1].coefficients[i][4] = 0;
+                    segmentBuffer[segmentCount-1].coefficients[i][5] = 0;
                 }
                 currentPolyIndex = 0;
  
@@ -397,7 +414,7 @@ void logSampledData(float data, uint32_t currentTimestamp) {
         // Fit polynomial to current data chunk
         float new_coefficients[6];
         uint32_t new_timeDelta;
-        compressDataToSegment(rawData, timestamps, dataIndex-1, new_coefficients, new_timeDelta);
+        compressDataToSegment(rawData, timestamps, dataIndex, new_coefficients, new_timeDelta);
 
 //        compressDataToSegment(rawData, timestamps, LOG_BUFFER_POINTS_PER_POLY-2, new_coefficients, new_timeDelta);
 
@@ -906,8 +923,8 @@ void updateCompressedGraphBackwardsFastOpt(const PolynomialSegment *segments, ui
 
 
     // Min/Max values for Y-axis scaling
-//    float minValue = INFINITY, maxValue = -INFINITY;
-
+    float new_minValue = INFINITY, new_maxValue = -INFINITY;
+    
     // Plotting the compressed graph
     uint32_t xMin = windowStart, xMax = windowEnd - raw_log_delta;
 //    uint32_t lastDataX = xMax;
@@ -933,9 +950,10 @@ int16_t    polyIndex = polyindex;
     int16_t lastY = -1 ;
     for (int x = Swidth; x >= 0; --x) {
         float dataX = mapFloat(x, +0.0, Swidth, xMin, xMax);  
-        const PolynomialSegment &segment = segments[segmentIndex];
-        float tDelta = segment.timeDeltas[polyIndex]-(lastDataX - dataX);   
+       // const PolynomialSegment &segment = segments[segmentIndex];
+        float tDelta = segments[segmentIndex].timeDeltas[polyIndex]-(lastDataX - dataX);   
         if(clear_under){tft.drawFastVLine(x, 0, SCREEN_HEIGHT, TFT_BLACK);}
+        
         while (segmentIndex >= 0 && ((lastDataX - dataX) >= segments[segmentIndex].timeDeltas[polyIndex])) {
             tft.drawFastVLine(x, 0, SCREEN_HEIGHT, 0x0821 );
             lastDataX -= segments[segmentIndex].timeDeltas[polyIndex];
@@ -944,13 +962,15 @@ int16_t    polyIndex = polyindex;
                 if (--segmentIndex < 0) break;
                tft.drawFastVLine(x, 0, SCREEN_HEIGHT, TFT_RED);
             }
+
+            
     //    Serial.println("boundary");
     //    Serial.print(x);Serial.print(":");Serial.print(tDelta);Serial.print("mapped:");Serial.print(lastDataX-dataX);Serial.print("dSeg:");Serial.println(segment.timeDeltas[polyIndex]);
-        tDelta = segment.timeDeltas[polyIndex]-(lastDataX - dataX);   // recompute if changed polynomial or segment
+        tDelta = segments[segmentIndex].timeDeltas[polyIndex]-(lastDataX - dataX);   // recompute if changed polynomial or segment
     //    Serial.print(x);Serial.print(":");Serial.print(tDelta);Serial.print("mapped:");Serial.print(lastDataX-dataX);Serial.print("dSeg:");Serial.println(segment.timeDeltas[polyIndex]);
  
         }
-//        const PolynomialSegment &segment = segments[segmentIndex];
+         // segments[segmentIndex];
 //        tDelta = segment.timeDeltas[polyIndex]-(lastDataX - dataX);   
         
         // Compute the fitted Y value
@@ -967,12 +987,12 @@ int16_t    polyIndex = polyindex;
 
     float tPower = 1.0;  // t^0 = 1  
     for (uint8_t i = 0; i < 6; i++) {
-        yFitted += segment.coefficients[polyIndex][i] * tPower;
+        yFitted += segments[segmentIndex].coefficients[polyIndex][i] * tPower;
         tPower *= tDelta;  // More efficient than pow()
     }
-                // update the min-max values
-        //        minValue = min(minValue, yFitted);
-        //        maxValue = max(maxValue, yFitted);
+                // update the new min-max values
+                new_minValue = min(new_minValue, yFitted);
+                new_maxValue = max(new_maxValue, yFitted);
 
         uint16_t y =0;
         if (!isnan(yFitted)) {
@@ -987,6 +1007,8 @@ int16_t    polyIndex = polyindex;
         }
         lastY = y;
     }
+    minValue=new_minValue;
+    maxValue=new_maxValue;
 }
 //==================================================================
 
@@ -1007,7 +1029,7 @@ void loop() {
      // tft.fillScreen(TFT_BLACK);
      uint32_t windowStart = raw_timestamps[0];
      uint32_t windowEnd = raw_timestamps[raw_dataIndex -1] ;
-     updateMinMax(segmentBuffer, segmentCount,currentPolyIndex,windowStart,windowEnd,false,true);
+    // updateMinMax(segmentBuffer, segmentCount,currentPolyIndex,windowStart,windowEnd,false,true);
      // Update the raw data graph
      drawRawGraph();
      
