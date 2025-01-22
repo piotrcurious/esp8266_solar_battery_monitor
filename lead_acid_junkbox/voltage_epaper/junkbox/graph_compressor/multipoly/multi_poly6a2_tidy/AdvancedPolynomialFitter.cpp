@@ -82,6 +82,64 @@
         } // switch(method) {
         return result;
     }
+//----------- double precission timestamps
+    // Fit a polynomial to the data using the normal equation
+    std::vector<float> AdvancedPolynomialFitter::fitPolynomialD(const std::vector<double>& x, const std::vector<float>& y, int degree,
+    OptimizationMethod method ) {
+        if (x.size() != y.size() || x.empty() || degree < 1) {
+            return {};  // Invalid input
+        }
+        Serial.println(x[0]); Serial.println(x[x.size()-1]);
+
+        size_t n = x.size();size_t m = degree + 1;
+
+        // Construct the Vandermonde matrix
+        std::vector<std::vector<double>> A(n, std::vector<double>(m, 0.0));
+        for (size_t i = 0; i < n; ++i) {
+            double xi = 1.0;
+            for (size_t j = 0; j < m; ++j) {
+                A[i][j] = xi;
+                xi *= x[i];
+            }
+        }
+
+        // Construct the normal equation: (A^T * A) * coeffs = A^T * y
+        std::vector<std::vector<double>> ATA(m, std::vector<double>(m, 0.0));
+        std::vector<double> ATy(m, 0.0);
+
+        for (size_t i = 0; i < n; ++i) {
+            for (size_t j = 0; j < m; ++j) {
+                ATy[j] += A[i][j] * y[i];
+                for (size_t k = 0; k < m; ++k) {
+                    ATA[j][k] += A[i][j] * A[i][k];
+                }
+            }
+        }
+
+        // Solve the normal equation using Gaussian elimination
+        std::vector<double> coeffs = solveLinearSystem(ATA, ATy);
+
+        // Convert coefficients to float
+        std::vector<float> result(coeffs.begin(), coeffs.end());
+
+        switch (method) {
+        case GRADIENT_DESCENT:
+            // Implement gradient descent here if needed
+            break;
+        case LEVENBERG_MARQUARDT:
+//            result = levenbergMarquardt(result, x, y, degree);  // TODO : double timestamp precission optimization method
+            break;
+        case NELDER_MEAD:
+            // Implement Nelder-Mead here if needed
+            break;
+        default: // no optimization
+            //result = levenbergMarquardt(x_norm, y, degree);
+            break;
+        } // switch(method) {
+        return result;
+    }
+
+
 
 
 //------------------------fitter method with built in normalization from 0 to maxX
