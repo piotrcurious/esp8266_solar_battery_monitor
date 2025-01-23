@@ -32,14 +32,14 @@ static float minValue = INFINITY, maxValue = -INFINITY;
 #define SEGMENTS 2    // Total number of segments
 //const uint8_t POLYS_TO_COMBINE = 2;  // Number of polynomials to combine into one when recompression is triggered
 
-#define POLY_DEGREE 9 // poly degree used for storage
-#define SUB_FIT_POLY_DEGREE 4 //  supplementary fitter to extend boundary transitions .  
+#define POLY_DEGREE 4 // poly degree used for storage
+#define SUB_FIT_POLY_DEGREE 3 //  supplementary fitter to extend boundary transitions .  
                     // the simpler the poly the better prediction , but the more complex data in the window the more chances it will cause misfit. 
                     // choose this up to your data. 
     #define BOUNDARY_MARGIN3 8 // duplicate data across margin for better fit, multiple of 2
     #define BOUNDARY_DELTA3 10 // time window of margin.                  
     #define BOUNDARY_MARGIN 8 // duplicate data across margin for better fit, multiple of 2
-    #define BOUNDARY_DELTA 10 // time window of margin.
+    #define BOUNDARY_DELTA 100 // time window of margin.
 
 // Storage structure
 struct PolynomialSegment {
@@ -288,6 +288,11 @@ static void combinePolynomials(const PolynomialSegment &oldest, const Polynomial
             timestamps.push_back(normalizeTime(tStart + t, combinedTimeDelta));
             values.push_back(evaluatePolynomialNormalized(oldest.coefficients[i], POLY_DEGREE+1, tNorm1));
         }
+            double t = oldest.timeDeltas[i]; // make sure last datapoint is stored
+            double tNorm1 = normalizeTime(t, oldest.timeDeltas[i]);
+            // But normalize the timestamp for the new combined polynomial
+            timestamps.push_back(normalizeTime(tStart + t, combinedTimeDelta));
+            values.push_back(evaluatePolynomialNormalized(oldest.coefficients[i], POLY_DEGREE+1, tNorm1));
 
         // Sample points from second polynomial
         tStart += oldest.timeDeltas[i];
@@ -296,6 +301,11 @@ static void combinePolynomials(const PolynomialSegment &oldest, const Polynomial
             timestamps.push_back(normalizeTime(tStart + t, combinedTimeDelta));
             values.push_back(evaluatePolynomialNormalized(oldest.coefficients[i+1], POLY_DEGREE+1, tNorm2));
         }
+            t = oldest.timeDeltas[i+1]; // make sure last datapoint is stored
+            double tNorm2 = normalizeTime(t, oldest.timeDeltas[i+1]);
+            // But normalize the timestamp for the new combined polynomial
+            timestamps.push_back(normalizeTime(tStart + t, combinedTimeDelta));
+            values.push_back(evaluatePolynomialNormalized(oldest.coefficients[i+1], POLY_DEGREE+1, tNorm2));
 
         // Fit new polynomial in normalized space
         std::vector<float> newCoefficients = fitter.fitPolynomialD(timestamps, values, POLY_DEGREE, AdvancedPolynomialFitter::NONE);
@@ -324,6 +334,12 @@ static void combinePolynomials(const PolynomialSegment &oldest, const Polynomial
             timestamps.push_back(normalizeTime(tStart + t, combinedTimeDelta));
             values.push_back(evaluatePolynomialNormalized(secondOldest.coefficients[i], POLY_DEGREE+1, tNorm1));
         }
+            double t = secondOldest.timeDeltas[i]; // make sure last datapoint is stored
+            double tNorm1 = normalizeTime(t, secondOldest.timeDeltas[i]);
+            // But normalize the timestamp for the new combined polynomial
+            timestamps.push_back(normalizeTime(tStart + t, combinedTimeDelta));
+            values.push_back(evaluatePolynomialNormalized(secondOldest.coefficients[i], POLY_DEGREE+1, tNorm1));
+
 
         tStart += secondOldest.timeDeltas[i];
         for (double t = 0; t <= secondOldest.timeDeltas[i+1]; t += RECOMPRESS_RESOLUTION) {
@@ -331,6 +347,12 @@ static void combinePolynomials(const PolynomialSegment &oldest, const Polynomial
             timestamps.push_back(normalizeTime(tStart + t, combinedTimeDelta));
             values.push_back(evaluatePolynomialNormalized(secondOldest.coefficients[i+1], POLY_DEGREE+1, tNorm2));
         }
+
+            t = secondOldest.timeDeltas[i+1]; // make sure last datapoint is stored
+            double tNorm2 = normalizeTime(t, secondOldest.timeDeltas[i+1]);
+            // But normalize the timestamp for the new combined polynomial
+            timestamps.push_back(normalizeTime(tStart + t, combinedTimeDelta));
+            values.push_back(evaluatePolynomialNormalized(secondOldest.coefficients[i+1], POLY_DEGREE+1, tNorm2));
 
         std::vector<float> newCoefficients = fitter.fitPolynomialD(timestamps, values, POLY_DEGREE, AdvancedPolynomialFitter::NONE);
 
@@ -761,7 +783,7 @@ void updateCompressedGraphBackwardsFastOpt(const PolynomialSegment *segments, ui
 
 void loop() {
     // Simulate sampling at random intervals
-    delay(random(200, 2000)); // Random delay between 50 ms to 500 ms
+    delay(random(20, 200)); // Random delay between 50 ms to 500 ms
     uint32_t currentTimestamp = millis();
 
     // Sample scalar data
