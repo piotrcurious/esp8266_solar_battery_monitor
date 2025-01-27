@@ -76,7 +76,7 @@ void performMpptAdjustment() {
   prevPanelVoltage = panelVoltage;
 
   panelVoltage = readVoltage(PANEL_VOLTAGE_PIN, PANEL_VOLTAGE_RATIO);
-  power = panelVoltage * panelCurrent;
+  power = panelVoltage * panelCurrent * ((float)pwmConv1/PWM_MAX) +panelVoltage*panelCurrent*((float)pwmConv2/PWM_MAX);
 
   Serial.print("Panel Voltage: "); Serial.print(panelVoltage);
   Serial.print(" V, Target: "); Serial.print(targetVoltage);
@@ -85,8 +85,8 @@ void performMpptAdjustment() {
   if (panelVoltage < targetVoltage) {
     // Increase PWM if below target voltage
     if (power > prevPower) {
-//      pwmConv1 = adjustPWM(pwmConv1, PWM_STEP);
-      pwmConv1 = adjustPWM(pwmConv1, -PWM_STEP);
+      pwmConv1 = adjustPWM(pwmConv1, PWM_STEP);
+//      pwmConv1 = adjustPWM(pwmConv1, -PWM_STEP);
     } else {
       pwmConv1 = adjustPWM(pwmConv1, -PWM_STEP);
     }
@@ -97,8 +97,8 @@ void performMpptAdjustment() {
   } else {
     // Decrease PWM if voltage exceeds target
     if (power < prevPower) {
-//      pwmConv1 = adjustPWM(pwmConv1, -PWM_STEP);
-      pwmConv1 = adjustPWM(pwmConv1, PWM_STEP);
+      pwmConv1 = adjustPWM(pwmConv1, -PWM_STEP/2);
+//      pwmConv1 = adjustPWM(pwmConv1, PWM_STEP);
 
     } else {
       pwmConv1 = adjustPWM(pwmConv1, PWM_STEP);
@@ -118,15 +118,21 @@ void performMpptAdjustment() {
 
   // Adjust MPPT interval dynamically based on voltage fluctuations
   float voltageChange = fabs(panelVoltage - prevPanelVoltage);
+  float error = fabs(panelVoltage - targetVoltage);
+ if (error > 2) {
+    PWM_STEP = min(8,PWM_STEP*error);  
+ }  else {
+    PWM_STEP = max(1,PWM_STEP/2);  
+ }
+  
   if (voltageChange > 0.5) {
     mpptInterval = max(10, mpptInterval / 2);  // Faster adjustment
 //    PWM_STEP = max(1,PWM_STEP/2);
-    PWM_STEP = min(64,PWM_STEP*2);
 
   } else {
     mpptInterval = min(100, mpptInterval * 2);  // Slower adjustment
 //    PWM_STEP = min(64,PWM_STEP*2);
-    PWM_STEP = max(1,PWM_STEP/2);
+    PWM_STEP = max(1,PWM_STEP/2);  
 
   }
 }
