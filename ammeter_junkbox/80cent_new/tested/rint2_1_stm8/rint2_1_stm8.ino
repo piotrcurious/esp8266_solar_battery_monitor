@@ -7,8 +7,8 @@
 
 // Pin definitions (adjust according to your STM8 board)
 #define PWM_PIN             GPIOC, 2  // TIM2 CH3
-#define LOAD_PIN           A0     // AIN2
-#define SOURCE_PIN         A1     // AIN3
+#define LOAD_PIN           5     // AIN2
+#define SOURCE_PIN         4     // AIN3
 
 // Voltage ranges
 #define LOAD_VOLTAGE_RANGE    30.0f
@@ -130,7 +130,7 @@ void TIM1_setup(uint16_t period) {
     TIM1_Cmd(ENABLE);
     
 //    pwm_period = TIM2_GetPeriod();
-    pwm_period = period; 
+    pwm_period = period-1; 
 }
 
 void ADC_setup(void) {
@@ -166,7 +166,7 @@ void update_measurements(void) {
 void calculate_resistances(void) {
     load_resistance = (load_voltage / ((source_voltage - load_voltage)/(1-load) + 0.001f));
     source_to_load_resistance = (source_voltage - load_voltage) / ((1-load) + 0.001f);
-    internal_resistance_load = (load_voltage - open_circuit_load_voltage) / ((1-load) + 0.001f);
+    internal_resistance_load = (load_voltage - open_circuit_load_voltage) / ((1-load) + 0.00001f);
     load_resistance = (load_voltage / ((1-load) + 0.001f)) - internal_resistance_load;
 }
 
@@ -178,7 +178,7 @@ void calculate_currents_and_power(void) {
 
 void update_internal_resistance(void) {
     float new_resistance = (open_circuit_voltage - source_voltage) /
-        (source_voltage / ((source_to_load_resistance + load_resistance + internal_resistance_load) + 0.001f));
+        (source_voltage / ((source_to_load_resistance + load_resistance + internal_resistance_load) + 0.00001f));
     internal_resistance_src = internal_resistance_src * 0.9f + 0.1f * new_resistance;
 }
 
@@ -238,7 +238,6 @@ void print_debug_info(void) {
         Serial_println();
 
 }
-
 
 void setup() {
     system_init();
