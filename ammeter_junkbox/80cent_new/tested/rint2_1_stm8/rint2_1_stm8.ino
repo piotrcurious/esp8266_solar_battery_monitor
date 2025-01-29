@@ -130,7 +130,7 @@ void TIM1_setup(uint16_t period) {
     TIM1_Cmd(ENABLE);
     
 //    pwm_period = TIM2_GetPeriod();
-    pwm_period = period-1; 
+    pwm_period = period; 
 }
 
 void ADC_setup(void) {
@@ -186,9 +186,9 @@ void adjust_load(void) {
     corrected_voltage = open_circuit_voltage - input_current * internal_resistance_src;
     error = (error + (VOLTAGE_FACTOR * open_circuit_voltage - corrected_voltage)) / 2;
     load = constrain(load - LEARNING_RATE_LOAD * error, 0, 1);
-    //load = 0.5; //debug
+    //load = 0.11; //debug
     pwm_value = (uint16_t)(pwm_period * load);
-    TIM1_SetCompare1(pwm_value);
+    TIM1_SetCompare1(pwm_period-pwm_value);
 }
 
 void calibrate(void) {
