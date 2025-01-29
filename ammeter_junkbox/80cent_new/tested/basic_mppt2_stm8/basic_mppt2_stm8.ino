@@ -1,15 +1,15 @@
 // Pin definitions
-#define PANEL_VOLTAGE_PIN A0
-#define CONV1_VOLTAGE_PIN A1
-#define CONV2_VOLTAGE_PIN A2
+#define PANEL_VOLTAGE_PIN 5
+#define CONV1_VOLTAGE_PIN 4
+#define CONV2_VOLTAGE_PIN 3
 
-#define CONV1_PWM_PIN 9   // Higher priority converter
-#define CONV2_PWM_PIN 10  // Lower priority converter
+#define CONV1_PWM_PIN 23   // Higher priority converter
+#define CONV2_PWM_PIN 24  // Lower priority converter
 
 // Voltage measurement scaling factors
-const float VREF = 5.0;   // Arduino ADC reference voltage
+const float VREF = 30;   // Arduino ADC reference voltage
 const int ADC_RES = 1023; // 10-bit ADC resolution
-const float PANEL_VOLTAGE_RATIO = 6.0; // Voltage divider ratio
+//const float PANEL_VOLTAGE_RATIO = 6.0; // Voltage divider ratio
 
 // PWM limits
 const int PWM_MIN = 0;
@@ -35,9 +35,9 @@ unsigned long lastMpptCheck = 0;
 unsigned long lastVocCheck = 0;
 
 // Function to read and scale voltage
-float readVoltage(int pin, float ratio) {
+float readVoltage(int pin) {
   int raw = analogRead(pin);
-  return (raw * VREF / ADC_RES) * ratio;
+  return (raw * VREF / ADC_RES);
 }
 
 // Function to adjust PWM with limits
@@ -54,13 +54,14 @@ double fabs(double x)
   u.i &= -1ULL/2;
   return u.f;
 }
+
 // Measure open-circuit voltage by disabling loads temporarily
 void measureOpenCircuitVoltage() {
   analogWrite(CONV1_PWM_PIN, PWM_MIN);
   analogWrite(CONV2_PWM_PIN, PWM_MIN);
   delay(1000);  // Allow stabilization
 
-  openCircuitVoltage = readVoltage(PANEL_VOLTAGE_PIN, PANEL_VOLTAGE_RATIO);
+  openCircuitVoltage = readVoltage(PANEL_VOLTAGE_PIN);
   targetVoltage = openCircuitVoltage * 0.80;
 
   Serial_print_s("Measured Voc: ");
@@ -82,7 +83,7 @@ void performMpptAdjustment() {
   prevPower = power;
   prevPanelVoltage = panelVoltage;
 
-  panelVoltage = readVoltage(PANEL_VOLTAGE_PIN, PANEL_VOLTAGE_RATIO);
+  panelVoltage = readVoltage(PANEL_VOLTAGE_PIN);
   power = panelVoltage * panelCurrent * ((float)pwmConv1/PWM_MAX) +panelVoltage*panelCurrent*((float)pwmConv2/PWM_MAX);
 
   Serial_print_s("Vin:"); Serial_print_f(panelVoltage);
@@ -148,12 +149,10 @@ void setup() {
   pinMode(CONV1_PWM_PIN, OUTPUT);
   pinMode(CONV2_PWM_PIN, OUTPUT);
   Serial_begin(115200);
-
   measureOpenCircuitVoltage();
 }
 void loop() {
   unsigned long currentMillis = millis();
-
   // Periodically measure open-circuit voltage
   if (currentMillis - lastVocCheck >= vocInterval) {
     measureOpenCircuitVoltage();
@@ -165,4 +164,5 @@ void loop() {
     performMpptAdjustment();
     lastMpptCheck = currentMillis;
   }
+ 
 }
