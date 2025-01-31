@@ -98,8 +98,8 @@ const float CURRENT_OUT_SCALE = 3.3/4096;
 #define BUFFER_SIZE GRAPH_WIDTH
 
 // Time bases in milliseconds
-#define MAX_TIMEBASES 5
-const unsigned long TIME_BASES[MAX_TIMEBASES] = {20, 100, 1000, 5000, 10000};  //0.1s,  1s, 5s, 10s per pixel
+#define MAX_TIMEBASES 8
+const unsigned long TIME_BASES[MAX_TIMEBASES] = {20, 100, 1000, 5000, 10000, 60000, 120000, 540000};  //20ms , 0.1s,  1s, 5s, 10s, 1min(2.5h per screen), 2min(5h per screen),9min(24h per screen) per pixel
 int currentTimeBase = 0;
 
 // Graph modes
