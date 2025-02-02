@@ -5,9 +5,10 @@
 // Display setup
 //TFT_eSPI tft = TFT_eSPI();
 
-#define SCREEN_UPDATE_INTERVAL 100  // screen update interval, in ms. 
-                    // it is possible to synchronize it with display refresh clock by using FRNCTL registers - TODO. 
-                     
+//uint32_t SCREEN_UPDATE_INTERVAL = 100 ;  // screen update interval, in ms. 
+//                    // it is possible to synchronize it with display refresh clock by using FRNCTL registers - TODO. 
+
+#define SAMPLE_UPDATE_INTERVAL 10 // interval for sampling and filtering                     
 
 #include <Adafruit_GFX.h>    // Core graphics library
 #include <Adafruit_ST7735.h> // Hardware-specific library for ST7735
@@ -71,7 +72,9 @@ namespace RemoteKeys {
     KEY_SETTINGS    = 0x1A,
     KEY_INFO        = 0x1F,
     KEY_SUBTITLES   = 0x25,
-    KEY_NETFLIX   = 0xF3
+    KEY_MUTE        = 0x0F,
+    KEY_NETFLIX     = 0xF3,
+    KEY_PRIME_VIDEO = 0xF4
 
   };
 }
@@ -82,12 +85,23 @@ namespace RemoteKeys {
 #define CURRENT_IN_PIN 2
 #define CURRENT_OUT_PIN 3
 
+// global sensor readings and offsets
+const float VOLTAGE_IN_SCALE  = 12;
+const float VOLTAGE_OUT_SCALE = 12;
+const float CURRENT_IN_SCALE  = 17.8;
+float currentIn_zero = 1655;
+const float CURRENT_OUT_SCALE = 17.8;
+float currentOut_zero = 1655;
 
-const float VOLTAGE_IN_SCALE  = 3.0/4096;
-const float VOLTAGE_OUT_SCALE = 3.0/4096;
-const float CURRENT_IN_SCALE  = 3.3/4096;
-const float CURRENT_OUT_SCALE = 3.3/4096;
+float voltageIn   = 0;
+float voltageOut  = 0;
+float currentIn   = 0;
+float currentOut  = 0;
+float powerIn     = 0; 
+float powerOut    = 0;
 
+uint32_t lastMeasurementTime = 0;  // for calculating log deltas
+ 
 // Graph parameters
 #define GRAPH_WIDTH 160
 #define GRAPH_HEIGHT 72
@@ -99,8 +113,12 @@ const float CURRENT_OUT_SCALE = 3.3/4096;
 
 // Time bases in milliseconds
 #define MAX_TIMEBASES 8
+#define MAX_SCREEN_UPDATE_INTERVAL 4
+
 const unsigned long TIME_BASES[MAX_TIMEBASES] = {20, 100, 1000, 5000, 10000, 60000, 120000, 540000};  //20ms , 0.1s,  1s, 5s, 10s, 1min(2.5h per screen), 2min(5h per screen),9min(24h per screen) per pixel
+const unsigned long SCREEN_UPDATE_INTERVAL[MAX_SCREEN_UPDATE_INTERVAL] = {100, 200, 500, 1000};  // to reduce flicker, controlled by prime video button
 int currentTimeBase = 0;
+int currentScreenUpdateInterval = 0;
 
 // Graph modes
 enum GraphMode {
@@ -131,16 +149,16 @@ float currentInBufferMax = 0;
 float currentOutBuffer[BUFFER_SIZE];
 float currentOutBufferMin = 0;
 float currentOutBufferMax = 0;
-float powerInBuffer[BUFFER_SIZE];
-float powerInBufferMin = 0;
-float powerInBufferMax = 0;
-float powerOutBuffer[BUFFER_SIZE];
-float powerOutBufferMin = 0;
-float powerOutBufferMax = 0;
+//float powerInBuffer[BUFFER_SIZE];
+//float powerInBufferMin = 0;
+//float powerInBufferMax = 0;
+//float powerOutBuffer[BUFFER_SIZE];
+//float powerOutBufferMin = 0;
+//float powerOutBufferMax = 0;
 float energyBuffer[BUFFER_SIZE];
 float energyBufferMin = 0;
 float energyBufferMax = 0;
-uint32_t log_timestamp[BUFFER_SIZE];
+uint32_t timestampsBuffer[BUFFER_SIZE];
 
 int bufferIndex = 0;
 
@@ -150,6 +168,7 @@ int bufferIndex = 0;
 
 unsigned long lastUpdateTime = 0;
 unsigned long lastScreenUpdateTime = 0;
+unsigned long lastSampleTime = 0;
 
 double accumulatedEnergy = 0;
 double lastAccumulatedEnergy = 0;
@@ -183,8 +202,8 @@ void setup() {
         voltageOutBuffer[i] = 0;
         currentInBuffer[i] = 0;
         currentOutBuffer[i] = 0;
-        powerInBuffer[i] = 0;
         energyBuffer[i] = 0;
+        timestampsBuffer[i] = 0;
     }
 }
 
@@ -194,20 +213,23 @@ void loop() {
         handleIRCommand();
         IrReceiver.resume();
     }
-    
-    // Update measurements based on time base
     unsigned long currentTime = millis();
-    if (currentTime - lastUpdateTime >= TIME_BASES[currentTimeBase]) {
-        updateMeasurements();
-//        updateGraph();
-        lastUpdateTime = currentTime;
-    }
-    
-    if (currentTime - lastScreenUpdateTime >= SCREEN_UPDATE_INTERVAL) {
-        updateGraph();
-        lastScreenUpdateTime = currentTime;
+    if (currentTime - lastSampleTime >= SAMPLE_UPDATE_INTERVAL) {
+        lastSampleTime = currentTime;
+        updateSamples(); // read, filter and store momentary measurements TODO: should go on separate core
     }
 
+    // Update measurements based on time base
+    if (currentTime - lastUpdateTime >= TIME_BASES[currentTimeBase]) {
+        lastUpdateTime = currentTime;
+        updateMeasurements();
+//        updateGraph();
+    }
+    
+    if (currentTime - lastScreenUpdateTime >= SCREEN_UPDATE_INTERVAL[currentScreenUpdateInterval]) {
+        lastScreenUpdateTime = currentTime;
+        updateGraph();
+    }
     
 }
 
@@ -247,7 +269,18 @@ void handleIRCommand() {
         case RemoteKeys::KEY_2:          currentMode = COMBINED; break;
         // Time base selection
           
-        case RemoteKeys::KEY_NETFLIX: currentTimeBase = (currentTimeBase +1) % MAX_TIMEBASES; break;
+        case RemoteKeys::KEY_NETFLIX:    currentTimeBase = (currentTimeBase +1) % MAX_TIMEBASES; break;
+        case RemoteKeys::KEY_PRIME_VIDEO:currentScreenUpdateInterval = (currentScreenUpdateInterval +1) % MAX_SCREEN_UPDATE_INTERVAL; break;
+ 
+        case RemoteKeys::KEY_MUTE: {
+          if (currentMode == INPUT_CURRENT) {
+            currentIn_zero  = readCurrentIn();
+          } else {
+            currentOut_zero = readCurrentOut();    
+          }
+          break;
+        }
+
 
         case RemoteKeys::KEY_POWER:{
            lastAccumulatedEnergy3 = lastAccumulatedEnergy2; // store last accumulated energy
@@ -265,27 +298,62 @@ void handleIRCommand() {
     clearAndRedrawGraph();
 }
 
-void updateMeasurements() {
+float readCurrentIn(){
+//    float current_sample   = (((float)analogReadMilliVolts(CURRENT_IN_PIN) * CURRENT_IN_SCALE)/1000.0);
+    float current_sample   = analogReadMilliVolts(CURRENT_IN_PIN);
+    Serial.println(current_sample);
+
+    return current_sample;
+}
+
+float readCurrentOut(){
+//    float current_sample   = (((float)analogReadMilliVolts(CURRENT_OUT_PIN) * CURRENT_OUT_SCALE)/1000.0);
+    float current_sample   = analogReadMilliVolts(CURRENT_OUT_PIN);
+
+    return current_sample;
+}
+
+
+void updateSamples() {
     // Read sensors
-    float voltageIn   = analogRead(VOLTAGE_IN_PIN) * VOLTAGE_IN_SCALE;
-    float voltageOut  = analogRead(VOLTAGE_OUT_PIN) * VOLTAGE_OUT_SCALE;
-    float currentIn   = analogRead(CURRENT_IN_PIN) * CURRENT_IN_SCALE;
-    float currentOut  = analogRead(CURRENT_OUT_PIN) * CURRENT_OUT_SCALE;
+    
+    voltageIn     = ((float)analogReadMilliVolts(VOLTAGE_IN_PIN) * VOLTAGE_IN_SCALE)/1000.0;
+    voltageOut    = ((float)analogReadMilliVolts(VOLTAGE_OUT_PIN) * VOLTAGE_OUT_SCALE)/1000.0;
+    currentIn     = ((((float)analogReadMilliVolts(CURRENT_IN_PIN) -currentIn_zero))/1000.0)*CURRENT_IN_SCALE;
+    currentOut    = ((((float)analogReadMilliVolts(CURRENT_OUT_PIN) -currentOut_zero))/1000.0)*CURRENT_OUT_SCALE;
+
+    powerIn       = voltageIn * currentIn;
+    powerOut      = voltageOut * currentOut;
+    
+}
+
+void updateMeasurements() {
+
+ /* //no need - done in sampling task 
+    // Read sensors    
+    voltageIn     = ((float)analogReadMilliVolts(VOLTAGE_IN_PIN) * VOLTAGE_IN_SCALE)/1000.0;
+    voltageOut    = ((float)analogReadMilliVolts(VOLTAGE_OUT_PIN) * VOLTAGE_OUT_SCALE)/1000.0;
+    currentIn     = ((((float)analogReadMilliVolts(CURRENT_IN_PIN) -currentIn_zero))/1000.0)*CURRENT_IN_SCALE;
+    currentOut    = ((((float)analogReadMilliVolts(CURRENT_OUT_PIN) -currentOut_zero))/1000.0)*CURRENT_OUT_SCALE;
+
+//    currentOut  = (((float)analogReadMilliVolts(CURRENT_OUT_PIN) * CURRENT_OUT_SCALE)/1000.0)-currentOut_zero;
 
     double power = voltageIn * currentIn;
+
+*/
+    timestampsBuffer[bufferIndex]    = lastMeasurementTime-millis();
+    lastMeasurementTime             = millis(); // log timestamp
     
     // Calculate energy (Wh)
-    double energyIncrement = power * (TIME_BASES[currentTimeBase] / 3600000.0);  // Convert ms to hours
-    accumulatedEnergy = accumulatedEnergy + energyIncrement;
+    double energyIncrement          = powerIn * (TIME_BASES[currentTimeBase] / 3600000.0);  // Convert ms to hours
+    accumulatedEnergy               = accumulatedEnergy + energyIncrement;
     
     // Update buffers
-    voltageInBuffer[bufferIndex] = voltageIn;
-    voltageOutBuffer[bufferIndex] = voltageOut;
-    currentInBuffer[bufferIndex] = currentIn;
-    currentOutBuffer[bufferIndex] = currentOut;
-
-//    powerInBuffer[bufferIndex] = power;
-    energyBuffer[bufferIndex] = accumulatedEnergy;
+    voltageInBuffer[bufferIndex]    = voltageIn;
+    voltageOutBuffer[bufferIndex]   = voltageOut;
+    currentInBuffer[bufferIndex]    = currentIn;
+    currentOutBuffer[bufferIndex]   = currentOut;
+    energyBuffer[bufferIndex]       = accumulatedEnergy;
     
     bufferIndex = (bufferIndex + 1) % BUFFER_SIZE;
 }
@@ -299,65 +367,73 @@ void updateGraph() {
     // Draw data based on current mode
  #define SINGLE_VALUE_X 9*6 
 
-
  // ----------------------basic channel values
     switch(currentMode) {
         case INPUT_VOLTAGE:
             tft.fillRect(GRAPH_X, GRAPH_Y, GRAPH_WIDTH, GRAPH_HEIGHT, TFT_BLACK);// clear graph area
-            tft.fillRect(32, 0, 8*7, 8, TFT_BLACK); // clear top label area (only value)   
+            tft.fillRect(32, 0, 8*8, 8, TFT_BLACK); // clear top label area (only value)   
             drawGrid();
             drawTitle("Vin(V)");
-            drawValue (voltageInBuffer[bufferIndex-1],TFT_RED,SINGLE_VALUE_X);
+//            drawValue (voltageInBuffer[bufferIndex-1],TFT_RED,SINGLE_VALUE_X);
+            drawValue (voltageIn,TFT_RED,SINGLE_VALUE_X,3);
+
    //         drawBuffer_old(voltageInBuffer, TFT_BLUE, 3.0);
-            drawBuffer(voltageInBuffer, TFT_RED, 3.0);
+            drawBuffer(voltageInBuffer, TFT_RED, 30.0);
             break;
         case OUTPUT_VOLTAGE:
             tft.fillRect(GRAPH_X, GRAPH_Y, GRAPH_WIDTH, GRAPH_HEIGHT, TFT_BLACK);// clear graph area
-            tft.fillRect(32, 0, 8*7, 8, TFT_BLACK); // clear top label area (only value)   
+            tft.fillRect(32, 0, 8*8, 8, TFT_BLACK); // clear top label area (only value)   
             drawGrid();
             drawTitle("Vout(V)");
-            drawValue (voltageOutBuffer[bufferIndex-1],TFT_GREEN,SINGLE_VALUE_X);
+//            drawValue (voltageOutBuffer[bufferIndex-1],TFT_GREEN,SINGLE_VALUE_X);
+            drawValue (voltageOut,TFT_GREEN,SINGLE_VALUE_X,3);
+
 //            drawBuffer_old(voltageOutBuffer, TFT_BLACK, 3.0);
-            drawBuffer(voltageOutBuffer, TFT_GREEN, 3.0);
+            drawBuffer(voltageOutBuffer, TFT_GREEN, 30.0);
             break;
         case INPUT_CURRENT:
             tft.fillRect(GRAPH_X, GRAPH_Y, GRAPH_WIDTH, GRAPH_HEIGHT, TFT_BLACK);// clear graph area
-            tft.fillRect(32, 0, 8*7, 8, TFT_BLACK); // clear top label area (only value)   
+            tft.fillRect(32, 0, 8*8, 8, TFT_BLACK); // clear top label area (only value)   
             drawGrid();
             drawTitle("Iin(A)");
-            drawValue (currentInBuffer[bufferIndex-1],TFT_YELLOW,SINGLE_VALUE_X);
+//            drawValue (currentInBuffer[bufferIndex-1],TFT_YELLOW,SINGLE_VALUE_X);
+            drawValue (currentIn,TFT_YELLOW,SINGLE_VALUE_X,3);
+
             //drawBuffer_old(currentInBuffer, TFT_BLACK, 3.0);
-            drawBuffer(currentInBuffer, TFT_YELLOW, 3.0);
+            drawBuffer(currentInBuffer, TFT_YELLOW, 10.0);
             break;
         case OUTPUT_CURRENT:
             tft.fillRect(GRAPH_X, GRAPH_Y, GRAPH_WIDTH, GRAPH_HEIGHT, TFT_BLACK);// clear graph area
-            tft.fillRect(32, 0, 8*7, 8, TFT_BLACK); // clear top label area (only value)   
+            tft.fillRect(32, 0, 8*8, 8, TFT_BLACK); // clear top label area (only value)   
             drawGrid();
             drawTitle("Iout(A)");
-            drawValue (currentOutBuffer[bufferIndex-1],TFT_BLUE,SINGLE_VALUE_X);
+//            drawValue (currentOutBuffer[bufferIndex-1],TFT_BLUE,SINGLE_VALUE_X);
+            drawValue (currentOut,TFT_BLUE,SINGLE_VALUE_X,3);
 //            drawBuffer_old(currentOutBuffer, TFT_BLACK, 3.0);
-            drawBuffer(currentOutBuffer, TFT_BLUE, 3.0);
+            drawBuffer(currentOutBuffer, TFT_BLUE, 10.0);
             break;
     // ------------------------------combined power graphs
         case INPUT_POWER:
             tft.fillRect(GRAPH_X, GRAPH_Y, GRAPH_WIDTH, GRAPH_HEIGHT, TFT_BLACK);// clear graph area
-            tft.fillRect(32, 0, 8*7, 8, TFT_BLACK); // clear top label area (only value)   
+            tft.fillRect(32, 0, 8*8, 8, TFT_BLACK); // clear top label area (only value)   
             drawGrid();
             drawTitle("Pin(W)");
-            drawMulValue (voltageInBuffer[bufferIndex-1],currentInBuffer[bufferIndex-1],TFT_YELLOW,SINGLE_VALUE_X);
-            drawMulBuffer(voltageInBuffer,currentInBuffer, TFT_YELLOW, 5.0);
+//            drawMulValue (voltageInBuffer[bufferIndex-1],currentInBuffer[bufferIndex-1],TFT_YELLOW,SINGLE_VALUE_X);
+            drawValue (powerIn,TFT_WHITE,SINGLE_VALUE_X,3);
+            drawMulBuffer(voltageInBuffer,currentInBuffer, TFT_WHITE, 100.0);
             break;
         case OUTPUT_POWER:
             tft.fillRect(GRAPH_X, GRAPH_Y, GRAPH_WIDTH, GRAPH_HEIGHT, TFT_BLACK);// clear graph area
-            tft.fillRect(32, 0, 8*7, 8, TFT_BLACK); // clear top label area (only value)   
+            tft.fillRect(32, 0, 8*8, 8, TFT_BLACK); // clear top label area (only value)   
             drawGrid();
             drawTitle("Pout(W)");
-            drawMulValue (voltageOutBuffer[bufferIndex-1],currentOutBuffer[bufferIndex-1],0xeca5,SINGLE_VALUE_X);
-            drawMulBuffer(voltageOutBuffer,currentOutBuffer, 0xeca5, 5.0);
+//            drawMulValue (voltageOutBuffer[bufferIndex-1],currentOutBuffer[bufferIndex-1],0xeca5,SINGLE_VALUE_X);
+            drawValue (powerOut,0xeca5,SINGLE_VALUE_X,3);
+            drawMulBuffer(voltageOutBuffer,currentOutBuffer, 0xeca5, 100.0);
             break;
        case EFFICIENCY:
             tft.fillRect(GRAPH_X, GRAPH_Y, GRAPH_WIDTH, GRAPH_HEIGHT, TFT_BLACK);// clear graph area
-            tft.fillRect(32, 0, 8*7, 8, TFT_BLACK); // clear top label area (only value)   
+            tft.fillRect(32, 0, 8*8, 8, TFT_BLACK); // clear top label area (only value)   
             drawGrid();
             drawTitle("Eff(%)");
             drawEffValue (voltageInBuffer[bufferIndex-1],currentInBuffer[bufferIndex-1],voltageOutBuffer[bufferIndex-1],currentOutBuffer[bufferIndex-1],0xeca5,SINGLE_VALUE_X);
@@ -371,16 +447,23 @@ void updateGraph() {
 
             drawGrid();
             drawTitle("E(Wh)");
-            drawValue (energyBuffer[bufferIndex-1],TFT_MAGENTA,8*6);
-            drawValue (lastAccumulatedEnergy,TFT_WHITE,8*6+8*5);
-            drawBuffer(energyBuffer, TFT_MAGENTA, 1.0);
+            drawValue (energyBuffer[bufferIndex-1],TFT_MAGENTA,8*6,3);
+            drawValue (lastAccumulatedEnergy,TFT_WHITE,8*6+8*5,3);
+            drawBuffer(energyBuffer, TFT_MAGENTA, 200.0);
             break;
         case COMBINED:
             tft.fillRect(GRAPH_X, GRAPH_Y, GRAPH_WIDTH, GRAPH_HEIGHT, TFT_BLACK);// clear graph area
+            tft.fillRect(0, 0, 159, 8, TFT_BLACK); // clear top label area    
+
             drawGrid();
-            drawBuffer(voltageInBuffer, TFT_RED, 20.0);
-            drawBuffer(currentInBuffer, TFT_BLUE, 2.0);
-            drawBuffer(powerInBuffer, TFT_YELLOW, 40.0);
+            drawValue (voltageIn,TFT_RED,0,2);
+            drawValue (currentIn,TFT_YELLOW,5*8,2);
+            drawValue (powerIn,TFT_WHITE,5*8+5*8,2);
+
+            drawBuffer(voltageInBuffer, TFT_RED, 30.0);
+            drawBuffer(currentInBuffer, TFT_YELLOW, 10.0);
+//            drawMulValue (voltageInBuffer[bufferIndex-1],currentInBuffer[bufferIndex-1],TFT_WHITE,SINGLE_VALUE_X);
+            drawMulBuffer(voltageInBuffer,currentInBuffer, TFT_WHITE, 100.0);
             drawTitle("");
             break;
     }
@@ -399,7 +482,8 @@ void drawBuffer(float buffer[], uint16_t color, float scale) {
         y2 = (GRAPH_HEIGHT-1) - ((float)buffer[nextIndex] * ((float)GRAPH_HEIGHT/scale));    
         if (y1<0) {y1=0;};
         if (y2<0) {y2=0;};
-        
+        if (y1>GRAPH_HEIGHT) {y1=GRAPH_HEIGHT;};
+        if (y2>GRAPH_HEIGHT) {y2=GRAPH_HEIGHT;};
 //        Serial.println(y1);
         tft.drawLine(x1, y1+GRAPH_Y, x2, y2+GRAPH_Y, color);
     }
@@ -479,11 +563,13 @@ void drawGrid() {
     }
 }
 
-void drawValue (float value,uint16_t color,uint16_t x) {
+void drawValue (float value,uint16_t color, uint16_t x, uint8_t decimal_points ) {
+//void drawValue (float value,uint16_t color,uint16_t x) {
+
     tft.setTextColor(color);
     tft.setTextSize(1);
     tft.setCursor(x, 0);
-    tft.print(value,3);  
+    tft.print(value,decimal_points);  
 }
 void drawMulValue (float value1, float value2, uint16_t color,uint16_t x) {
     tft.setTextColor(color);
