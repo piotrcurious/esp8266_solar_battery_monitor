@@ -8,7 +8,7 @@
 //uint32_t SCREEN_UPDATE_INTERVAL = 100 ;  // screen update interval, in ms. 
 //                    // it is possible to synchronize it with display refresh clock by using FRNCTL registers - TODO. 
 
-#define SAMPLE_UPDATE_INTERVAL 10 // interval for sampling and filtering                     
+#define SAMPLE_UPDATE_INTERVAL 5 // interval for sampling and filtering                     
 
 #include <Adafruit_GFX.h>    // Core graphics library
 #include <Adafruit_ST7735.h> // Hardware-specific library for ST7735
@@ -88,10 +88,10 @@ namespace RemoteKeys {
 // global sensor readings and offsets
 const float VOLTAGE_IN_SCALE  = 12;
 const float VOLTAGE_OUT_SCALE = 12;
-const float CURRENT_IN_SCALE  = 17.8;
-float currentIn_zero = 1655;
-const float CURRENT_OUT_SCALE = 17.8;
-float currentOut_zero = 1655;
+const float CURRENT_IN_SCALE  = 18.5;
+float currentIn_zero = 1.655;
+const float CURRENT_OUT_SCALE = 18.5;
+float currentOut_zero = 1.655;
 
 float voltageIn   = 0;
 float voltageOut  = 0;
@@ -176,6 +176,325 @@ double lastAccumulatedEnergy1 = 0;
 double lastAccumulatedEnergy2 = 0;
 double lastAccumulatedEnergy3 = 0;
 
+
+#include <ArduinoEigen.h>
+#include <ArduinoEigenDense.h>
+using Eigen::MatrixXd;
+using Eigen::VectorXd;
+
+
+class AdvancedKalmanADC {
+private:
+    // Kalman filter parameters
+    float Q = 0.001;  // Process noise covariance
+    float R = 0.1;    // Measurement noise covariance
+    float P = 1.0;    // Estimation error covariance
+    float K = 0.0;    // Kalman gain
+    float x = 0.0;    // State estimate
+
+    // RC filter parameters
+    float tau = 0.001;        // RC time constant (seconds)
+    float resistance = 10000;  // Input resistance (ohms)
+    float capacitance = 0.1e-6; // Input capacitance (farads)
+    float cutoffFreq = 0;      // Cutoff frequency (Hz)
+    
+    // Buffer settings
+    static const int HISTORY_SIZE = 32;
+    float history[HISTORY_SIZE];
+    int historyIndex = 0;
+    
+    // Chebyshev fitting parameters
+    static const int CHEB_ORDER = 5;
+    float chebCoeffs[CHEB_ORDER + 1];
+    
+    // ADC parameters
+    float adcVref = 3300.0;  // ADC reference voltage in mV
+    int adcResolution = 12;  // ADC resolution in bits
+    float inputGain = 1.0;   // Input voltage divider ratio
+
+    // Calculate nth Chebyshev polynomial value
+    float chebyshevT(int n, float x) {
+        if (n == 0) return 1.0;
+        if (n == 1) return x;
+        return 2.0 * x * chebyshevT(n - 1, x) - chebyshevT(n - 2, x);
+    }
+
+    // Map time domain to [-1, 1]
+    float mapTimeToChebDomain(float t, float tMax) {
+        return 2.0 * (t / tMax) - 1.0;
+    }
+
+//    // Theoretical RC response
+//    float theoreticalRCResponse(float t) {
+//        return (adcVref * (1 - exp(-t / tau)))/1000.0;
+//    }
+float theoreticalRCResponse(float t, float minSample, float maxSample) {
+    const float e = 2.71828; // Approximate value of Euler's number
+    if (t <= 0) return minSample;    // Ensure no negative or zero time values
+    
+    // Calculate normalized theoretical response
+    float normalizedResponse = 1.0 - std::exp(-t / tau);
+    
+    // Scale response to match sample set magnitude
+    return minSample + normalizedResponse * (maxSample - minSample);
+}
+
+
+/*
+    // Fit RC response using Chebyshev polynomials
+    float fitRCResponseChebyshev(const float* samples, int count, float deltaT) {
+        float tMax = deltaT * (count - 1);
+        
+        // Initialize matrices for least squares fitting
+        MatrixXd A(count, CHEB_ORDER + 1);
+        VectorXd b(count);
+        VectorXd weights(count);
+        
+        // Build weighted system of equations
+        for (int i = 0; i < count; i++) {
+            float t = i * deltaT;
+            float x = mapTimeToChebDomain(t, tMax);
+            
+            // Weight samples based on theoretical RC response
+            float theoretical = theoreticalRCResponse(t);
+            float weight = 1.0 / (1.0 + abs(samples[i] - theoretical));
+            weights(i) = weight;
+            
+            for (int j = 0; j <= CHEB_ORDER; j++) {
+                A(i, j) = chebyshevT(j, x) * weight;
+            }
+            b(i) = samples[i] * weight;
+        }
+        
+        // Solve weighted least squares
+        VectorXd coeffs = (A.transpose() * A).ldlt().solve(A.transpose() * b);
+        
+        for (int i = 0; i <= CHEB_ORDER; i++) {
+            chebCoeffs[i] = coeffs(i);
+        }
+        
+        return coeffs(0);  // Return DC component
+    }
+
+*/
+
+float fitRCResponseChebyshev(const float* samples, int count, float deltaT) {
+    float tMax = deltaT * (count - 1);
+    
+    // Calculate minimum and maximum values of the sample set
+    float minSample = *std::min_element(samples, samples + count);
+    float maxSample = *std::max_element(samples, samples + count);
+    
+    // Initialize matrices for least squares fitting
+    MatrixXd A(count, CHEB_ORDER + 1);
+    VectorXd b(count);
+    VectorXd weights(count);
+    
+    // Build weighted system of equations
+    for (int i = 0; i < count; i++) {
+        float t = i * deltaT;
+        float x = mapTimeToChebDomain(t, tMax);
+        
+        // Weight samples based on theoretical RC response
+        float theoretical = theoreticalRCResponse(t, minSample, maxSample);
+        float weight = 1.0 / (1.0 + std::abs(samples[i] - theoretical));
+        weights(i) = weight;
+        
+        for (int j = 0; j <= CHEB_ORDER; j++) {
+            A(i, j) = chebyshevT(j, x) * weight;
+        }
+        b(i) = samples[i] * weight;
+    }
+    
+    // Solve weighted least squares
+    VectorXd coeffs = (A.transpose() * A).ldlt().solve(A.transpose() * b);
+    
+    for (int i = 0; i <= CHEB_ORDER; i++) {
+        chebCoeffs[i] = coeffs(i);
+    }
+    
+    return coeffs(0);  // Return DC component
+}
+
+
+/*
+    float predictRCResponse(float t, float tMax) {
+        float x = mapTimeToChebDomain(t, tMax);
+        float value = chebCoeffs[0];
+        
+        for (int i = 1; i <= CHEB_ORDER; i++) {
+            value += chebCoeffs[i] * chebyshevT(i, x);
+        }
+        
+        // Blend with theoretical response
+        float theoretical = theoreticalRCResponse(t);
+        return 0.7 * value + 0.3 * theoretical;
+    }
+
+*/
+
+float predictRCResponse(float t, float tMax, float minSample, float maxSample) {
+    float x = mapTimeToChebDomain(t, tMax);
+    float value = chebCoeffs[0];
+    
+    for (int i = 1; i <= CHEB_ORDER; i++) {
+        value += chebCoeffs[i] * chebyshevT(i, x);
+    }
+    
+    // Blend with theoretical response using the new normalized function
+    float theoretical = theoreticalRCResponse(t, minSample, maxSample);
+    return 0.7 * value + 0.3 * theoretical;
+}
+
+    float estimateNoise(const float* samples, int count) {
+        if (count < 2) return R;
+        
+        float sum = 0, sum2 = 0;
+        for (int i = 1; i < count; i++) {
+            float diff = samples[i] - samples[i-1];
+            sum += diff;
+            sum2 += diff * diff;
+        }
+        
+        float mean = sum / (count - 1);
+        float variance = (sum2 / (count - 1)) - (mean * mean);
+        return max(sqrt(variance), 0.01f * adcVref);
+    }
+
+    void updateHistory(float value) {
+        history[historyIndex] = value;
+        historyIndex = (historyIndex + 1) % HISTORY_SIZE;
+    }
+
+public:
+    AdvancedKalmanADC() {
+        reset();
+        updateRCParameters();
+    }
+
+    // Configure RC filter parameters
+    void setRCParameters(float r_ohms, float c_farads) {
+        resistance = r_ohms;
+        capacitance = c_farads;
+        updateRCParameters();
+    }
+
+    // Update derived RC parameters
+    void updateRCParameters() {
+        tau = resistance * capacitance;
+        cutoffFreq = 1.0 / (2.0 * PI * tau);
+    }
+
+    // Configure ADC parameters
+    void setADCParameters(float vref_mv, int resolution, float gain = 1.0) {
+        adcVref = vref_mv;
+        adcResolution = resolution;
+        inputGain = gain;
+        R = pow(2, -adcResolution) * adcVref;  // Update measurement noise based on ADC resolution
+    }
+
+    // Read and filter ADC value
+    float read(int pin, int samplesPerRead = 10) {
+        float samples[64];
+        samplesPerRead = constrain(samplesPerRead, 2, 64);
+
+#define SUBSAMPLES_AMOUNT 16  
+#define SUBSAMPLING_AVERAGING 9.0
+int subsamples = 0; 
+        unsigned long startTime = micros();
+        for (int i = 0; i < samplesPerRead; i++) {
+            uint32_t subsample_time = micros();
+            samples[i] = (analogReadMilliVolts(pin)/1000.0);
+ //           for (int j = 0 ; j < SUBSAMPLES_AMOUNT; j++) {
+ //           if (micros()-subsample_time< (int(tau * 1000000.0/samplesPerRead)) ) { 
+//            samples[i] = ((analogReadMilliVolts(pin)/1000.0) + (SUBSAMPLING_AVERAGING-1)*samples[i])/SUBSAMPLING_AVERAGING;
+//            subsamples++;
+//            }
+//            }
+            while (micros()-subsample_time< (int(tau * 1000000.0 / samplesPerRead)) ) {
+            samples[i] = ((analogReadMilliVolts(pin)/1000.0) + (SUBSAMPLING_AVERAGING-1)*samples[i])/SUBSAMPLING_AVERAGING;
+            subsamples++;
+
+              }; // keep averaging during time based on RC time constant 
+//            delayMicroseconds(int(tau * 1000000.0 / samplesPerRead));  // Delay based on RC time constant
+        }
+        float deltaT = (micros() - startTime) / 1000.0 / samplesPerRead;
+//        Serial.println(subsamples/samplesPerRead);
+//        Serial.println(deltaT*1000.0);
+//        Serial.println(((tau * 1000000.0 / samplesPerRead)));
+        // Dynamic noise estimation
+        float measuredNoise = estimateNoise(samples, samplesPerRead);
+        R = 0.9 * R + 0.1 * (measuredNoise * measuredNoise);  // Exponential moving average
+
+        // Calculate min and max of samples
+        float minSample = *std::min_element(samples, samples + samplesPerRead);
+        float maxSample = *std::max_element(samples, samples + samplesPerRead);
+
+        // Predict step with RC model
+
+        // Calculate the prediction error for the entire dataset range
+        float prediction_error_sum = 0.0f;
+        for (int i = 0; i < samplesPerRead; i++) {
+        float predicted = predictRCResponse(i * deltaT, deltaT * samplesPerRead,minSample,maxSample);
+        prediction_error_sum += pow(predicted - samples[i], 2);
+        }
+        float prediction_error = prediction_error_sum / samplesPerRead;
+
+        // Adapt process noise based on the average prediction error
+        Q = 0.1 * prediction_error;  // Adjust this factor as needed
+        if (Q<0.01) {Q=0.01;};  // Ensure Q does not get too small
+        float predicted = predictRCResponse(deltaT, deltaT * samplesPerRead, minSample, maxSample);
+
+        //float prediction_error = pow(predicted - x, 2);
+//        Serial.println(Q);
+        //Q = 0.1 * prediction_error;  // Adapt process noise based on prediction error
+        
+        P = P + Q;
+
+        // Fit current samples
+        float fittedValue = fitRCResponseChebyshev(samples, samplesPerRead, deltaT);
+
+        // Update step
+        K = P / (P + R);
+        x = x + K * (fittedValue - x);
+        P = (1 - K) * P;
+
+        // Apply historical correction
+        if (historyIndex >= samplesPerRead) {
+            float historicalAvg = 0;
+            for (int i = 0; i < samplesPerRead; i++) {
+                historicalAvg += history[(historyIndex - i - 1 + HISTORY_SIZE) % HISTORY_SIZE];
+            }
+            historicalAvg /= samplesPerRead;
+            
+            // Blend estimates based on confidence
+            float confidence = 1.0 / (1.0 + P);
+            x = confidence * x + (1 - confidence) * (0.7 * predicted + 0.3 * historicalAvg);
+        }
+
+        updateHistory(x);
+        return x;
+    }
+
+    // Get current filter parameters
+    float getCutoffFrequency() { return cutoffFreq; }
+    float getTimeConstant() { return tau; }
+    float getResistance() { return resistance; }
+    float getCapacitance() { return capacitance; }
+    
+    // Reset filter state
+    void reset() {
+        P = 1.0;
+        x = 0.0;
+        historyIndex = 0;
+        for (int i = 0; i < HISTORY_SIZE; i++) history[i] = 0;
+        for (int i = 0; i <= CHEB_ORDER; i++) chebCoeffs[i] = 0;
+    }
+};
+
+AdvancedKalmanADC filter_currentIn;
+
+
 void setup() {
     // Initialize display
 //    tft.init();
@@ -205,6 +524,8 @@ void setup() {
         energyBuffer[i] = 0;
         timestampsBuffer[i] = 0;
     }
+    filter_currentIn.setRCParameters(10000,10.0e-6); // 10k , 10uF
+    filter_currentIn.setADCParameters(3300,12); // 3.3V ref, 12bit    
 }
 
 void loop() {
@@ -300,7 +621,9 @@ void handleIRCommand() {
 
 float readCurrentIn(){
 //    float current_sample   = (((float)analogReadMilliVolts(CURRENT_IN_PIN) * CURRENT_IN_SCALE)/1000.0);
-    float current_sample   = analogReadMilliVolts(CURRENT_IN_PIN);
+//    float current_sample   = analogReadMilliVolts(CURRENT_IN_PIN);
+      float current_sample     = (filter_currentIn.read(CURRENT_IN_PIN,32));
+
     Serial.println(current_sample);
 
     return current_sample;
@@ -313,18 +636,19 @@ float readCurrentOut(){
     return current_sample;
 }
 
-
 void updateSamples() {
     // Read sensors
     
     voltageIn     = ((float)analogReadMilliVolts(VOLTAGE_IN_PIN) * VOLTAGE_IN_SCALE)/1000.0;
     voltageOut    = ((float)analogReadMilliVolts(VOLTAGE_OUT_PIN) * VOLTAGE_OUT_SCALE)/1000.0;
-    currentIn     = ((((float)analogReadMilliVolts(CURRENT_IN_PIN) -currentIn_zero))/1000.0)*CURRENT_IN_SCALE;
+//    currentIn     = ((((float)analogReadMilliVolts(CURRENT_IN_PIN) -currentIn_zero))/1000.0)*CURRENT_IN_SCALE;
+      currentIn     = ((filter_currentIn.read(CURRENT_IN_PIN,20))-currentIn_zero)*CURRENT_IN_SCALE;
+//    currentIn     = analogReadMilliVolts(CURRENT_IN_PIN);
+
     currentOut    = ((((float)analogReadMilliVolts(CURRENT_OUT_PIN) -currentOut_zero))/1000.0)*CURRENT_OUT_SCALE;
 
     powerIn       = voltageIn * currentIn;
     powerOut      = voltageOut * currentOut;
-    
 }
 
 void updateMeasurements() {
@@ -457,10 +781,12 @@ void updateGraph() {
 
             drawGrid();
             drawValue (voltageIn,TFT_RED,0,2);
-            drawValue (currentIn,TFT_YELLOW,5*8,2);
-            drawValue (powerIn,TFT_WHITE,5*8+5*8,2);
+            drawValue (voltageOut,TFT_GREEN,5*8,2);
+            drawValue (currentIn,TFT_YELLOW,5*8+8+5*8,2);
+            drawValue (powerIn,TFT_WHITE,5*8+5*8+8+5*8,2);
 
             drawBuffer(voltageInBuffer, TFT_RED, 30.0);
+            drawBuffer(voltageOutBuffer, TFT_GREEN, 30.0);
             drawBuffer(currentInBuffer, TFT_YELLOW, 10.0);
 //            drawMulValue (voltageInBuffer[bufferIndex-1],currentInBuffer[bufferIndex-1],TFT_WHITE,SINGLE_VALUE_X);
             drawMulBuffer(voltageInBuffer,currentInBuffer, TFT_WHITE, 100.0);
