@@ -333,4 +333,83 @@ private:
         MatrixXd reg = MatrixXd::Identity(CHEB_ORDER + 1, CHEB_ORDER + 1);
         reg(0, 0) = 0.0f;  // Preserve DC component
         
-        VectorXd coeffs = (</antArtifact>
+    VectorXd coeffs = (A.transpose() * A + 0.01f * reg).ldlt().solve(A.transpose() * b);
+
+        // Store coefficients and compute prediction error
+        proc.prediction_error_sum = 0.0f;
+        for (int i = 0; i <= CHEB_ORDER; i++) {
+            proc.chebCoeffs[i] = coeffs(i);
+        }
+
+        // Compute prediction error for each sample
+        for (size_t i = 0; i < samples.size(); i++) {
+            float predicted = 0.0f;
+            float x = mapToChebDomain(i * proc.deltaT, tMax);
+            for (int j = 0; j <= CHEB_ORDER; j++) {
+                predicted += coeffs(j) * interpolateChebyshev(j, x);
+            }
+            proc.prediction_error_sum += std::pow(predicted - samples[i], 2);
+        }
+
+        return coeffs(0);  // Return DC component
+    }
+
+    float updateEstimate(float measurement) {
+        // Update Kalman filter state
+        kalman.P = kalman.P + kalman.Q;
+        kalman.K = kalman.P / (kalman.P + kalman.R);
+        float newEstimate = kalman.x + kalman.K * (measurement - kalman.x);
+        kalman.P = (1.0f - kalman.K) * kalman.P;
+
+        // Apply historical blending if available
+        if (historyIndex > 0) {
+            float blendFactor = calculateBlendingFactor();
+            float historicalEstimate = 0.0f;
+            float totalWeight = 0.0f;
+
+            // Compute weighted historical average with exponential decay
+            for (int i = 1; i <= std::min(5, historyIndex); i++) {
+                int idx = (historyIndex - i + HISTORY_DEPTH) % HISTORY_DEPTH;
+                float weight = std::exp(-static_cast<float>(i) / 3.0f) * 
+                             history[idx].signalToNoiseRatio;
+                historicalEstimate += weight * history[idx].value;
+                totalWeight += weight;
+            }
+
+            if (totalWeight > 0.0f) {
+                historicalEstimate /= totalWeight;
+                newEstimate = (1.0f - blendFactor) * newEstimate + 
+                             blendFactor * historicalEstimate;
+            }
+        }
+
+        return newEstimate;
+    }
+
+    void updateHistory(float measurement, float signalQuality) {
+        historyIndex = (historyIndex + 1) % HISTORY_DEPTH;
+        
+        // Compute derivative characteristics
+        float derivChar = 0.0f;
+        if (historyIndex > 0) {
+            int prevIdx = (historyIndex - 1 + HISTORY_DEPTH) % HISTORY_DEPTH;
+            derivChar = (measurement - history[prevIdx].value) / proc.deltaT;
+        }
+
+        // Update historical record
+        history[historyIndex] = SignalSnapshot();
+        history[historyIndex].value = measurement;
+        history[historyIndex].timeConstant = rc.tau;
+        history[historyIndex].derivativeCharacteristic = derivChar;
+        history[historyIndex].timestamp = micros();
+        history[historyIndex].signalToNoiseRatio = signalQuality;
+        
+        std::copy(proc.chebCoeffs, proc.chebCoeffs + CHEB_ORDER + 1,
+                 history[historyIndex].coefficients);
+    }
+
+    // Utility method for theoretical RC response (useful for validation)
+    float theoreticalRCResponse(float t, float initialValue, float finalValue) const {
+        return finalValue - (finalValue - initialValue) * std::exp(-t / rc.tau);
+    }
+};
