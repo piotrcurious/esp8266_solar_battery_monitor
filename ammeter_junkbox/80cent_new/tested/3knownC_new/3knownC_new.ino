@@ -42,7 +42,7 @@ uint16_t PWMPeriod = 0 ;
 
 #define RC_FIT_ITERATIONS 50 // Number of iterations for RC fitting
 #define RC_FIT_LEARNING_RATE 0.001 // Learning rate for RC fitting - adjust as needed
-#define DIVERGENCE_THRESHOLD 0.9 // Threshold for divergence detection (adjust based on voltage scale and noise)
+#define DIVERGENCE_THRESHOLD 0.3 // Threshold for divergence detection (adjust based on voltage scale and noise)
 
 // Adaptive calibration interval parameters
 #define INTERVAL_INCREASE_FACTOR 1.2f
@@ -106,9 +106,9 @@ float partial_voltage_samples[PARTIAL_SAMPLES];
 unsigned long partial_time_samples[PARTIAL_SAMPLES];
 
 // RC fitting parameters - estimated from fitting
-float fitted_voc = 0.0;
-float fitted_b = 0.0;
-float fitted_tau = 0.0;
+float fitted_voc = 0.00001;
+float fitted_b = 0.00001;
+float fitted_tau = 0.00001;
 
 // Function to fit RC profile using Gradient Descent (same as before, with R_tau calculation)
 bool fit_rc_profile() {
@@ -127,13 +127,13 @@ for (int iteration = 0; iteration < RC_FIT_ITERATIONS; iteration++) {
     for (int i = 0; i < NUM_SAMPLES; i++) {
         float t = (time_samples[i] - time_samples[0]) / 1000.0;
         float measured_v = voltage_samples[i];
-        float expected_v = fitted_voc - fitted_b * exp(-t / fitted_tau);
+        float expected_v = fitted_voc - fitted_b * exp(-t /( fitted_tau+0.000001));
         float error = measured_v - expected_v;
         error_sum_squares += error * error;
 
         gradient_voc += -2.0 * error;
-        gradient_b   +=  2.0 * error * exp(-t / fitted_tau);
-        gradient_tau +=  2.0 * error * fitted_b * (t / (fitted_tau * fitted_tau)) * exp(-t / fitted_tau);
+        gradient_b   +=  2.0 * error * exp(-t / (fitted_tau+0.00001));
+        gradient_tau +=  2.0 * error * fitted_b * (t / ((fitted_tau * fitted_tau)) * exp(-t / (fitted_tau+0.00001))+0.00001);
     }
 
     fitted_voc -= RC_FIT_LEARNING_RATE * gradient_voc / NUM_SAMPLES;
@@ -292,7 +292,7 @@ for (int i = 0; i < PARTIAL_SAMPLES; i++) {
 float divergence_error_sum = 0.0;
 for (int i = 0; i < PARTIAL_SAMPLES; i++) {
     float t = (partial_time_samples[i] - partial_time_samples[0]) / 1000.0;
-    float expected_v = last_fitted_voc - last_fitted_b * exp(-t / last_fitted_tau);
+    float expected_v = last_fitted_voc - last_fitted_b * exp(-t / (last_fitted_tau+0.00001));
     float measured_v = partial_voltage_samples[i];
     divergence_error_sum += pow(measured_v - expected_v, 2); // Sum of squared errors
 }
@@ -308,7 +308,7 @@ if (divergence_mse > DIVERGENCE_THRESHOLD) {
     return true; // Divergence detected
 } else {
 #ifdef FITTING_DEBUG
-    Serial.print(F("Partial Voc Measurement: No significant divergence, MSE: ")); Serial.println(divergence_mse);
+    Serial.print(F("Partial Voc Measurement: No significant divergence, MSE: ")); Serial.println(divergence_mse,4);
 #endif
     calibration_interval_current *= INTERVAL_INCREASE_FACTOR; // Lengthen interval
     calibration_interval_current = min(calibration_interval_current, MAX_CALIBRATION_INTERVAL); // Limit maximum
@@ -366,13 +366,13 @@ Serial.println(calibration_interval_current/60000.0);
 
 // Function to predict load voltage based on estimated resistances and duty cycle
 float predict_load_voltage(float r_src, float r_load, float duty_cycle, float voc) {
-    return (duty_cycle * voc * r_load) / (r_src + r_load);
+    return (duty_cycle * voc * r_load) / (r_src + r_load+0.00001);
 }
 
 // Function to predict source voltage based on estimated resistances and duty cycle
 float predict_source_voltage(float r_src, float r_load, float duty_cycle, float voc) {
     float predicted_load_v = predict_load_voltage(r_src, r_load, duty_cycle, voc);
-    return voc - r_src * (predicted_load_v / r_load); // Using Ohm's law: Vs = Voc - Rsrc * I, and I = Vl/Rload
+    return voc - r_src * (predicted_load_v / (r_load+0.00001)); // Using Ohm's law: Vs = Voc - Rsrc * I, and I = Vl/Rload
 }
 
 void calibrate_internal_resistance() {
@@ -421,18 +421,18 @@ void calibrate_internal_resistance() {
         error_sum_squares = error_v_load_low*error_v_load_low + error_v_source_low*error_v_source_low + error_v_load_high*error_v_load_high + error_v_source_high*error_v_source_high;
 
         // Calculate gradients - using derived partial derivatives (simplified, assuming Voc is constant for differentiation)
-        float common_denominator_low = pow(current_r_src + current_r_load, 2);
-        float common_denominator_high = pow(current_r_src + current_r_load, 2);
+        float common_denominator_low = pow(current_r_src + current_r_load, 2)+0.00001;
+        float common_denominator_high = pow(current_r_src + current_r_load, 2)+0.00001;
 
         float dVlp_dRsrc_low   = - (duty_cycle_low  * open_circuit_voltage * current_r_load) / common_denominator_low;
         float dVlp_dRload_low  =   (duty_cycle_low  * open_circuit_voltage * current_r_src ) / common_denominator_low;
-        float dVsp_dRsrc_low   = - (predicted_v_load_low / current_r_load) - (current_r_src / current_r_load) * dVlp_dRsrc_low;
-        float dVsp_dRload_low  =   (current_r_src / pow(current_r_load, 2)) * predicted_v_load_low - (current_r_src / current_r_load) * dVlp_dRload_low;
+        float dVsp_dRsrc_low   = - (predicted_v_load_low / (current_r_load+0.00001)) - (current_r_src / (current_r_load+0.00001)) * dVlp_dRsrc_low;
+        float dVsp_dRload_low  =   (current_r_src / pow(current_r_load, 2)) * predicted_v_load_low - (current_r_src / (current_r_load+0.00001)) * dVlp_dRload_low;
 
         float dVlp_dRsrc_high  = - (duty_cycle_high * open_circuit_voltage * current_r_load) / common_denominator_high;
         float dVlp_dRload_high =   (duty_cycle_high * open_circuit_voltage * current_r_src ) / common_denominator_high;
-        float dVsp_dRsrc_high  = - (predicted_v_load_high / current_r_load) - (current_r_src / current_r_load) * dVlp_dRsrc_high;
-        float dVsp_dRload_high =   (current_r_src / pow(current_r_load, 2)) * predicted_v_load_high - (current_r_src / current_r_load) * dVlp_dRload_high;
+        float dVsp_dRsrc_high  = - (predicted_v_load_high / current_r_load) - (current_r_src / (current_r_load+0.00001)) * dVlp_dRsrc_high;
+        float dVsp_dRload_high =   (current_r_src / pow(current_r_load, 2)) * predicted_v_load_high - (current_r_src / (current_r_load+0.00001)) * dVlp_dRload_high;
 
 
         grad_r_src  = 2 * (error_v_source_low * dVsp_dRsrc_low + error_v_load_low * dVlp_dRsrc_low + error_v_source_high * dVsp_dRsrc_high + error_v_load_high * dVlp_dRsrc_high);
@@ -442,8 +442,8 @@ void calibrate_internal_resistance() {
         current_r_src  -= R_CALIB_LEARNING_RATE * grad_r_src;
         current_r_load -= R_CALIB_LEARNING_RATE * grad_r_load;
 
-        current_r_src  = max(current_r_src, 0.01f); // Prevent negative resistance, add small offset to avoid division by zero.
-        current_r_load = max(current_r_load, 0.01f);
+        current_r_src  = max(current_r_src, 0.001f); // Prevent negative resistance, add small offset to avoid division by zero.
+        current_r_load = max(current_r_load, 0.001f);
 
 #ifdef FITTING_DEBUG
         if (iteration % (R_CALIB_ITERATIONS / 10) == 0) {
