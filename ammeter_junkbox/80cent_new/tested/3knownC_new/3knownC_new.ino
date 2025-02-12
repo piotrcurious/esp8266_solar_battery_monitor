@@ -6,6 +6,8 @@ AVR_PWM* PWM_Instance;
 
 float frequency;
 
+//#define FITTING_DEBUG // uncomment to get messages from calibration fitters
+
 // Define the pins
 #define PWM_PIN 9 // The pin for the PWM output to the load
 #define LOAD_PIN A1 // The pin for measuring the load voltage
@@ -27,23 +29,25 @@ uint16_t PWMPeriod = 0 ;
 #define CALIBRATION_DURATION 3000 // The duration for calibrating the internal resistance in milliseconds
 #define RINT_CALIBRATION_MEASUREMENT_TIME 100 // time to wait after changing pwm value before measuring voltage across load
 #define LEARNING_RATE 0.001 // The learning rate for the gradient descent algorithm
-#define LEARNING_RATE_LOAD 0.001 // The learning rate for the gradient descent algorithm - load adjustment
+#define LEARNING_RATE_LOAD 0.0001 // The learning rate for the gradient descent algorithm - load adjustment
 
-#define DEBUG_SERIAL_OUTPUT_INTERVAL 100 // interval for debug output for visualization
-#define PARTIAL_MEASUREMENT_INTERVAL 10000 // Interval for partial VOC measurement
+#define DEBUG_SERIAL_OUTPUT_INTERVAL 200 // interval for debug output for visualization
+#define PARTIAL_MEASUREMENT_INTERVAL 20000 // Interval for partial VOC measurement
 
 // RC fitting parameters
 #define NUM_SAMPLES 50 // Number of samples for FULL RC fitting
 #define PARTIAL_SAMPLES NUM_SAMPLES/2 // Number of samples for PARTIAL RC measurement
 #define SAMPLE_INTERVAL 20 // Interval between samples in milliseconds
-#define RC_FIT_ITERATIONS 100 // Number of iterations for RC fitting
+#define PARTIAL_SAMPLE_INTERVAL 5 // Interval between samples during partial check (in milliseconds)
+
+#define RC_FIT_ITERATIONS 50 // Number of iterations for RC fitting
 #define RC_FIT_LEARNING_RATE 0.01 // Learning rate for RC fitting - adjust as needed
 #define DIVERGENCE_THRESHOLD 0.9 // Threshold for divergence detection (adjust based on voltage scale and noise)
 
 // Adaptive calibration interval parameters
-#define INTERVAL_INCREASE_FACTOR 1.1f
-#define INTERVAL_DECREASE_FACTOR 0.9f
-#define MAX_CALIBRATION_INTERVAL 120000 // Maximum calibration interval (2 minutes)
+#define INTERVAL_INCREASE_FACTOR 1.2f
+#define INTERVAL_DECREASE_FACTOR 0.8f
+#define MAX_CALIBRATION_INTERVAL 160000 // Maximum calibration interval (2 minutes)
 #define MIN_CALIBRATION_INTERVAL 20000  // Minimum calibration interval (20 seconds)
 
 //#define MAX_CALIBRATION_INTERVAL 25000 // Maximum calibration interval (2 minutes)
@@ -57,7 +61,7 @@ uint16_t PWMPeriod = 0 ;
 // Internal resistance calibration parameters
 #define R_CALIB_DUTY_CYCLE_LOW 0.3f  // Low duty cycle for R calibration
 #define R_CALIB_DUTY_CYCLE_HIGH 0.6f // High duty cycle for R calibration
-#define R_CALIB_ITERATIONS 50       // Iterations for internal resistance calibration
+#define R_CALIB_ITERATIONS 30       // Iterations for internal resistance calibration
 #define R_CALIB_LEARNING_RATE 0.2   // Learning rate for internal resistance calibration
 
 // Define the variables
@@ -139,6 +143,7 @@ for (int iteration = 0; iteration < RC_FIT_ITERATIONS; iteration++) {
     fitted_tau = max(fitted_tau, 1e-6);
     fitted_b   = max(fitted_b,   0.0);
     fitted_voc = max(fitted_voc, 0.0);
+#ifdef FITTING_DEBUG
     if (iteration % (RC_FIT_ITERATIONS / 10) == 0) {
       Serial.print(F("RC Fit Iteration: ")); Serial.print(iteration);
       Serial.print(F(", Voc: ")); Serial.print(fitted_voc);
@@ -146,6 +151,7 @@ for (int iteration = 0; iteration < RC_FIT_ITERATIONS; iteration++) {
       Serial.print(F(", Tau: ")); Serial.print(fitted_tau);
       Serial.print(F(", Error^2: ")); Serial.println(error_sum_squares/NUM_SAMPLES);
     }
+#endif 
 }
 
 if (fitted_voc > 0 && fitted_tau > 1e-6 && fitted_b >= 0) {
@@ -164,7 +170,7 @@ PWM_Instance->setPWM(PWM_PIN, frequency, MIN_PWM); // switch off load
 for (int i = 0; i < PARTIAL_SAMPLES; i++) {
     partial_time_samples[i] = millis();
     partial_voltage_samples[i] = analogRead(SOURCE_PIN) * (SOURCE_VOLTAGE_RANGE / 1023.0);
-    delay(SAMPLE_INTERVAL);
+    delay(PARTIAL_SAMPLE_INTERVAL);
 }
 
 // 2. Predict voltages based on last fitted RC profile
@@ -179,12 +185,16 @@ float divergence_mse = divergence_error_sum / PARTIAL_SAMPLES; // Mean Squared E
 
 // 3. Check for divergence
 if (divergence_mse > DIVERGENCE_THRESHOLD) {
+#ifdef FITTING_DEBUG
     Serial.print(F("Partial Voc Measurement: Divergence detected, MSE: ")); Serial.println(divergence_mse);
+#endif
     calibration_interval_current *= INTERVAL_DECREASE_FACTOR; // Shorten interval
     calibration_interval_current = max(calibration_interval_current, MIN_CALIBRATION_INTERVAL); // Limit minimum
     return true; // Divergence detected
 } else {
+#ifdef FITTING_DEBUG
     Serial.print(F("Partial Voc Measurement: No significant divergence, MSE: ")); Serial.println(divergence_mse);
+#endif
     calibration_interval_current *= INTERVAL_INCREASE_FACTOR; // Lengthen interval
     calibration_interval_current = min(calibration_interval_current, MAX_CALIBRATION_INTERVAL); // Limit maximum
     return false; // No significant divergence
@@ -235,7 +245,7 @@ Serial.print(load,3);
 Serial.print(F(",Tau:"));
 Serial.print(fitted_tau);
 Serial.print(F(",CalInt:"));
-Serial.println(calibration_interval_current);
+Serial.println(calibration_interval_current/60000.0);
 
 }
 
@@ -251,7 +261,9 @@ float predict_source_voltage(float r_src, float r_load, float duty_cycle, float 
 }
 
 void calibrate_internal_resistance() {
+#ifdef FITTING_DEBUG
     Serial.println(F("Starting Internal Resistance Calibration..."));
+#endif
     unsigned long calibration_start_time = millis();
     float current_r_src = internal_resistance_src;
     float current_r_load = load_resistance;
@@ -318,19 +330,23 @@ void calibrate_internal_resistance() {
         current_r_src  = max(current_r_src, 0.01f); // Prevent negative resistance, add small offset to avoid division by zero.
         current_r_load = max(current_r_load, 0.01f);
 
+#ifdef FITTING_DEBUG
         if (iteration % (R_CALIB_ITERATIONS / 10) == 0) {
             Serial.print(F("R Calib Iteration: ")); Serial.print(iteration);
             Serial.print(F(", R_src: ")); Serial.print(current_r_src);
             Serial.print(F(", R_load: ")); Serial.print(current_r_load);
             Serial.print(F(", Error^2: ")); Serial.println(error_sum_squares);
         }
+#endif        
     }
 
     internal_resistance_src = current_r_src;
     load_resistance = current_r_load;
     is_calibrating = false;
     last_calibration_time = millis();
+#ifdef FITTING_DEBUG
     Serial.println(F("Internal Resistance Calibration complete."));
+#endif
 }
 
 
@@ -371,11 +387,15 @@ if (millis() - last_calibration_time > calibration_interval_current) { // Use ad
         last_fitted_b = fitted_b;
         last_fitted_tau = fitted_tau;
 
+#ifdef FITTING_DEBUG
         Serial.print(F("Full RC Fit Success, Voc: ")); Serial.print(open_circuit_voltage);
         Serial.print(F(", Tau: ")); Serial.println(fitted_tau);
+#endif
     } else {
         open_circuit_voltage = open_circuit_voltage_raw; // Fallback to raw if fitting fails
+#ifdef FITTING_DEBUG
         Serial.println(F("Full RC Fit Failed, using raw Voc."));
+#endif
     }
 
     // Set the calibration flag to true to trigger the rint calibration
