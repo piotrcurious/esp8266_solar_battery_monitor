@@ -61,8 +61,8 @@ uint16_t PWMPeriod = 0 ;
 // Internal resistance calibration parameters
 #define R_CALIB_DUTY_CYCLE_LOW 0.3f  // Low duty cycle for R calibration
 #define R_CALIB_DUTY_CYCLE_HIGH 0.6f // High duty cycle for R calibration
-#define R_CALIB_ITERATIONS 30       // Iterations for internal resistance calibration
-#define R_CALIB_LEARNING_RATE 0.2   // Learning rate for internal resistance calibration
+#define R_CALIB_ITERATIONS 15       // Iterations for internal resistance calibration
+#define R_CALIB_LEARNING_RATE 0.1   // Learning rate for internal resistance calibration
 
 // Define the variables
 float open_circuit_voltage = 0;         // The open-circuit voltage of the source (fitted)
@@ -111,7 +111,7 @@ float fitted_b = 0.00001;
 float fitted_tau = 0.00001;
 
 // Function to fit RC profile using Gradient Descent (same as before, with R_tau calculation)
-bool fit_rc_profile() {
+bool fit_rc_profile_gradient() {
 if (NUM_SAMPLES < 2) return false;
 
 fitted_voc = voltage_samples[NUM_SAMPLES - 1];
@@ -163,120 +163,140 @@ if (fitted_voc > 0 && fitted_tau > 1e-6 && fitted_b >= 0) {
 
 }
 
-bool fit_rc_profile_early() {
+//-----------------------early optimized fitter
+
+bool fit_rc_profile() {
     if (NUM_SAMPLES < 2) return false;
 
-    // Initialize parameters with better initial guesses
-    fitted_voc = voltage_samples[NUM_SAMPLES - 1];  // Final voltage as Voc
-    fitted_b = fitted_voc - voltage_samples[0];     // Initial voltage drop
+    // Constants for parameter constraints
+    constexpr float FALLBACK_TAU      = 0.01f;
+    constexpr float MIN_TAU           = 1e-6f;
+    constexpr float MAX_TAU           = 1.0f;
+    constexpr float MIN_LR            = 1e-5f;
+    constexpr float MAX_LR            = 0.1f;
+    constexpr float MOMENTUM          = 0.9f;
+    constexpr float MIN_IMPROVEMENT   = 1e-6f;
     
-    // Estimate initial tau using two points method
-    float v1 = voltage_samples[0];
-    float v2 = voltage_samples[NUM_SAMPLES/2];
-    float t1 = (time_samples[0] - time_samples[0]) / 1000.0;
-    float t2 = (time_samples[NUM_SAMPLES/2] - time_samples[0]) / 1000.0;
-    fitted_tau = (t2 - t1) / (log((fitted_voc - v1)+0.00001) / ((fitted_voc - v2))+0.00001);
+    // Initial parameter estimates
+    fitted_voc = voltage_samples[NUM_SAMPLES - 1];
+    fitted_b   = fitted_voc - voltage_samples[0];
     
-    // Adaptive learning rate parameters
-    float adaptive_lr = RC_FIT_LEARNING_RATE;
-    float momentum_voc = 0.00001;
-    float momentum_b = 0.00001;
-    float momentum_tau = 0.0001;
-    const float momentum_factor = 0.9;
-    const float min_improvement = 1e-6;
-    
-    float prev_error = INFINITY;
-    int stagnant_iterations = 0;
-    
-    for (int iteration = 0; iteration < RC_FIT_ITERATIONS; iteration++) {
-        float gradient_voc = 0.0001;
-        float gradient_b = 0.00001;
-        float gradient_tau = 0.00001;
-        float error_sum_squares = 0.0;
-        
-        // Calculate gradients and error
-        for (int i = 0; i < NUM_SAMPLES; i++) {
-            float t = (time_samples[i] - time_samples[0]) / 1000.0;
-            float measured_v = voltage_samples[i];
-            float exp_term = exp(-t / (fitted_tau+0.00001));
-            float expected_v = fitted_voc - fitted_b * exp_term;
-            float error = measured_v - expected_v;
-            error_sum_squares += error * error;
-            
-            // More numerically stable gradient calculations
-            gradient_voc += -2.0 * error;
-            gradient_b += 2.0 * error * exp_term;
-            gradient_tau += 2.0 * error * fitted_b * (t / ((fitted_tau * fitted_tau)) * exp_term+0.00001);
-        }
-        
-        float current_error = error_sum_squares / NUM_SAMPLES;
-        
-        // Check for convergence
-        if (fabs(prev_error - current_error) < min_improvement) {
-            stagnant_iterations++;
-            if (stagnant_iterations > 5) {
-                Serial.println(F("RC Fit: Early convergence reached"));
-                break;
+    float t0 = time_samples[0] / 1000.0f;  // Convert to seconds
+
+    // Estimate initial tau using multiple data points
+    float sum_ln = 0.0f, sum_t = 0.0f;
+    int valid_points = 0;
+
+    for (int i = 1; i < NUM_SAMPLES / 2; i++) {
+        float t_i = (time_samples[i] / 1000.0f) - t0;
+        float v_diff = fitted_voc - voltage_samples[i];
+        float v_init = fitted_voc - voltage_samples[0];
+
+        if (v_diff > 0.001f && v_init > 0.001f) {
+            float ln_ratio = logf(v_diff / v_init);
+            if (fabsf(ln_ratio) > 1e-6f) {
+                sum_ln += ln_ratio;
+                sum_t  += t_i;
+                valid_points++;
             }
+        }
+    }
+
+    fitted_tau = (valid_points > 0 && fabsf(sum_ln) > 1e-6f) ? -sum_t / sum_ln : FALLBACK_TAU;
+    fitted_tau = constrain(fitted_tau, MIN_TAU, MAX_TAU);
+
+    // Gradient descent parameters
+    float adaptive_lr = RC_FIT_LEARNING_RATE;
+    float prev_grad_voc = 0.0f, prev_grad_b = 0.0f, prev_grad_tau = 0.0f;
+    float prev_error = INFINITY;
+    int stagnant_iters = 0;
+
+    // Main optimization loop
+    for (int iter = 0; iter < RC_FIT_ITERATIONS; iter++) {
+        float grad_voc = 0.0f, grad_b = 0.0f, grad_tau = 0.0f, error_sum = 0.0f;
+        float inv_tau = 1.0f / max(fitted_tau, MIN_TAU);  // Precompute division for efficiency
+
+        for (int i = 0; i < NUM_SAMPLES; i++) {
+            float t = (time_samples[i] / 1000.0f) - t0;
+            float exp_term = expf(-t * inv_tau);
+            float expected_v = fitted_voc - fitted_b * exp_term;
+            float error = voltage_samples[i] - expected_v;
+            error_sum += error * error;
+
+            // Compute gradients
+            grad_voc += -2.0f * error;
+            grad_b   +=  2.0f * error * exp_term;
+            grad_tau += (fitted_b * t * exp_term * grad_b * inv_tau) * 2.0f;
+        }
+
+        float current_error = error_sum / NUM_SAMPLES;
+
+        // Early stopping if no improvement
+        if (fabsf(prev_error - current_error) < MIN_IMPROVEMENT) {
+            if (++stagnant_iters > 5) break;
         } else {
-            stagnant_iterations = 0;
+            stagnant_iters = 0;
         }
-        
-        // Apply momentum and adaptive learning rate
-        momentum_voc = momentum_factor * momentum_voc - adaptive_lr * gradient_voc / NUM_SAMPLES;
-        momentum_b = momentum_factor * momentum_b - adaptive_lr * gradient_b / NUM_SAMPLES;
-        momentum_tau = momentum_factor * momentum_tau - adaptive_lr * gradient_tau / NUM_SAMPLES;
-        
-        fitted_voc += momentum_voc;
-        fitted_b += momentum_b;
-        fitted_tau += momentum_tau;
-        
-        // Parameter constraints with smooth clamping
-        fitted_tau = max(fitted_tau, 1e-6);
-        fitted_b = max(fitted_b, 0.0);
-        fitted_voc = max(fitted_voc, voltage_samples[NUM_SAMPLES - 1] * 0.5);
-        
-        // Adaptive learning rate adjustment
-        if (current_error > prev_error) {
-            adaptive_lr *= 0.5;
-        } else if (stagnant_iterations == 0) {
-            adaptive_lr *= 1.1;
-        }
-        adaptive_lr = constrain(adaptive_lr, 0.0001, 0.1);
-        
+
+        // Apply momentum
+        grad_voc = MOMENTUM * prev_grad_voc + (1 - MOMENTUM) * grad_voc;
+        grad_b   = MOMENTUM * prev_grad_b   + (1 - MOMENTUM) * grad_b;
+        grad_tau = MOMENTUM * prev_grad_tau + (1 - MOMENTUM) * grad_tau;
+
+        prev_grad_voc = grad_voc;
+        prev_grad_b   = grad_b;
+        prev_grad_tau = grad_tau;
+
+        // Update parameters
+        float inv_samples = 1.0f / NUM_SAMPLES;  // Precompute division
+        fitted_voc -= adaptive_lr * grad_voc * inv_samples;
+        fitted_b   -= adaptive_lr * grad_b * inv_samples;
+        fitted_tau -= adaptive_lr * grad_tau * inv_samples;
+
+        // Constrain values to reasonable bounds
+        fitted_tau = constrain(fitted_tau, MIN_TAU, MAX_TAU);
+        fitted_b   = max(fitted_b, 0.0f);
+        fitted_voc = constrain(fitted_voc, 
+                               voltage_samples[NUM_SAMPLES - 1] * 0.8f,
+                               voltage_samples[NUM_SAMPLES - 1] * 1.2f);
+
+        // Adjust learning rate adaptively
+        adaptive_lr = constrain(adaptive_lr * (current_error > prev_error ? 0.5f : 1.1f), MIN_LR, MAX_LR);
         prev_error = current_error;
-        
-        // Debug output with reduced frequency
-        if (iteration % (RC_FIT_ITERATIONS / 5) == 0) {
-            Serial.print(F("RC Fit: "));
-            Serial.print(iteration);
-            Serial.print(F(", fitted_tau: "));
-            Serial.print(fitted_tau);
+
+#ifdef FITTING_DEBUG
+        if (iter % (RC_FIT_ITERATIONS / 5) == 0) {
+            Serial.print(F("RC Fit: Iter "));
+            Serial.print(iter);
+            Serial.print(F(", Voc: "));
+            Serial.print(fitted_voc, 4);
+            Serial.print(F(", B: "));
+            Serial.print(fitted_b, 4);
+            Serial.print(F(", Tau: "));
+            Serial.print(fitted_tau, 4);
             Serial.print(F(", Error: "));
-            Serial.print(current_error, 6);
-            Serial.print(F(", LR: "));
-            Serial.println(adaptive_lr, 6);
+            Serial.println(current_error, 6);
         }
+#endif
     }
-    
-    // Validation checks
-    bool parameters_valid = (fitted_voc > 0) && 
-                          (fitted_tau > 1e-6) && 
-                          (fitted_b >= 0) &&
-                          (fitted_voc < voltage_samples[0] * 2.0);  // Sanity check
-                          
-    if (parameters_valid) {
-        // Calculate final R estimate using known capacitance
+
+    // Final parameter validation
+    bool valid_params = (fitted_voc > 0.0f) &&
+                        (fitted_tau > MIN_TAU) &&
+                        (fitted_b >= 0.0f) &&
+                        (fitted_voc < voltage_samples[0] * 1.5f);
+
+    if (valid_params) {
         resistance_tau_est = fitted_tau / KNOWN_CAPACITANCE;
-        
-        // Additional validation of resistance estimate
-        if (resistance_tau_est > 0 && resistance_tau_est < 1000.0) {  // Adjust limits as needed
-            return true;
-        }
+        return true;
     }
-    
+
     return false;
 }
+
+
+
+
 
 bool perform_partial_voc_measurement() {
 PWM_Instance->setPWM(PWM_PIN, frequency, MIN_PWM); // switch off load
