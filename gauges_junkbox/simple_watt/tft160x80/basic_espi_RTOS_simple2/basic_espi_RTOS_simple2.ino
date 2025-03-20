@@ -115,7 +115,7 @@ float currentIn_zero = 1.614;
 const float CURRENT_OUT_SCALE = 16.50; //5A sensor
 
 //float currentOut_zero = 1.650;
-float currentOut_zero = 1.615;
+float currentOut_zero = 1.612;
 
 float voltageIn   = 0;
 float voltageOut  = 0;
@@ -158,7 +158,8 @@ enum GraphMode {
     OUTPUT_POWER,
     EFFICIENCY,
     ENERGY,
-    COMBINED
+    COMBINED,
+    COMBINED2
 };
 
 GraphMode currentMode = INPUT_VOLTAGE;
@@ -397,7 +398,7 @@ void updateSamples_task (void* parameter){
         lastUpdateTime = currentTime;
         updateMeasurements();
     }    
-    vTaskDelay(SAMPLE_UPDATE_INTERVAL);// sample update interval delay for other tasks 
+    vTaskDelay(SAMPLE_UPDATE_INTERVAL/4);// sample update interval delay for other tasks 
   }
 }
 
@@ -462,6 +463,7 @@ void handleIRCommand() {
         
         case RemoteKeys::KEY_1:          currentMode = ENERGY; break;
         case RemoteKeys::KEY_2:          currentMode = COMBINED; break;
+        case RemoteKeys::KEY_3:          currentMode = COMBINED2; break;
         // Time base selection
           
         case RemoteKeys::KEY_NETFLIX:    currentTimeBase = (currentTimeBase +1) % MAX_TIMEBASES; break;
@@ -529,7 +531,7 @@ void updateSamples() {
 //    currentIn     = analogReadMilliVolts(CURRENT_IN_PIN);
 
 //    currentOut    = ((((float)analogReadMilliVolts(CURRENT_OUT_PIN) -currentOut_zero))/1000.0)*CURRENT_OUT_SCALE;
-      currentOut     = ((filter_currentOut.read(CURRENT_OUT_PIN,128))-currentIn_zero)*CURRENT_OUT_SCALE;
+      currentOut     = ((filter_currentOut.read(CURRENT_OUT_PIN,128))-currentOut_zero)*CURRENT_OUT_SCALE;
 
     powerIn       = voltageIn * currentIn;
     powerOut      = voltageOut * currentOut;
@@ -676,6 +678,22 @@ void updateGraph() {
             drawMulBuffer(voltageInBuffer,currentInBuffer, TFT_WHITE, 100.0);
             drawTitle("");
             break;
+        case COMBINED2:
+            tft.fillRect(GRAPH_X, GRAPH_Y, GRAPH_WIDTH, GRAPH_HEIGHT, TFT_BLACK);// clear graph area
+            tft.fillRect(0, 0, 159, 8, TFT_BLACK); // clear top label area
+
+            drawGrid();
+            drawValue (voltageIn,TFT_RED,0,2);
+            drawValue (voltageOut,TFT_GREEN,5*8,2);
+            drawValue (powerIn,TFT_WHITE,5*8+8+5*8,2);
+            drawValue (powerOut,0xeca5,5*8+5*8+8+5*8,2); // Adjust position as needed
+
+            drawBuffer(voltageInBuffer, TFT_RED, 30.0);
+            drawBuffer(voltageOutBuffer, TFT_GREEN, 30.0);
+            drawMulBuffer(voltageInBuffer,currentInBuffer, TFT_WHITE, 100.0); // Input Power graph
+            drawMulBuffer(voltageOutBuffer,currentOutBuffer, 0xeca5, 100.0); // Output Power graph
+            drawTitle("");
+            break; 
     }
 }
 
