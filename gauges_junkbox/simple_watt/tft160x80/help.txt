@@ -1,0 +1,32 @@
+Help Screen:
+
+This device is controlled using a Samsung IR remote with address 0x7.
+
+Available Keys and Functions:
+
+Graph Mode Selection:
+  - RED button: Display Input Voltage
+  - GREEN button: Display Output Voltage
+  - YELLOW button: Display Input Current
+  - BLUE button: Display Output Current
+  - SETTINGS button: Display Input Power
+  - INFO button: Display Output Power
+  - SUBTITLES button: Display Efficiency
+  - Number 1 button: Display Energy
+  - Number 2 button: Display Combined Data
+  - Number 3 button: Display Combined Data (Alternative)
+
+Time and Update Settings:
+  - NETFLIX button: Cycle through Time Base options (adjusts the time window for data aggregation)
+  - PRIME VIDEO button: Cycle through Screen Update Interval options (adjusts how frequently the graph is updated)
+
+Calibration and Reset:
+  - MUTE button: Calibrate the current sensor. If Input Current is selected, it calibrates the input current sensor. Otherwise, it calibrates the output current sensor.
+  - POWER button: Reset the accumulated energy counter.
+
+Other Functions:
+  - GUIDE button: Cycle through Autoscaling Modes for the graph (NO_AUTO, MAX_AUTO, MIN_MAX_AUTO).
+
+Usage:
+
+Point the Samsung IR remote (address 0x7) towards the device. Use the buttons listed above to change the displayed data, adjust settings, or perform actions.
