@@ -1,5 +1,17 @@
-most code is AI generated (gpt4o and claude)
-files in this dir got tested on hardware. 
+# Tested Hardware Implementations
 
-hardware controls two DC-DC converters by their 'enable' pins . 
-this way one output gets higher priority. 
+This directory contains code that has been successfully tested on actual hardware. The primary hardware configuration involves controlling two DC-DC converters via their 'enable' or PWM pins to implement priority-based power distribution.
+
+## Hardware Configuration
+- **Converters**: Two DC-DC converters.
+- **Priority**: One output is given higher priority (e.g., charging a battery), while the other captures surplus power (e.g., heating).
+- **Control**: AI-generated logic (GPT-4o/Claude) manages the duty cycles to maintain the panel near its MPP.
+
+## Subdirectories
+
+- **basic_mppt/** & **basic_mppt2/**: Standard MPPT implementations for Arduino/AVR.
+- **basic_mppt2_stm8/**: Port of the MPPT logic to STM8 microcontrollers.
+- **3knownC/** & **3knownC_new/**: Advanced Voc and Rint estimation using the "Known Capacitance" RC fitting method.
+- **rint2_1_stm8/** & **rint2_stm8_sduino/**: STM8-specific implementations of internal resistance estimation.
+- **rint_est_2_avr_pwm_mini/**: Specialized Rint estimation for AVR platforms using mini-PWM configurations.
+- **rint_est_refactor/**: Cleaned up and refactored versions of the resistance estimation algorithms.
