@@ -1,3 +1,23 @@
+/**
+ * Project: ESP32 Solar Battery Monitor Receiver (bt_AP2)
+ * Version: 0.5.5
+ *
+ * Version History:
+ * - v0.1: Initial receiver for OLED (reciever_struct_float)
+ * - v0.5: bt_AP2 - ESP32 based with BlueDisplay support
+ * - v0.5.1: Added LFSR-based non-linear graph drawing
+ * - v0.5.5: Optimized color blending for grayish pale lines
+ *
+ * Critical Analysis:
+ * - Using an ESP32 as a SoftAP to bridge UDP broadcast to BlueDisplay (via Bluetooth or WiFi)
+ *   is a clever way to bypass mobile OS limitations on receiving UDP broadcasts directly.
+ * - The LFSR (Linear Feedback Shift Register) drawing logic is a performance optimization.
+ *   Drawing a complex graph over BlueDisplay can be slow. By drawing lines in a pseudo-random
+ *   (LFSR) order, the graph appears to "materialize" uniformly rather than filling linearly,
+ *   which provides better perceived responsiveness.
+ * - `toGrayishColor` is used to differentiate "estimated" or "missing" data on the graph.
+ */
+
 #include <stdlib.h>  // For rand()
 #include <stdbool.h> // for bitwise operations
 #include "wifi_settings.h"
@@ -180,6 +200,15 @@ void setup() {
 }
 
 // Function to handle the UDP packet
+/**
+ * @brief UDP Packet Handler
+ *
+ * CRITICAL ANALYSIS:
+ * - Marked with IRAM_ATTR to ensure it stays in instruction RAM for fast execution.
+ * - Direct memcpy into the packed `tframe` struct assumes consistent endianness and packing
+ *   between the sender (ESP8266) and receiver (ESP32). This is generally true for these
+ *   platforms but should be monitored if other architectures are added.
+ */
 IRAM_ATTR void handlePacket(AsyncUDPPacket packet) {
   // Copy the UDP packet data to the pulse data variable
   memcpy((byte*)&tframe, packet.data(), sizeof(tframe));
@@ -489,6 +518,14 @@ void drawSequentialLines(int numLinesToDraw) {
     }
 }
 
+/**
+ * @brief 16-bit Galois LFSR for non-linear graph drawing.
+ *
+ * CRITICAL ANALYSIS:
+ * - This provides a pseudo-random sequence that visits every number in the range (2^n - 1)
+ *   exactly once. It's much more efficient than calling `rand() % N` repeatedly and
+ *   checking for collisions.
+ */
 // Function to implement a 16-bit Galois LFSR
 uint16_t galoisLFSR(bool *wrapped) {
     static uint16_t initialSeed = 1;  // Track the initial seed to detect wraparound

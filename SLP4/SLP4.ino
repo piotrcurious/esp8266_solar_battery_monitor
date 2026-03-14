@@ -1,3 +1,25 @@
+/**
+ * Project: ESP8266 Solar Battery Monitor (SLP4 - Smart Low Power v4)
+ * Version: 0.4.2
+ *
+ * Version History:
+ * - v0.1: Initial UDP broadcast (sender.ino)
+ * - v0.2: Struct-based telemetry
+ * - v0.3: Basic sleep cycles
+ * - v0.4: SLP4 - Added SensorFilter and Beacon Poking logic
+ * - v0.4.1: Refined Kalman parameters for battery voltage
+ * - v0.4.2: Integrated light sleep with timer_list cleanup
+ *
+ * Critical Analysis:
+ * - The use of `yield_delay` is a workaround for the ESP8266's lack of true RTOS-style blocking delays
+ *   while maintaining background WiFi tasks.
+ * - `initialConnectAndStoreParams` uses a manual loop with `yield()` to wait for connection because
+ *   WiFi synchronization can disrupt `millis()` during the initial handshake. This is a robust
+ *   but quirky approach to handling non-monotonic time.
+ * - `reconnectAfterSleep` implements "Beacon Poking" - it uses promiscuous mode to listen for
+ *   the AP before trying to associate. This significantly saves power if the AP is down.
+ */
+
 #include "wifi_settings.h"
 #include "telemetry_frame.hpp"
 #include "user_interface.h"
@@ -98,6 +120,14 @@ WiFi.mode(WIFI_STA);
   return false;
 }
 
+/**
+ * @brief Sends telemetry data over UDP multicast.
+ *
+ * CRITICAL ANALYSIS:
+ * - The `yield_delay(20)` after `udp.endPacket()` is necessary because `endPacket()` on ESP8266
+ *   is asynchronous and returns before the buffer is fully flushed through the WiFi stack.
+ *   Removing this or reducing it often leads to truncated packets.
+ */
 void sendUDPPacket(const telemetry_frame& tframe) {
   if (udp.beginPacketMulticast(broadcast, port, WiFi.localIP())) {
     size_t bytesWritten = udp.write((uint8_t*)&tframe, sizeof(tframe));
@@ -402,9 +432,12 @@ void loop() {
     }
   }
 
-//  tframe.voltage_ADC0 = analogRead(analogInPin) * (17.0/1024);
-//  if (WiFi.status() == WL_CONNECTED) {tframe.wifi_rssi = WiFi.RSSI();}
-
+  /**
+   * CRITICAL ANALYSIS:
+   * Sampling the ADC multiple times per wakeup helps the Kalman filter stabilize.
+   * However, `analogRead` on ESP8266 is noisy. The `SensorFilter` class (Kalman + Outlier)
+   * is essential here to prevent voltage spikes from triggering false alarms in receivers.
+   */
    for (uint8_t i = 0 ; i < ITERATIONS_PER_WAKEUP; i++) { 
      voltage_ADC0 = analogRead(analogInPin) * (17.0/1024);
      if (WiFi.status() == WL_CONNECTED) {wifi_rssi = WiFi.RSSI();}
@@ -436,6 +469,12 @@ void loop() {
     wifi_fpm_set_sleep_type(LIGHT_SLEEP_T);
     wifi_fpm_open();
 
+    /**
+     * CRITICAL ANALYSIS:
+     * Using Light Sleep (FPM) allows for much lower power consumption than a simple delay,
+     * while keeping the RAM intact. `esp_delay` is used here because it is a blocking
+     * wait that allows the CPU to enter low-power state during the FPM sleep period.
+     */
     uint32_t sleepTimeMilliSeconds = SLEEP_DURATION //10 * 1000;
     wifi_fpm_do_sleep(sleepTimeMilliSeconds * 1000);esp_delay(sleepTimeMilliSeconds + 1);
     delay(10);// no idea if nessesary
