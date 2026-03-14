@@ -53,6 +53,7 @@ public:
     void setOutlierThreshold(float t) { outlierThreshold = t; }
     void setProcessNoise(float q) { this->processNoise = q; }
     void setMeasurementNoise(float r) { this->measurementNoise = r; }
+    void setStepThreshold(size_t s) { this->stepThreshold = s; }
 
 private:
     std::vector<float> readings;
@@ -60,14 +61,17 @@ private:
     size_t head;
     size_t count;
     float outlierThreshold;
+    size_t consecutiveOutliers;
+    size_t stepThreshold;
 
     // Kalman filter variables
     float estimate;
     float errorCovariance;
     float processNoise;
     float measurementNoise;
+    float innovationVar; // For adaptive R
 
-    void calculateStats(float &mean, float &stdDev) const;
+    void calculateStats(float &mean, float &variance) const;
     void kalmanFilterUpdate(float measurement);
 };
 

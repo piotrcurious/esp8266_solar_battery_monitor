@@ -34,12 +34,20 @@ def add_shot_noise(signal, lam=0.5, amplitude=1.0):
     noise = np.random.poisson(lam, len(signal)) * amplitude
     return signal + noise
 
+def calculate_metrics(true_signal, filtered_signal):
+    rmse = np.sqrt(np.mean((true_signal - filtered_signal)**2))
+    # Correlation for lag estimation (simple)
+    correlation = np.correlate(filtered_signal - np.mean(filtered_signal), true_signal - np.mean(true_signal), mode='full')
+    lag = correlation.argmax() - (len(true_signal) - 1)
+    return rmse, lag
+
 def plot_and_save(t, input_data, signal, filtered, title, filename):
+    rmse, lag = calculate_metrics(signal, filtered)
     plt.figure(figsize=(12, 6))
     plt.plot(t, input_data, label='Raw Input', alpha=0.5)
     plt.plot(t, signal, label='True Signal', linestyle='--')
     plt.plot(t, filtered, label='Filtered Output')
-    plt.title(title)
+    plt.title(f"{title}\nRMSE: {rmse:.4f}, Lag: {lag}")
     plt.legend()
     plt.savefig(filename)
     plt.close()
