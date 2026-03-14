@@ -19,6 +19,7 @@ class Analyzer:
             'r_src_est': [],
             'r_tau_est': [],
             'load_est': [],
+            'fitted_time': [],
             'true_voc': [],
             'true_rint': []
         }
@@ -86,17 +87,22 @@ class Analyzer:
 
             elif ":" in line and "," in line:
                 parts = line.split(',')
+                metrics_found = False
                 for part in parts:
                     if ':' in part:
                         try:
                             k, v = part.split(':', 1)
-                            if k == 'V_oc': self.history['fitted_voc'].append(float(v))
+                            if k == 'V_oc':
+                                self.history['fitted_voc'].append(float(v))
+                                metrics_found = True
                             if k == 'Tau': self.history['fitted_tau'].append(float(v))
                             if k == 'R_src': self.history['r_src_est'].append(float(v))
                             if k == 'R_tau': self.history['r_tau_est'].append(float(v))
                             if k == 'load': self.history['load_est'].append(float(v))
                         except ValueError:
                             pass
+                if metrics_found:
+                    self.history['fitted_time'].append(current_time_ms / 1000.0)
 
         self.process.stdin.write("EXIT\n")
         self.process.terminate()
@@ -108,8 +114,7 @@ class Analyzer:
         plt.plot(self.history['time'], self.history['v_cap'], label='V_cap (Physical)')
         plt.plot(self.history['time'], self.history['true_voc'], label='True Voc', linestyle=':', alpha=0.5)
         if self.history['fitted_voc']:
-            t_fitted = np.linspace(0, self.history['time'][-1], len(self.history['fitted_voc']))
-            plt.plot(t_fitted, self.history['fitted_voc'], label='Fitted Voc (Controller)', linestyle='--')
+            plt.plot(self.history['fitted_time'], self.history['fitted_voc'], label='Fitted Voc (Controller)', linestyle='--')
         plt.ylabel('Voltage (V)')
         plt.title(title)
         plt.legend()
@@ -118,8 +123,7 @@ class Analyzer:
         plt.subplot(3, 1, 2)
         plt.plot(self.history['time'], self.history['pwm_duty'], label='PWM Duty')
         if self.history['load_est']:
-             t_load = np.linspace(0, self.history['time'][-1], len(self.history['load_est']))
-             plt.plot(t_load, self.history['load_est'], label='Load Est', linestyle=':')
+             plt.plot(self.history['fitted_time'], self.history['load_est'], label='Load Est', linestyle=':')
         plt.ylabel('Duty Cycle / Load')
         plt.legend()
         plt.grid(True)
@@ -127,11 +131,9 @@ class Analyzer:
         plt.subplot(3, 1, 3)
         plt.plot(self.history['time'], self.history['true_rint'], label='True Rint', color='r', linestyle='--', alpha=0.5)
         if self.history['r_src_est']:
-            t_r = np.linspace(0, self.history['time'][-1], len(self.history['r_src_est']))
-            plt.plot(t_r, self.history['r_src_est'], label='R_src Est (Iterative)')
+            plt.plot(self.history['fitted_time'], self.history['r_src_est'], label='R_src Est (Iterative)')
         if self.history['r_tau_est']:
-            t_rt = np.linspace(0, self.history['time'][-1], len(self.history['r_tau_est']))
-            plt.plot(t_rt, self.history['r_tau_est'], label='R_tau Est (From Tau)', linestyle='-.')
+            plt.plot(self.history['fitted_time'], self.history['r_tau_est'], label='R_tau Est (From Tau)', linestyle='-.')
         plt.ylabel('Resistance (Ohm)')
         plt.xlabel('Time (s)')
         plt.legend()

@@ -1,8 +1,8 @@
 import analyzer
 import os
 
-CONTROLLER = './ammeter_junkbox/80cent_new/tested/3knownC_emulator_eval/controller'
-OUT_DIR = 'ammeter_junkbox/80cent_new/tested/3knownC_emulator_eval/'
+CONTROLLER = './controller'
+OUT_DIR = '.'
 
 def test_static():
     ana = analyzer.Analyzer(CONTROLLER, voc=20, rint=5, c=0.02, rload=10)
