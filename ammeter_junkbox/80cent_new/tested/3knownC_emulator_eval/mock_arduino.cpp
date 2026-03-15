@@ -23,7 +23,9 @@ void delay(unsigned long ms) {
 int analogRead(int pin) {
     std::cout << "READ " << pin << std::endl;
     int val;
-    if (!(std::cin >> val)) return 0;
+    if (!(std::cin >> val)) {
+        exit(0);
+    }
     return val;
 }
 
@@ -36,6 +38,16 @@ void analogWrite(int pin, int value) {
 void AVR_PWM::setPWM(int pin, float freq, float duty) {
     _current_pwm_duty = duty / 1000.0;
     std::cout << "PWM " << _current_pwm_duty << std::endl;
+}
+
+bool MockSerial::peek_exit() {
+    std::cout << "SYNC " << _mock_millis << std::endl;
+    std::string resp;
+    if (!(std::cin >> resp)) {
+        exit(0);
+    }
+    if (resp == "EXIT") return true;
+    return false;
 }
 
 MockSerial Serial;

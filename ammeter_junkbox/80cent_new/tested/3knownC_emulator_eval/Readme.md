@@ -58,6 +58,25 @@ The unified logic was tested against four distinct scenarios:
 | **Dynamic Voc** | Tracking source changes | Rapid detection of voltage drops via oscillation verification (detects 5V drop in < 2s). |
 | **Dynamic Rint** | Tracking panel degradation/shading | Smooth tracking of resistance spikes with zero overshoot. |
 | **High Noise** | Robustness | Stable operation with 0.1V standard deviation noise. |
+| **Solar Mode** | Non-linear source tracking | **Passed.** Tracks MPPT on exponential I-V curve emulator. |
+| **Transients** | Sudden cloud / shading | **Passed.** Oscillation model detects shifts in < 1s; GD remains stable. |
+
+## Bug Analysis & Remediation (Oscillating Logic)
+
+The original "oscillating" junkbox code was found to have two critical flaws:
+1. **Model Mismatch**: It used a step-response model ($V_{oc} - b \cdot e^{-t/\tau}$) during PWM oscillations. This model is only valid when starting from 0V. During active tracking, it produced massive errors (MSE > 100), causing the verification to fail constantly or never converge.
+2. **Static Parameters**: It failed to update internal resistance ($R_{int}$) estimates during the tracking phase, leading to zero adaptive scaling on non-linear solar panels.
+
+### v3.1 Resolution
+- **Steady-State Differential Model**: The new verification uses a derivative of the load equation: $V_{pred} = V_{oc} / (1 + K \cdot D_1)$, where $K$ is derived from the current working point. This accurately predicts small changes in voltage relative to small changes in PWM duty cycle.
+- **Robust Gradient Descent**: Fitting $\lambda = 1/\tau$ with momentum (0.85) and gradient clipping (100.0) ensures that even under high load or noise, the system converges to a stable solution.
+
+### Verification Graphs
+![Solar Analysis](test_unified_solar.png)
+*Figure: Unified v3.1 tracking a non-linear solar source.*
+
+![Solar Transient](test_unified_solar_transient.png)
+*Figure: Unified v3.1 responding to a simulated cloud event (20V -> 15V drop).*
 
 ## Files
 - `emulator.py`: Physical system model.

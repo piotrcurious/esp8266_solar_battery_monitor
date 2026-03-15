@@ -4,8 +4,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 class Analyzer:
-    def __init__(self, controller_bin, voc=20, rint=5, c=0.02, rload=10, noise_std=0.01):
-        self.emulator = emulator.PhysicalSystem(voc=voc, rint=rint, c=c, rload=rload, noise_std=noise_std)
+    def __init__(self, controller_bin, voc=20, rint=5, c=0.02, rload=10, noise_std=0.01, solar_mode=False):
+        self.emulator = emulator.PhysicalSystem(voc=voc, rint=rint, c=c, rload=rload, noise_std=noise_std, solar_mode=solar_mode)
         self.controller_bin = controller_bin
         self.process = None
         self.history = {
@@ -43,9 +43,14 @@ class Analyzer:
 
             line = self.process.stdout.readline()
             if not line:
+                print("Controller process exited unexpectedly.")
+                stderr = self.process.stderr.read()
+                if stderr:
+                    print(f"Stderr: {stderr}")
                 break
 
             line = line.strip()
+            if not line: continue
 
             if line.startswith("READ"):
                 pin = int(line.split()[1])

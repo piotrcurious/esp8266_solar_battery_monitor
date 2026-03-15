@@ -32,7 +32,7 @@ uint16_t PWMPeriod = 0;
 
 #define VOLTAGE_FACTOR 0.80
 #define CALIBRATION_INTERVAL 25000
-#define LEARNING_RATE_LOAD 0.00015
+#define LEARNING_RATE_LOAD 0.00005
 
 #define DEBUG_SERIAL_OUTPUT_INTERVAL 250
 #define VERIFICATION_INTERVAL 4000
@@ -72,8 +72,9 @@ static unsigned long time_samples[NUM_SAMPLES];
 bool fit_rc_profile() {
     if (NUM_SAMPLES < 2) return false;
 
-    constexpr float MIN_TAU = 1e-6f;
-    constexpr float MAX_TAU = 2.5f;
+    // Use lambda = 1/tau for fitting, as it is more linear in the exponent
+    constexpr float MIN_LAMBDA = 0.4f;   // tau = 2.5s
+    constexpr float MAX_LAMBDA = 1e6f;   // tau = 1us
 
     float f_voc = voltage_samples[NUM_SAMPLES - 1];
     float f_b   = f_voc - voltage_samples[0];
@@ -90,54 +91,64 @@ bool fit_rc_profile() {
             valid++;
         }
     }
-    float f_tau = (valid > 5) ? -sum_t/sum_ln : fitted_tau;
-    f_tau = constrain(f_tau, MIN_TAU, MAX_TAU);
+    float f_lambda = (valid > 5) ? -sum_ln/sum_t : 1.0f/fitted_tau;
+    f_lambda = constrain(f_lambda, MIN_LAMBDA, MAX_LAMBDA);
 
     float lr = RC_FIT_LEARNING_RATE;
     float prev_err = 1e10;
-    float m_voc = 0, m_b = 0, m_tau = 0;
+    float m_voc = 0, m_b = 0, m_lambda = 0;
 
     for (int iter = 0; iter < RC_FIT_ITERATIONS; iter++) {
-        float grad_voc = 0, grad_b = 0, grad_tau = 0, err_sum = 0;
-        float inv_tau = 1.0f / max(f_tau, MIN_TAU);
+        float grad_voc = 0, grad_b = 0, grad_lambda = 0, err_sum = 0;
 
         for (int i = 0; i < NUM_SAMPLES; i++) {
             float t = (time_samples[i] / 1000.0f) - t0;
-            float e_term = expf(-t * inv_tau);
+            float e_term = expf(-t * f_lambda);
             float ev = f_voc - f_b * e_term;
             float err = voltage_samples[i] - ev;
             err_sum += err * err;
 
-            grad_voc += -2.0f * err;
-            grad_b   += 2.0f * err * e_term;
-            grad_tau += (f_b * t * e_term * 2.0f * err * inv_tau * inv_tau);
+            grad_voc    += -2.0f * err;
+            grad_b      += 2.0f * err * e_term;
+            grad_lambda += -2.0f * err * f_b * t * e_term;
         }
 
-        m_voc = MOMENTUM * m_voc + (1.0f - MOMENTUM) * grad_voc;
-        m_b   = MOMENTUM * m_b   + (1.0f - MOMENTUM) * grad_b;
-        m_tau = MOMENTUM * m_tau + (1.0f - MOMENTUM) * grad_tau;
+        // Gradient clipping to prevent explosion
+        float g_norm = sqrtf(grad_voc*grad_voc + grad_b*grad_b + grad_lambda*grad_lambda);
+        if (g_norm > 100.0f) {
+            float scale = 100.0f / g_norm;
+            grad_voc *= scale; grad_b *= scale; grad_lambda *= scale;
+        }
 
-        f_voc -= lr * m_voc / NUM_SAMPLES;
-        f_b   -= lr * m_b / NUM_SAMPLES;
-        f_tau -= lr * m_tau / NUM_SAMPLES;
+        m_voc    = MOMENTUM * m_voc    + (1.0f - MOMENTUM) * grad_voc;
+        m_b      = MOMENTUM * m_b      + (1.0f - MOMENTUM) * grad_b;
+        m_lambda = MOMENTUM * m_lambda + (1.0f - MOMENTUM) * grad_lambda;
 
-        f_tau = constrain(f_tau, MIN_TAU, MAX_TAU);
-        f_b   = max(f_b, 0.0f);
-        f_voc = max(f_voc, 0.0f);
+        f_voc    -= lr * m_voc / NUM_SAMPLES;
+        f_b      -= lr * m_b / NUM_SAMPLES;
+        f_lambda -= lr * m_lambda / NUM_SAMPLES;
+
+        f_lambda = constrain(f_lambda, MIN_LAMBDA, MAX_LAMBDA);
+        f_b      = max(f_b, 0.0f);
+        f_voc    = max(f_voc, 0.5f);
 
         if (err_sum > prev_err) lr *= 0.5;
         else lr *= 1.05;
         prev_err = err_sum;
-        if (lr < 1e-8) break;
+        if (lr < 1e-9) break;
     }
 
     if (f_voc > 0.5) {
-        open_circuit_voltage = f_voc;
-        fitted_tau = f_tau;
-        resistance_tau_est = f_tau / KNOWN_CAPACITANCE;
+        float new_tau = 1.0f / f_lambda;
+        // Damping for open_circuit_voltage stability
+        if (open_circuit_voltage < 0.1) open_circuit_voltage = f_voc;
+        else open_circuit_voltage = 0.3f * f_voc + 0.7f * open_circuit_voltage;
 
-        // Adaptive sampling: aim for 3-4 Tau total observation
-        sampling_interval_ms = constrain((int)(3500.0f * f_tau / NUM_SAMPLES), 5, 120);
+        fitted_tau = new_tau;
+        resistance_tau_est = new_tau / KNOWN_CAPACITANCE;
+
+        // Adaptive sampling: aim for 3.5 Tau total observation
+        sampling_interval_ms = constrain((int)(3500.0f * fitted_tau / NUM_SAMPLES), 5, 120);
         return true;
     }
     return false;
@@ -147,46 +158,46 @@ bool verify_voc_with_oscillation() {
     float v0 = analogRead(SOURCE_PIN) * (SOURCE_VOLTAGE_RANGE / 1023.0);
     float d0 = load;
 
-    // If we're not loaded much, Voc change is visible directly
     if (d0 < 0.05) {
-        if (v0 < open_circuit_voltage * 0.95 || v0 > open_circuit_voltage + 0.5) return false;
+        if (v0 < open_circuit_voltage * 0.90 || v0 > open_circuit_voltage + 1.0) return false;
         return true;
     }
 
-    if (open_circuit_voltage < 1.0) return true;
-
-    float d1 = d0 * 0.7f; // More aggressive poke
+    float d1 = d0 * 0.85f;
     PWM_Instance->setPWM(PWM_PIN, frequency, d1 * PWMPeriod);
-    delay(60); // Longer delay for stabilization
+    delay(40);
     float v1 = analogRead(SOURCE_PIN) * (SOURCE_VOLTAGE_RANGE / 1023.0);
     PWM_Instance->setPWM(PWM_PIN, frequency, d0 * PWMPeriod);
 
-    // Predictive check:
-    // Under steady state: V = Voc * RL / (RL + Rsrc)
-    // v1_pred = Voc / (1 + ((Voc-v0)/v0) * (d1/d0))
-    float ratio = (open_circuit_voltage - v0) / max(v0, 0.1f);
-    float v1_pred = open_circuit_voltage / (1.0f + ratio * (d1/d0));
+    // Using steady-state loaded model: V = Voc * Rload / (Rload + Rsrc)
+    // Rload is effectively 1/duty
+    // v1_pred = Voc / (1 + Rsrc * d1 * K) where K is a scaling constant
+    // Since v0 = Voc / (1 + Rsrc * d0 * K), then (Voc-v0)/v0 = Rsrc * d0 * K
+    // So Rsrc * K = (Voc-v0)/(v0 * d0)
+    // v1_pred = Voc / (1 + ((Voc-v0)/(v0 * d0)) * d1)
 
-    // Detection sensitivity
-    if (v0 > open_circuit_voltage + 0.5) return false;
-    if (v0 < open_circuit_voltage * 0.5) return false; // Immediate large drop
-    if (fabsf(v1 - v1_pred) > 0.4) return false;      // Tighter tolerance
+    float v_eff = max(v0, 0.5f);
+    float d_eff = max(d0, 0.01f);
+    float v1_pred = open_circuit_voltage / (1.0f + ((open_circuit_voltage - v_eff)/(v_eff * d_eff)) * d1);
+
+    if (v0 > open_circuit_voltage + 0.8) return false;
+    if (fabsf(v1 - v1_pred) > 0.5) return false;
 
     return true;
 }
 
 void calibrate() {
     PWM_Instance->setPWM(PWM_PIN, frequency, MIN_PWM);
-    delay(40);
+    delay(50);
     for (int i = 0; i < NUM_SAMPLES; i++) {
         time_samples[i] = millis();
         voltage_samples[i] = analogRead(SOURCE_PIN) * (SOURCE_VOLTAGE_RANGE / 1023.0);
         delay(sampling_interval_ms);
     }
     if (fit_rc_profile()) {
-        // Blended Rint update
-        if (resistance_tau_est > 0.1) {
-            internal_resistance_src = 0.75 * resistance_tau_est + 0.25 * internal_resistance_src;
+        // Blended Rint update - more conservative damping for stability
+        if (resistance_tau_est > 0.1 && resistance_tau_est < 500.0) {
+            internal_resistance_src = 0.20 * resistance_tau_est + 0.80 * internal_resistance_src;
         }
     }
     PWM_Instance->setPWM(PWM_PIN, frequency, load * PWMPeriod);

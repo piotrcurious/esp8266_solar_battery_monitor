@@ -33,6 +33,7 @@ public:
     void println(int i) { std::cout << i << std::endl; }
     void println(unsigned long l) { std::cout << l << std::endl; }
     void println() { std::cout << std::endl; }
+    bool peek_exit();
 };
 
 extern MockSerial Serial;

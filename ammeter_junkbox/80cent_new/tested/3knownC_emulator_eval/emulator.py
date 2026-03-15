@@ -1,27 +1,30 @@
 import numpy as np
 
 class PhysicalSystem:
-    def __init__(self, voc=20.0, rint=5.0, c=0.02, rload=10.0, initial_v=None, noise_std=0.01):
+    def __init__(self, voc=20.0, rint=5.0, c=0.02, rload=10.0, initial_v=None, noise_std=0.01, solar_mode=False):
         self.voc = voc
+        self.rint_base = rint
         self.rint = rint
         self.c = c
         self.rload = rload
         self.v_cap = initial_v if initial_v is not None else voc
         self.time = 0.0
         self.noise_std = noise_std
+        self.solar_mode = solar_mode
 
     def step(self, dt_ms, pwm_duty):
         # pwm_duty: 0.0 to 1.0
         dt = dt_ms / 1000.0
 
+        # In solar mode, Rint increases as voltage drops (simulating the knee of the IV curve)
+        if self.solar_mode:
+            voltage_ratio = self.v_cap / self.voc
+            # Exponentially increase resistance as we pull more current (voltage drops)
+            self.rint = self.rint_base * (1.0 + 10.0 * np.exp(-10.0 * voltage_ratio))
+        else:
+            self.rint = self.rint_base
+
         # Analytical solution for RC circuit with two sources/resistors
-        # Equivalent circuit:
-        # V_eq = (Voc/Rint) / (1/Rint + pwm_duty/Rload) = Voc * Rload / (Rload + pwm_duty * Rint)
-        # R_eq = 1 / (1/Rint + pwm_duty/Rload) = (Rint * Rload) / (Rload + pwm_duty * Rint)
-
-        # Tau = R_eq * C
-        # V(t) = V_eq + (V_initial - V_eq) * exp(-t/Tau)
-
         denom = self.rload + pwm_duty * self.rint
         if denom == 0: # Should not happen if Rload > 0
             v_eq = self.voc
