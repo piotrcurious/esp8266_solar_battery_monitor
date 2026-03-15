@@ -156,5 +156,5 @@ void setup() {
 
 void loop() {
     // No additional processing needed
-    delay(10000);  // Wait 10 seconds before repeating
+      // Wait 10 seconds before repeating
 }
