@@ -1,0 +1,20 @@
+| Algorithm | Signal | MSE | Ratio |
+|-----------|--------|-----|-------|
+| Poly3-Adaptive | composite_sine | 0.000629 | 1.0158730158730158x |
+| Poly3-Adaptive | exp_decay | 0.006823 | 0.7111111111111111x |
+| Poly3-Adaptive | noisy_sine | 0.004150 | 0.5019607843137255x |
+| Poly3-Differential | composite_sine | 14.064637 | 2.0317460317460316x |
+| Poly3-Differential | exp_decay | 2.976297 | 1.4222222222222223x |
+| Poly3-Differential | noisy_sine | 9.355660 | 1.003921568627451x |
+| Poly5-Adaptive | composite_sine | 0.818763 | 1.0x |
+| Poly5-Adaptive | exp_decay | 8.422273 | 1.0x |
+| Poly5-Adaptive | noisy_sine | 0.484142 | 1.0x |
+| Poly5-Diff-Adaptive | composite_sine | 0.761625 | 1.6x |
+| Poly5-Diff-Adaptive | exp_decay | 3.258426 | 1.6x |
+| Poly5-Diff-Adaptive | noisy_sine | 0.918664 | 1.6x |
+| Log-Delta-8Bit | composite_sine | 0.621276 | 4.0x |
+| Log-Delta-8Bit | exp_decay | 108.204029 | 4.0x |
+| Log-Delta-8Bit | noisy_sine | 0.609717 | 4.0x |
+| Log-Delta-4Bit | composite_sine | 0.053567 | 16.0x |
+| Log-Delta-4Bit | exp_decay | 25.306332 | 16.0x |
+| Log-Delta-4Bit | noisy_sine | 0.445271 | 16.0x |
