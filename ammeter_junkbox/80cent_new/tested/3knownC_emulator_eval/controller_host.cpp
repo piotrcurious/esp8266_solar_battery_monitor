@@ -9,21 +9,20 @@
 
 int main() {
     controller_setup();
+    // Basic SYNC to start the analyzer communication
+    std::cout << "SYNC 0" << std::endl;
     while (true) {
-        std::cout << "TICK" << std::endl;
-        controller_loop();
-        // The analyzer will control the flow
-        // We'll send a SYNC signal
-        std::cout << "SYNC " << _mock_millis << std::endl;
-
         // Wait for analyzer to tell us to continue or exit
         std::string cmd;
         if (!(std::cin >> cmd)) break;
         if (cmd == "EXIT") break;
-        // if cmd is TICK, we continue
-        unsigned long next_millis;
-        std::cin >> next_millis;
-        _mock_millis = next_millis;
+
+        controller_loop();
+
+        // The analyzer will control the flow
+        // We'll advance by 1ms for the host logic loop (legacy mode uses fixed delays usually)
+        _mock_millis += 1;
+        std::cout << "SYNC " << _mock_millis << std::endl;
     }
     return 0;
 }

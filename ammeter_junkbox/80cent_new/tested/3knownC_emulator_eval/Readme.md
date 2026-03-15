@@ -78,6 +78,26 @@ The original "oscillating" junkbox code was found to have two critical flaws:
 ![Solar Transient](test_unified_solar_transient.png)
 *Figure: Unified v3.1 responding to a simulated cloud event (20V -> 15V drop).*
 
+## v4.2 "Voltage-Binning" Solver
+
+The v4.2 iteration introduces a direct algebraic solver that replaces the iterative gradient descent for real-time tracking. This version is designed specifically for "Software RC Oscillators" where the capacitor voltage is intentionally oscillated around a target setpoint (e.g., 80% Voc).
+
+### Binning Logic
+- **High Bin**: Collects $(V, I_{src})$ samples when $V > V_{target} + 1\%$.
+- **Low Bin**: Collects $(V, I_{src})$ samples when $V < V_{target} - 1\%$.
+- **Direct Solution**: Once enough samples (approx. 20) are collected in both bins, the controller solves:
+  $$R_{int} = \frac{\bar{V}_{high} - \bar{V}_{low}}{\bar{I}_{low} - \bar{I}_{high}}$$
+  $$V_{oc} = \bar{V}_{high} + R_{int} \cdot \bar{I}_{high}$$
+
+### Advantages
+1. **Zero Iteration Latency**: Unlike gradient descent which may take several oscillation cycles to converge, the binning solver produces an optimal estimate as soon as one full oscillation cycle is completed.
+2. **Robustness to Noise**: Averaging samples within bins provides natural noise filtering.
+3. **Simplicity**: Extremely low computational overhead, suitable for low-power microcontrollers (AVR/STM8).
+
+### Verification Graphs (v4.2)
+![v4.2 Analysis](test_osc_v4_2_final.png)
+*Figure: v4.2 Voltage-Binning logic tracking multiple transients (Voc drop at 15s, recovery at 30s, Rint increase at 45s).*
+
 ## Files
 - `emulator.py`: Physical system model.
 - `analyzer.py`: Test runner and data logger.

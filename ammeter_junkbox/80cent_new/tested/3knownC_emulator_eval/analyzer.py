@@ -21,7 +21,10 @@ class Analyzer:
             'load_est': [],
             'fitted_time': [],
             'true_voc': [],
-            'true_rint': []
+            'true_rint': [],
+            # Standardized names for the test scripts
+            'voc_est': [],
+            'rint_est': []
         }
         self.current_pwm_duty = 0.0
 
@@ -31,8 +34,7 @@ class Analyzer:
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
-            text=True,
-            bufsize=1
+            text=True
         )
 
         current_time_ms = 0
@@ -43,10 +45,9 @@ class Analyzer:
 
             line = self.process.stdout.readline()
             if not line:
-                print("Controller process exited unexpectedly.")
-                stderr = self.process.stderr.read()
-                if stderr:
-                    print(f"Stderr: {stderr}")
+                print(f"Controller process exited.")
+                stderr = self.process.stderr.read() if self.process.stderr else "No stderr"
+                print(f"Stderr capture: {stderr}")
                 break
 
             line = line.strip()
@@ -54,17 +55,39 @@ class Analyzer:
 
             if line.startswith("READ"):
                 pin = int(line.split()[1])
-                if pin == 0: # SOURCE_PIN
+                if pin == 0: # SOURCE_PIN (V_cap)
                     v = self.emulator.get_source_voltage()
-                    raw = int(v / 28.0 * 1023)
+                    raw = int(v / 25.0 * 1023)
+                elif pin == 1: # CURRENT_PIN (I_src)
+                    i = (self.emulator.voc - self.emulator.v_cap) / self.emulator.rint
+                    i += np.random.normal(0, self.emulator.noise_std * 2) # More noise on current
+                    raw = int(i / 10.0 * 1023)
                 else: # LOAD_PIN
                     v = self.emulator.get_load_voltage(self.current_pwm_duty)
-                    raw = int(v / 30.0 * 1023)
+                    raw = int(v / 25.0 * 1023)
+
                 self.process.stdin.write(f"{raw}\n")
                 self.process.stdin.flush()
 
             elif line.startswith("PWM"):
                 self.current_pwm_duty = float(line.split()[1])
+
+            elif line.startswith("DATA:"):
+                # Format: DATA:time_ms:v:i_src:pwm_duty:voc_est:r_est:load_est
+                parts = line.split(':')
+                if len(parts) >= 8:
+                    try:
+                        v_est = float(parts[5])
+                        r_est = float(parts[6])
+                        l_est = float(parts[7])
+                        self.history['fitted_voc'].append(v_est)
+                        self.history['r_src_est'].append(r_est)
+                        self.history['load_est'].append(l_est)
+                        self.history['voc_est'].append(v_est)
+                        self.history['rint_est'].append(r_est)
+                        self.history['fitted_time'].append(current_time_ms / 1000.0)
+                    except ValueError:
+                        pass
 
             elif line.startswith("DELAY"):
                 delay_ms = int(line.split()[1])
@@ -75,20 +98,24 @@ class Analyzer:
                 current_time_ms += delay_ms
 
             elif line.startswith("SYNC"):
-                controller_millis = int(line.split()[1])
-                dt = controller_millis - current_time_ms
-                if dt > 0:
-                    self.emulator.step(dt, self.current_pwm_duty)
-                    current_time_ms = controller_millis
-
-                self.history['time'].append(current_time_ms / 1000.0)
-                self.history['v_cap'].append(self.emulator.v_cap)
-                self.history['pwm_duty'].append(self.current_pwm_duty)
-                self.history['true_voc'].append(self.emulator.voc)
-                self.history['true_rint'].append(self.emulator.rint)
-
-                self.process.stdin.write(f"TICK {current_time_ms + step_ms}\n")
+                # Signal the controller that it can proceed to the next iteration
+                self.process.stdin.write("TICK\n")
                 self.process.stdin.flush()
+
+                parts = line.split()
+                if len(parts) > 1:
+                    controller_millis = int(parts[1])
+                    dt = controller_millis - current_time_ms
+                    if dt > 0:
+                        self.emulator.step(dt, self.current_pwm_duty)
+                        current_time_ms = controller_millis
+
+                    self.history['time'].append(current_time_ms / 1000.0)
+                    self.history['v_cap'].append(self.emulator.v_cap)
+                    self.history['pwm_duty'].append(self.current_pwm_duty)
+                    self.history['true_voc'].append(self.emulator.voc)
+                    self.history['true_rint'].append(self.emulator.rint)
+
 
             elif ":" in line and "," in line:
                 parts = line.split(',')
