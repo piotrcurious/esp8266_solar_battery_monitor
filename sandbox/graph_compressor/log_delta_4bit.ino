@@ -1,6 +1,6 @@
 #include <Arduino.h>
 
-#define MAX_SAMPLES 256
+#define MAX_SAMPLES 512
 
 struct DataPoint {
     float t;
@@ -27,14 +27,20 @@ private:
     }
 
 public:
-    void push(float t, float v, float* rawT, float* rawV, int rawCount) {
+    void push(float* rawT, float* rawV, int rawCount) {
         if (rawCount == 0) return;
         firstTimestamp = rawT[0];
         firstValue = rawV[0];
         count = rawCount;
+
+        float currentReconstructed = firstValue;
         for (int i = 1; i < rawCount; i++) {
-            float delta = rawV[i] - rawV[i-1];
+            float delta = rawV[i] - currentReconstructed;
             uint8_t p = pack(delta);
+
+            // Feedback to prevent drift
+            currentReconstructed += unpack(p);
+
             int byteIdx = (i-1) / 2;
             if ((i-1) % 2 == 0) {
                 compressed[byteIdx] = p;
@@ -47,13 +53,20 @@ public:
     void print(float* rawT) {
         Serial.print("SIZE:"); Serial.println((count-1)/2 + 1);
         float cv = firstValue;
+        float err_comp = 0.0f; // Kahan summation
+
         Serial.print("RESULT:"); Serial.print(rawT[0]); Serial.print(":"); Serial.println(cv);
         for (int i = 1; i < count; i++) {
             int byteIdx = (i-1) / 2;
             uint8_t p;
             if ((i-1) % 2 == 0) p = compressed[byteIdx] & 0x0F;
             else p = (compressed[byteIdx] >> 4) & 0x0F;
-            cv += unpack(p);
+
+            float y = unpack(p) - err_comp;
+            float t = cv + y;
+            err_comp = (t - cv) - y;
+            cv = t;
+
             Serial.print("RESULT:"); Serial.print(rawT[i]); Serial.print(":"); Serial.println(cv);
         }
     }
@@ -61,7 +74,7 @@ public:
 
 void setup() {
     Serial.begin(115200);
-    float rawT[MAX_SAMPLES], rawV[MAX_SAMPLES];
+    static float rawT[MAX_SAMPLES], rawV[MAX_SAMPLES];
     int rc = 0;
     String line;
     while (Serial.available()) {
@@ -75,7 +88,7 @@ void setup() {
         if (rc >= MAX_SAMPLES) break;
     }
     CompressedBuffer4Bit cb;
-    cb.push(0, 0, rawT, rawV, rc);
+    cb.push(rawT, rawV, rc);
     cb.print(rawT);
 }
 void loop() {}

@@ -44,7 +44,7 @@ void compress() {
             if(me<=0.05 && (temporaryBuffer[end].timestamp-temporaryBuffer[start].timestamp)<=10.0) { memcpy(bc, cc, sizeof(bc)); f=true; end++; } else break;
         }
         if(!f) { bc[0]=0; bc[1]=0; bc[2]=0; bc[3]=temporaryBuffer[start].value; end=start+1; }
-        Polynomial p; p.a3=(int16_t)((bc[0]-l3)*SCALE); p.a2=(int16_t)((bc[1]-l2)*SCALE); p.a1=(int16_t)((bc[1]-l1)*SCALE); p.a0=(int16_t)((bc[3]-l0)*SCALE);
+        Polynomial p; p.a3=(int16_t)((bc[0]-l3)*SCALE); p.a2=(int16_t)((bc[1]-l2)*SCALE); p.a1=(int16_t)((bc[2]-l1)*SCALE); p.a0=(int16_t)((bc[3]-l0)*SCALE);
         p.tDelta=temporaryBuffer[end-1].timestamp-temporaryBuffer[start].timestamp; storageBuffer[storageCount++]=p;
         l3=bc[0]; l2=bc[1]; l1=bc[2]; l0=bc[3]; start=end;
     }

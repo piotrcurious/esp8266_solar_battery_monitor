@@ -46,7 +46,7 @@ void compress() {
             double cc[6]={0}; fit(&temp[s], e-s+1, cc);
             double me=0; for (int i=s; i<=e; i++) {
                 double t=temp[i].t-temp[s].t, pr=0, tp=1; for(int j=0; j<6; j++) { pr+=cc[j]*tp; tp*=t; }
-                double err=std::abs(pr-temp[i].v); if(err>me) me=e;
+                double err=std::abs(pr-temp[i].v); if(err>me) me=err;
             }
             if (me<=0.05 && (temp[e].t-temp[s].t)<=15.0) { memcpy(bc, cc, 8*6); f=true; e++; } else break;
         }
