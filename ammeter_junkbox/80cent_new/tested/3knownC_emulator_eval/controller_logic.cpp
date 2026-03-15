@@ -146,22 +146,31 @@ bool fit_rc_profile() {
 bool verify_voc_with_oscillation() {
     float v0 = analogRead(SOURCE_PIN) * (SOURCE_VOLTAGE_RANGE / 1023.0);
     float d0 = load;
-    if (d0 < 0.1 || open_circuit_voltage < 1.0) return true;
 
-    float d1 = d0 * 0.8f;
+    // If we're not loaded much, Voc change is visible directly
+    if (d0 < 0.05) {
+        if (v0 < open_circuit_voltage * 0.95 || v0 > open_circuit_voltage + 0.5) return false;
+        return true;
+    }
+
+    if (open_circuit_voltage < 1.0) return true;
+
+    float d1 = d0 * 0.7f; // More aggressive poke
     PWM_Instance->setPWM(PWM_PIN, frequency, d1 * PWMPeriod);
-    delay(40); // Allow some RC response
+    delay(60); // Longer delay for stabilization
     float v1 = analogRead(SOURCE_PIN) * (SOURCE_VOLTAGE_RANGE / 1023.0);
     PWM_Instance->setPWM(PWM_PIN, frequency, d0 * PWMPeriod);
 
     // Predictive check:
     // Under steady state: V = Voc * RL / (RL + Rsrc)
-    // RL is proportional to 1/duty
     // v1_pred = Voc / (1 + ((Voc-v0)/v0) * (d1/d0))
-    float v1_pred = open_circuit_voltage / (1.0f + ((open_circuit_voltage - v0)/v0) * (d1/d0));
+    float ratio = (open_circuit_voltage - v0) / max(v0, 0.1f);
+    float v1_pred = open_circuit_voltage / (1.0f + ratio * (d1/d0));
 
-    if (v0 > open_circuit_voltage + 0.3) return false; // Overvoltage vs model
-    if (fabsf(v1 - v1_pred) > 0.7) return false;      // Model mismatch (Voc or Rsrc changed)
+    // Detection sensitivity
+    if (v0 > open_circuit_voltage + 0.5) return false;
+    if (v0 < open_circuit_voltage * 0.5) return false; // Immediate large drop
+    if (fabsf(v1 - v1_pred) > 0.4) return false;      // Tighter tolerance
 
     return true;
 }
@@ -191,7 +200,8 @@ void controller_setup() {
     PWM_Instance = new AVR_PWM(PWM_PIN, frequency, MIN_PWM);
     PWM_Instance->setPWM();
     PWMPeriod = PWM_Instance->getPWMPeriod();
-    last_calibration_time = millis();
+    // Trigger calibration almost immediately
+    last_calibration_time = millis() - (CALIBRATION_INTERVAL - 1000);
 }
 
 void controller_loop() {

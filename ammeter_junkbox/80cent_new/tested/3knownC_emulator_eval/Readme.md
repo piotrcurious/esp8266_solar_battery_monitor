@@ -54,8 +54,8 @@ The unified logic was tested against four distinct scenarios:
 
 | Test Case | Objective | Result |
 |-----------|-----------|--------|
-| **Static** | Baseline accuracy | High precision convergence in < 2 calibration cycles. |
-| **Dynamic Voc** | Tracking source changes | Rapid detection of voltage drops via oscillation verification. |
+| **Static** | Baseline accuracy | High precision convergence. Immediate calibration at startup. |
+| **Dynamic Voc** | Tracking source changes | Rapid detection of voltage drops via oscillation verification (detects 5V drop in < 2s). |
 | **Dynamic Rint** | Tracking panel degradation/shading | Smooth tracking of resistance spikes with zero overshoot. |
 | **High Noise** | Robustness | Stable operation with 0.1V standard deviation noise. |
 
