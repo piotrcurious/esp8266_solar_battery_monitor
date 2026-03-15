@@ -252,18 +252,8 @@ void controller_loop() {
     }
 
     if (now - last_debug_output > DEBUG_SERIAL_OUTPUT_INTERVAL) {
-#ifdef ARDUINO
-        Serial.print("DATA:"); Serial.print(now);
-        Serial.print(":"); Serial.print(s_volt, 3);
-        Serial.print(":"); Serial.print(i_src, 3);
-        Serial.print(":"); Serial.print(load, 3);
-        Serial.print(":"); Serial.print(open_circuit_voltage, 3);
-        Serial.print(":"); Serial.print(internal_resistance_src, 3);
-        Serial.print(":"); Serial.println(load, 3);
-#else
         printf("DATA:%lu:%.3f:%.3f:%.3f:%.3f:%.3f:%.3f\n",
                now, s_volt, i_src, load, open_circuit_voltage, internal_resistance_src, load);
-#endif
         last_debug_output = now;
     }
 }

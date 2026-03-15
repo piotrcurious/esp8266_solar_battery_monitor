@@ -1,24 +1,24 @@
-# 3knownC v4.4 Hybrid - MPPT Controller with Active Dither Tracking
+# 3knownC v4.5.2 Hybrid - MPPT Controller with Active Exploration
 
-This directory contains the production-ready implementation of the Hybrid 3knownC algorithm. It combines high-precision RC curve fitting with real-time algebraic tracking to maintain the 80% $V_{oc}$ setpoint under rapidly changing solar conditions.
+This directory contains the production-ready implementation of the Advanced Hybrid 3knownC algorithm (v4.5.2). It combines high-precision RC curve fitting with real-time algebraic tracking and active source exploration.
 
 ## Key Features
 
-- **Hybrid Estimation Engine**: Uses Gradient Descent for baseline RC profile fitting (every 30s) and an algebraic "Voltage-Binning" solver for continuous tracking.
-- **Active PWM Dither**: Introduces a ±3% sinusoidal perturbation to the load. This ensures the system always explores both "High" and "Low" voltage states, allowing the binning estimator to update $V_{oc}$ and $R_{int}$ even during steady-state operation.
-- **Fast Transient Recovery**: Capable of adapting to major source shifts (e.g., cloud cover) in <2 seconds, significantly faster than pure iterative methods.
-- **Momentum-Based Fitter**: Refined RC curve fitter with momentum and adaptive learning rates for robust convergence from cold starts.
+- **Hybrid Estimation Engine**: Uses Gradient Descent for baseline RC profile fitting and an algebraic "Voltage-Binning" solver for continuous tracking.
+- **Stuck-at-OC Detection**: Aggressively detects if the source voltage has dropped while the controller is in an open-circuit state, triggering immediate recalibration to prevent "stalling".
+- **Active Pulse Exploration**: Periodically (every 1-3s) forces a heavy load pulse (20ms-100ms) to ensure the system hits low-voltage bins. This ensures accurate $R_{int}$ estimation even when the primary load is minimal.
+- **Proactive Voc Bleed**: Automatically adjusts the $V_{oc}$ estimate during zero-current periods to match measured voltage, improving recovery speed after long shadows.
+- **Fast Transient Recovery**: Capable of adapting to major source shifts (e.g., cloud cover) in <2 seconds.
 
 ## Verification Results
 
-The logic was verified using a Python-based physics co-simulation.
+The logic was verified using the co-simulation environment in `3knownC_emulator_eval/`.
 
-### Cloud Transient Scenario
-- **Event**: Simultaneous 20% drop in $V_{oc}$ and 140% increase in $R_{int}$ at $t=15s$.
-- **Response**: The controller successfully tracked the shift using dithered binning, recovering the 80% setpoint long before the next scheduled full calibration.
-- **Stability**: The active dither (±3%) provided sufficient statistical spread for estimation without causing significant ripple in the load power.
+### Cloud Transient Scenario (v4.5.2)
+- **Response**: The controller successfully identified the $V_{oc}$ drop during the open-circuit phase and recovered the 80% setpoint using dynamic pulses to refresh its I-V model.
+- **Robustness**: The pulse frequency now adapts based on bin data density (1Hz when data is scarce, 0.3Hz when stable).
 
-![Verification Results](verification_results.png)
+![Cloud Transient Results](test_v4_4_cloud_transient.png)
 
 ## Files
 
