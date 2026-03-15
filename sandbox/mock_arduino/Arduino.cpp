@@ -1,6 +1,7 @@
 #include "Arduino.h"
 #include <chrono>
 #include <thread>
+#include <random>
 
 MockSerial Serial;
 
@@ -24,4 +25,26 @@ String MockSerial::readStringUntil(char terminator) {
         return String(line);
     }
     return String("");
+}
+
+static std::mt19937 gen;
+
+void randomSeed(unsigned long seed) {
+    gen.seed(seed);
+}
+
+long random(long howbig) {
+    if (howbig == 0) return 0;
+    std::uniform_int_distribution<long> dis(0, howbig - 1);
+    return dis(gen);
+}
+
+long random(long howsmall, long howbig) {
+    if (howsmall >= howbig) return howsmall;
+    std::uniform_int_distribution<long> dis(howsmall, howbig - 1);
+    return dis(gen);
+}
+
+int analogRead(int pin) {
+    return random(1024);
 }

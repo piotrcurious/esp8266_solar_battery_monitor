@@ -1,19 +1,14 @@
 #include <Arduino.h>
-
 #define MAX_TEMPORARY 512
 #define MAX_STORAGE 256
 const float SCALE = 1000.0;
-
 struct DataPoint { float timestamp, value; };
 struct Polynomial { int16_t a3, a2, a1, a0; float tDelta; };
-
 DataPoint temporaryBuffer[MAX_TEMPORARY];
 int tempBufferCount = 0;
 Polynomial storageBuffer[MAX_STORAGE];
 int storageCount = 0;
-
 void addDataPoint(float t, float v) { if (tempBufferCount < MAX_TEMPORARY) temporaryBuffer[tempBufferCount++] = {t, v}; }
-
 void fitPolynomial(DataPoint* segment, int count, double* coeffs) {
     if (count < 4) { coeffs[0]=0; coeffs[1]=0; coeffs[2]=0; double s=0; for(int i=0; i<count; i++) s+=segment[i].value; coeffs[3]=s/count; return; }
     double X[4][4]={0}, Y[4]={0}, t0=segment[0].timestamp;
@@ -30,7 +25,6 @@ void fitPolynomial(DataPoint* segment, int count, double* coeffs) {
     }
     for (int i=3; i>=0; i--) { if(std::abs(X[i][i])>1e-12) { double s=0; for(int j=i+1; j<4; j++) s+=X[i][j]*coeffs[j]; coeffs[i]=(Y[i]-s)/X[i][i]; } else coeffs[i]=0; }
 }
-
 void compress() {
     int start=0; float l3=0, l2=0, l1=0, l0=0;
     while (start<tempBufferCount && storageCount<MAX_STORAGE) {
@@ -38,8 +32,7 @@ void compress() {
         while (end<tempBufferCount) {
             double cc[4]={0}; fitPolynomial(&temporaryBuffer[start], end-start+1, cc);
             double me=0; for (int i=start; i<=end; i++) {
-                double t=temporaryBuffer[i].timestamp-temporaryBuffer[start].timestamp;
-                double p=cc[0]*t*t*t+cc[1]*t*t+cc[2]*t+cc[3]; double e=std::abs(p-temporaryBuffer[i].value); if(e>me) me=e;
+                double t=temporaryBuffer[i].timestamp-temporaryBuffer[start].timestamp, p=cc[0]*t*t*t+cc[1]*t*t+cc[2]*t+cc[3]; double e=std::abs(p-temporaryBuffer[i].value); if(e>me) me=e;
             }
             if(me<=0.05 && (temporaryBuffer[end].timestamp-temporaryBuffer[start].timestamp)<=10.0) { memcpy(bc, cc, sizeof(bc)); f=true; end++; } else break;
         }
@@ -49,7 +42,6 @@ void compress() {
         l3=bc[0]; l2=bc[1]; l1=bc[2]; l0=bc[3]; start=end;
     }
 }
-
 void setup() {
     Serial.begin(115200); String line;
     while (Serial.available()) { line=Serial.readStringUntil('\n'); if(line.length()>0) addDataPoint(line.substring(0, line.indexOf(',')).toFloat(), line.substring(line.indexOf(',')+1).toFloat()); }

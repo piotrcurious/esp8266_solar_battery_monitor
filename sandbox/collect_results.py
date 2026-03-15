@@ -7,8 +7,11 @@ files = [
     ("sandbox/graph_compressor/poly_differential.ino", "Poly3-Differential"),
     ("sandbox/graph_compressor/poly_5th_adaptive.ino", "Poly5-Adaptive"),
     ("sandbox/graph_compressor/poly_5th_differential_adaptive.ino", "Poly5-Diff-Adaptive"),
+    ("sandbox/graph_compressor/multipoly_adaptive.ino", "MultiPoly-Adaptive"),
+    ("sandbox/graph_compressor/poly_weighted.ino", "Weighted-Poly"),
     ("sandbox/graph_compressor/log_delta.ino", "Log-Delta-8Bit"),
-    ("sandbox/graph_compressor/log_delta_4bit.ino", "Log-Delta-4Bit")
+    ("sandbox/graph_compressor/log_delta_4bit.ino", "Log-Delta-4Bit"),
+    ("sandbox/graph_compressor/log_delta_adaptive.ino", "Log-Delta-Adaptive")
 ]
 
 signals = ["composite_sine", "exp_decay", "noisy_sine"]

@@ -10,6 +10,7 @@
 #include <string.h>
 #include <stdarg.h>
 #include <string>
+#include <random>
 
 typedef uint8_t byte;
 
@@ -81,8 +82,19 @@ extern MockSerial Serial;
 unsigned long millis();
 void delay(unsigned long ms);
 
+long random(long howbig);
+long random(long howsmall, long howbig);
+void randomSeed(unsigned long seed);
+int analogRead(int pin);
+
 #ifndef isnan
 #define isnan(x) std::isnan(x)
 #endif
+
+#define TFT_BLACK 0
+#define TFT_WHITE 0xFFFF
+#define TFT_RED 0xF800
+#define TFT_GREEN 0x07E0
+#define TFT_YELLOW 0xFFE0
 
 #endif
