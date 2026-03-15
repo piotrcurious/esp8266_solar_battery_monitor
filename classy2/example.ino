@@ -2,26 +2,43 @@
 #include <Arduino.h>
 #include "SensorFilter.h"
 
-// Create a SensorFilter object with 16 entries, outlier threshold of 2.0,
-// process noise of 0.1, and measurement noise of 1.0
-SensorFilter sensorFilter(16, 2.0, 0.1, 1.0);
+// Create a SensorFilter object (v3.0.0 2D Kinematic Filter)
+// Params: window size (0 to disable), outlier threshold (std dev),
+//         q_pos, q_vel, r_noise
+SensorFilter sensorFilter(16, 2.5f, 0.01f, 0.001f, 0.1f);
 
 void setup() {
-    Serial.begin(9600);
+    Serial.begin(115200);
 }
 
 void loop() {
-    // Simulate sensor reading
-    float sensorValue = analogRead(A0); // Replace with your sensor reading method
+    // 1. Get raw sensor reading
+    float rawValue = (float)analogRead(A0) * (5.0f / 1023.0f);
 
-    // Scale sensor reading for demonstration (e.g., 0 to 5V)
-    sensorValue = (sensorValue / 1023.0) * 5.0;
+    // 2. Update filter (automatically adapts to noise and detects steps)
+    float filteredValue = sensorFilter.updateSensorReading(rawValue);
 
-    // Update sensor reading with filtering
-    float filteredValue = sensorFilter.updateSensorReading(sensorValue);
+    // 3. Output results
+    // You can also get the estimated velocity (rate of change)
+    float velocity = sensorFilter.getVelocity();
 
-    // Print the filtered sensor value
-    Serial.println(filteredValue);
+    Serial.print("Raw:"); Serial.print(rawValue);
+    Serial.print(" Filtered:"); Serial.print(filteredValue);
+    Serial.print(" Velocity:"); Serial.println(velocity);
 
-    delay(100); // Delay to simulate sensor update rate
+    delay(20);
 }
+
+// Example of persisting state for Deep Sleep (ESP32)
+/*
+RTC_DATA_ATTR SensorFilter::State savedState;
+
+void goToSleep() {
+    savedState = sensorFilter.getState();
+    esp_deep_sleep_start();
+}
+
+void wakeUp() {
+    sensorFilter.setState(savedState);
+}
+*/
