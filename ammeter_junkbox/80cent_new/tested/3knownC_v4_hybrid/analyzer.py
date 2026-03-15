@@ -73,10 +73,11 @@ class Analyzer:
                 self.current_pwm_duty = float(line.split()[1])
 
             elif line.startswith("DATA:"):
-                # Format: DATA:time_ms:v:i_src:pwm_duty:voc_est:r_est:load_est
+                # Format: DATA:time_ms:v:i_src:pwm_duty:voc_est:rint_est:load_est
                 parts = line.split(':')
                 if len(parts) >= 8:
                     try:
+                        # parts[0] is "DATA", so indices are offset by 1
                         v_est = float(parts[5])
                         r_est = float(parts[6])
                         l_est = float(parts[7])
