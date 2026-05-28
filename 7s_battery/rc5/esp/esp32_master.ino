@@ -1,37 +1,38 @@
 #include <WiFi.h>
 #include <WebServer.h>
-#include <IRremote.hpp> // Ensure you are using the modern IRremote library (v4.x)
+#define DECODE_RC5
+#include <IRremote.hpp>
 
 // --- Configuration ---
 const char *ssid = "BMS_Master_AP";
-const char *password = "12345678"; // Min 8 characters
-const int IR_RX_PIN = 15;          // TSOP IR Receiver Out connected to GPIO15
-const int IR_TX_PIN = 4;           // IR LED Driver circuit connected to GPIO4
-const int TOTAL_NODES = 32;        // Tracking 32 individual battery nodes
-const unsigned long LIS_WINDOW = 800; // ms to keep listening loop open for cell reply
+const char *password = "12345678";
+const int IR_RX_PIN = 15;
+const int IR_TX_PIN = 4;
+const int TOTAL_NODES = 32;
+const unsigned long LIS_WINDOW = 500; // Shorter window for 8-packet transmission
+const unsigned long OFFLINE_TIMEOUT = 20000; // 20s
 
 WebServer server(80);
 
-// Structure representing the state of each battery cell
 struct BatteryCell {
     float voltage = 0.0;
     bool online = false;
     unsigned long lastUpdateTime = 0;
     
-    // Decoding State buffers matching the node's protocol
-    uint8_t receivedChunks[16];
-    bool chunkPresent[16];
+    // Decoding state
+    uint8_t receivedChunks[8];
+    bool chunkPresent[8];
 };
 
 BatteryCell pack[TOTAL_NODES];
 
-// --- Responsive Tailwind CSS Web Dashboard ---
+// --- Web Dashboard ---
 String getDashboardHTML() {
     String html = "<!DOCTYPE html><html lang='en'><head>";
     html += "<meta charset='UTF-8'><meta name='viewport' content='width=device-width, initial-scale=1.0'>";
     html += "<title>BMS Telemetry Dashboard</title>";
     html += "<script src='https://cdn.tailwindcss.com'></script>";
-    html += "<meta http-equiv='refresh' content='4'>"; // Refresh dashboard view every 4s
+    html += "<meta http-equiv='refresh' content='2'>";
     html += "</head><body class='bg-slate-900 text-slate-100 min-h-screen font-sans'>";
     
     html += "<div class='container mx-auto px-4 py-8'>";
@@ -41,7 +42,6 @@ String getDashboardHTML() {
     html += "      <p class='text-slate-400 text-sm mt-1'>Network SSID: <span class='text-teal-400 font-semibold'>" + String(ssid) + "</span> | AP IP: <span class='text-teal-400 font-semibold'>" + WiFi.softAPIP().toString() + "</span></p>";
     html += "    </div>";
     
-    // Calculate aggregate values
     float totalVoltage = 0.0;
     int activeCells = 0;
     for (int i = 0; i < TOTAL_NODES; i++) {
@@ -58,12 +58,11 @@ String getDashboardHTML() {
     html += "      </div>";
     html += "      <div class='bg-slate-800 border border-slate-700 rounded-xl p-4 text-center min-w-[130px]'>";
     html += "        <span class='block text-[10px] text-slate-400 uppercase font-bold tracking-wider'>Series Voltage</span>";
-    html += "        <span class='text-2xl font-bold text-indigo-400'>" + String(totalVoltage, 3) + " V</span>";
+    html += "        <span class='text-2xl font-bold text-indigo-400'>" + String(totalVoltage, 2) + " V</span>";
     html += "      </div>";
     html += "    </div>";
     html += "  </header>";
 
-    // Grid of all 32 node cells
     html += "  <div class='grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-4'>";
     for (int i = 0; i < TOTAL_NODES; i++) {
         bool isOnline = pack[i].online;
@@ -112,85 +111,61 @@ void handleRoot() {
     server.send(200, "text/html", getDashboardHTML());
 }
 
-// --- Frame Processing Logic ---
-// Maps wrapped 3-bit sequences (0 to 7 twice) back to 16 linear indexes
-void processIncomingFragment(int nodeID, uint8_t rc5Cmd, int &packetsCount) {
-    uint8_t seq3Bit = (rc5Cmd >> 2) & 0x07; // Extracted 3-bit sequence (0 to 7)
-    uint8_t payload = rc5Cmd & 0x03;        // Extracted 2-bit payload (0 to 3)
+void processIncomingFragment(int nodeID, uint8_t rc5Cmd) {
+    uint8_t index = (rc5Cmd >> 2) & 0x07; // 3-bit index (0-7)
+    uint8_t payload = rc5Cmd & 0x03;      // 2-bit payload
 
-    // Reconstruct linear array position (0 to 15) using incoming fragment progress count
-    int mappedIndex = seq3Bit;
-    if (packetsCount >= 7) { 
-        mappedIndex = seq3Bit + 8;
-    }
-
-    if (mappedIndex >= 0 && mappedIndex < 16) {
-        pack[nodeID].receivedChunks[mappedIndex] = payload;
-        pack[nodeID].chunkPresent[mappedIndex] = true;
-        packetsCount++;
+    if (index < 8) {
+        pack[nodeID].receivedChunks[index] = payload;
+        pack[nodeID].chunkPresent[index] = true;
     }
 }
 
 void pollNode(int nodeID) {
-    // 1. Reset state tracking variables for the queried Node
-    int packetsCount = 0;
-    for (int j = 0; j < 16; j++) {
-        pack[nodeID].chunkPresent[j] = false;
-        pack[nodeID].receivedChunks[j] = 0;
-    }
+    for (int j = 0; j < 8; j++) pack[nodeID].chunkPresent[j] = false;
 
-    // 2. Transmit Wake & Poll Command (Address = nodeID, Command = 0x01)
-    // We send it twice to ensure waking node picks it up reliably from sleep
+    // Wake and Poll
     IrSender.sendRC5(nodeID, 0x01, 1);
-    delay(40);
+    delay(50);
     IrSender.sendRC5(nodeID, 0x01, 1);
 
-    // 3. Keep Listening Window open
     unsigned long startListen = millis();
+    int packetsReceived = 0;
+
     while (millis() - startListen < LIS_WINDOW) {
+        // Early exit if we haven't seen anything for 200ms
+        if (packetsReceived == 0 && (millis() - startListen > 250)) break;
+
         if (IrReceiver.decode()) {
-            // Verify address, ensure it is RC5, and check if bit 5 (0x20) is marked as DATA
             if (IrReceiver.decodedIRData.protocol == RC5 && 
                 IrReceiver.decodedIRData.address == nodeID && 
                 (IrReceiver.decodedIRData.command & 0x20)) {
                 
-                processIncomingFragment(nodeID, IrReceiver.decodedIRData.command, packetsCount);
+                processIncomingFragment(nodeID, IrReceiver.decodedIRData.command);
+                packetsReceived++;
             }
-            IrReceiver.resume(); // Ready to capture next fragment
+            IrReceiver.resume();
         }
-        server.handleClient(); // Keep the AP web server responsive during transactions
+        server.handleClient();
         yield();
     }
 
-    // 4. Verify Frame Assembly Completeness
-    bool allChunksPresent = true;
-    for (int j = 0; j < 16; j++) {
-        if (!pack[nodeID].chunkPresent[j]) {
-            allChunksPresent = false;
-            break;
-        }
-    }
+    bool complete = true;
+    for (int j = 0; j < 8; j++) if (!pack[nodeID].chunkPresent[j]) complete = false;
 
-    if (allChunksPresent) {
-        // Reassemble 16 2-bit fragments back to 32-bit Float format
-        uint32_t reassembledBits = 0;
-        for (int s = 0; s < 16; s++) {
-            reassembledBits |= ((uint32_t)pack[nodeID].receivedChunks[s] << (s * 2));
+    if (complete) {
+        uint16_t mv = 0;
+        for (int j = 0; j < 8; j++) {
+            mv |= (uint16_t)pack[nodeID].receivedChunks[j] << (j * 2);
         }
 
-        // Direct memory map to float
-        float targetVoltage;
-        memcpy(&targetVoltage, &reassembledBits, 4);
-
-        // Sanity boundaries (0.0V - 10.0V) to prevent data corruption noise
-        if (targetVoltage >= 0.0f && targetVoltage <= 10.0f) {
-            pack[nodeID].voltage = targetVoltage;
+        if (mv > 0 && mv < 10000) {
+            pack[nodeID].voltage = mv / 1000.0f;
             pack[nodeID].online = true;
             pack[nodeID].lastUpdateTime = millis();
         }
     } else {
-        // Drop node offline if it has not responded successfully for more than 20 seconds
-        if (pack[nodeID].online && (millis() - pack[nodeID].lastUpdateTime > 20000)) {
+        if (pack[nodeID].online && (millis() - pack[nodeID].lastUpdateTime > OFFLINE_TIMEOUT)) {
             pack[nodeID].online = false;
         }
     }
@@ -198,32 +173,18 @@ void pollNode(int nodeID) {
 
 void setup() {
     Serial.begin(115200);
-
-    // Configure the Wi-Fi AP
     WiFi.softAP(ssid, password);
-    Serial.println("\n=================================");
-    Serial.println("ESP32 BMS AP Started!");
-    Serial.print("IP Address: ");
-    Serial.println(WiFi.softAPIP());
-    Serial.println("=================================");
-
-    // Initialize IR Transmitter and Receiver
     IrReceiver.begin(IR_RX_PIN, DISABLE_LED_FEEDBACK);
-    IrSender.begin(IR_TX_PIN);
-
-    // Bind web services
+    IrSender.begin(IR_TX_PIN, DISABLE_LED_FEEDBACK);
     server.on("/", handleRoot);
     server.begin();
-    Serial.println("AP Web Server online.");
+    Serial.println("BMS Master Online");
 }
 
 void loop() {
-    server.handleClient(); // Yield slot to serve client browser requests
-
-    // Sequential cycle scanning each of the 32 device slots
+    server.handleClient();
     for (int i = 0; i < TOTAL_NODES; i++) {
         pollNode(i);
         yield();
     }
 }
-
