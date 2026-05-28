@@ -16,7 +16,8 @@ long readVcc() {
     ADMUX = _BV(REFS0) | _BV(MUX3) | _BV(MUX2) | _BV(MUX1);
   #endif
   
-  delay(10);
+  // Reduced settling time from 10ms to 2ms
+  delay(2);
   ADCSRA |= _BV(ADSC);
   while (bit_is_set(ADCSRA, ADSC));
 
@@ -54,12 +55,12 @@ void sendVoltageRC5(uint16_t mv) {
     sum += payload;
     uint8_t rc5Command = 0x20 | (i << 2) | payload;
     IrSender.sendRC5(DEVICE_ID, rc5Command, 0);
-    delay(35); // Slightly longer delay to ensure master can process
+    delay(30);
   }
 
   uint8_t checksumCommand = 0x10 | (sum & 0x0F);
   IrSender.sendRC5(DEVICE_ID, checksumCommand, 0);
-  delay(35);
+  delay(30);
 }
 
 void setup() {
@@ -73,12 +74,11 @@ void setup() {
 
 void loop() {
   unsigned long startWait = millis();
-  while (millis() - startWait < 500) {
+  bool responded = false;
+
+  // Power efficiency: exit loop early if we responded
+  while (millis() - startWait < 500 && !responded) {
     if (IrReceiver.decode()) {
-      // Robust rejection of foreign traffic:
-      // 1. Protocol must be RC5
-      // 2. Address must match DEVICE_ID
-      // 3. Command bits 4 and 5 must be 0 (ensures it is NOT a data/checksum packet)
       if (IrReceiver.decodedIRData.protocol == RC5 &&
           IrReceiver.decodedIRData.address == DEVICE_ID &&
           (IrReceiver.decodedIRData.command & 0x30) == 0x00) {
@@ -86,10 +86,14 @@ void loop() {
         if (IrReceiver.decodedIRData.command == 0x01) {
           uint16_t vcc = (uint16_t)readVcc();
           sendVoltageRC5(vcc);
+          responded = true; // Flag to go back to sleep immediately
         }
       }
       IrReceiver.resume();
     }
+    // Small yield to allow other background tasks (if any)
+    if (!responded) delay(1);
   }
+
   goToSleep();
 }
