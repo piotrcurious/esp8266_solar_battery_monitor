@@ -54,13 +54,12 @@ void sendVoltageRC5(uint16_t mv) {
     sum += payload;
     uint8_t rc5Command = 0x20 | (i << 2) | payload;
     IrSender.sendRC5(DEVICE_ID, rc5Command, 0);
-    delay(30);
+    delay(35); // Slightly longer delay to ensure master can process
   }
 
-  // Checksum Packet (Command 0x10 | sum_4bit)
   uint8_t checksumCommand = 0x10 | (sum & 0x0F);
   IrSender.sendRC5(DEVICE_ID, checksumCommand, 0);
-  delay(30);
+  delay(35);
 }
 
 void setup() {
@@ -76,7 +75,14 @@ void loop() {
   unsigned long startWait = millis();
   while (millis() - startWait < 500) {
     if (IrReceiver.decode()) {
-      if (IrReceiver.decodedIRData.protocol == RC5 && IrReceiver.decodedIRData.address == DEVICE_ID) {
+      // Robust rejection of foreign traffic:
+      // 1. Protocol must be RC5
+      // 2. Address must match DEVICE_ID
+      // 3. Command bits 4 and 5 must be 0 (ensures it is NOT a data/checksum packet)
+      if (IrReceiver.decodedIRData.protocol == RC5 &&
+          IrReceiver.decodedIRData.address == DEVICE_ID &&
+          (IrReceiver.decodedIRData.command & 0x30) == 0x00) {
+
         if (IrReceiver.decodedIRData.command == 0x01) {
           uint16_t vcc = (uint16_t)readVcc();
           sendVoltageRC5(vcc);

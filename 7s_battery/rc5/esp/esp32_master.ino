@@ -9,7 +9,7 @@ const char *password = "12345678";
 const int IR_RX_PIN = 15;
 const int IR_TX_PIN = 4;
 const int TOTAL_NODES = 32;
-const unsigned long LIS_WINDOW = 600;
+const unsigned long LIS_WINDOW = 650;
 const unsigned long OFFLINE_TIMEOUT = 30000;
 
 WebServer server(80);
@@ -19,7 +19,6 @@ struct BatteryCell {
     bool online = false;
     unsigned long lastUpdateTime = 0;
     
-    // Decoding state
     uint8_t receivedChunks[8];
     bool chunkPresent[8];
     uint8_t receivedChecksum = 0xFF;
@@ -28,7 +27,6 @@ struct BatteryCell {
 BatteryCell pack[TOTAL_NODES];
 int cycleCounter = 0;
 
-// --- JSON API ---
 void handleData() {
     String json = "{ \"nodes\": [";
     for (int i = 0; i < TOTAL_NODES; i++) {
@@ -44,7 +42,6 @@ void handleData() {
     server.send(200, "application/json", json);
 }
 
-// --- Web Dashboard ---
 String getDashboardHTML() {
     String html = "<!DOCTYPE html><html lang='en'><head>";
     html += "<meta charset='UTF-8'><meta name='viewport' content='width=device-width, initial-scale=1.0'>";
@@ -55,7 +52,7 @@ String getDashboardHTML() {
     html += "<div class='container mx-auto px-4 py-8'>";
     html += "  <header class='flex justify-between items-center border-b border-slate-700 pb-6 mb-8'>";
     html += "    <h1 class='text-2xl font-bold'>BMS Master</h1>";
-    html += "    <div class='text-sm text-slate-400'>Adaptive Polling Cycle: " + String(cycleCounter) + "</div>";
+    html += "    <div class='text-sm text-slate-400'>Cycle: " + String(cycleCounter) + "</div>";
     html += "  </header>";
     html += "  <div class='grid grid-cols-2 sm:grid-cols-4 md:grid-cols-8 gap-4'>";
     for (int i = 0; i < TOTAL_NODES; i++) {
@@ -74,14 +71,14 @@ void handleRoot() {
 }
 
 void processIncomingFragment(int nodeID, uint8_t rc5Cmd) {
-    if (rc5Cmd & 0x20) { // Data packet
+    if (rc5Cmd & 0x20) { // Data packet (0x20 flag)
         uint8_t index = (rc5Cmd >> 2) & 0x07;
         uint8_t payload = rc5Cmd & 0x03;
         if (index < 8) {
             pack[nodeID].receivedChunks[index] = payload;
             pack[nodeID].chunkPresent[index] = true;
         }
-    } else if (rc5Cmd & 0x10) { // Checksum packet
+    } else if (rc5Cmd & 0x10) { // Checksum packet (0x10 flag)
         pack[nodeID].receivedChecksum = rc5Cmd & 0x0F;
     }
 }
@@ -97,7 +94,9 @@ void pollNode(int nodeID) {
     unsigned long startListen = millis();
     while (millis() - startListen < LIS_WINDOW) {
         if (IrReceiver.decode()) {
-            if (IrReceiver.decodedIRData.protocol == RC5 && IrReceiver.decodedIRData.address == nodeID) {
+            // Master MUST check address matches polled node
+            if (IrReceiver.decodedIRData.protocol == RC5 &&
+                IrReceiver.decodedIRData.address == nodeID) {
                 processIncomingFragment(nodeID, IrReceiver.decodedIRData.command);
             }
             IrReceiver.resume();
@@ -127,6 +126,9 @@ void pollNode(int nodeID) {
             pack[nodeID].online = false;
         }
     }
+
+    // Inter-node delay to let IR reflections clear
+    delay(20);
 }
 
 void setup() {
@@ -142,9 +144,6 @@ void setup() {
 void loop() {
     server.handleClient();
     for (int i = 0; i < TOTAL_NODES; i++) {
-        // Adaptive Polling:
-        // If node is online, poll every cycle.
-        // If node is offline, poll once every 10 cycles.
         if (pack[i].online || (cycleCounter % 10 == 0)) {
             pollNode(i);
         }
