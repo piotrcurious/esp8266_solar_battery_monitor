@@ -1,15 +1,13 @@
 #include <avr/sleep.h>
 #include <avr/power.h>
-#include <IRremote.h> // Using standard IRremote library for Arduino (AVR)
+
+#define DECODE_RC5
+#include <IRremote.hpp>
 
 // --- Configuration ---
 const uint8_t DEVICE_ID = 5;      // Unique ID for this specific cell (0 to 31)
 const int IR_RECEIVE_PIN = 2;     // Must be D2 (INT0) to allow waking up from PWR_DOWN
 const int IR_SEND_PIN = 3;        // Standard PWM pin for IR transmission (OC2B on ATmega328P)
-
-IRsend irsend;
-IRrecv irrecv(IR_RECEIVE_PIN);
-decode_results results;
 
 // Helper to keep track of waking up state
 volatile bool justWokenUp = false;
@@ -29,6 +27,7 @@ long readVcc() {
   uint8_t high = ADCH; // Unlock both registers
 
   long result = (high << 8) | low;
+  if (result == 0) return 0;
   result = 1125300L / result; // Calculate Vcc (in mV)
   return result; // Vcc in millivolts
 }
@@ -43,8 +42,8 @@ void goToSleep() {
   Serial.println(F("Going to Deep Sleep..."));
   Serial.flush();
   
-  // Disable IR receiving while going to sleep to prevent race conditions
-  irrecv.disableIRIn();
+  // Disable IR receiving while going to sleep
+  IrReceiver.stop();
   
   // Configure low-power mode
   set_sleep_mode(SLEEP_MODE_PWR_DOWN);
@@ -54,8 +53,7 @@ void goToSleep() {
   byte old_ADCSRA = ADCSRA;
   ADCSRA = 0;
   
-  // Attach interrupt to wake up when IR receiver pulls the line LOW (starts receiving carrier)
-  // Low level interrupt is required to wake MCU up from SLEEP_MODE_PWR_DOWN
+  // Attach interrupt to wake up when IR receiver pulls the line LOW
   attachInterrupt(digitalPinToInterrupt(IR_RECEIVE_PIN), wakeUp, LOW);
   
   // Put MCU to sleep here
@@ -71,35 +69,28 @@ void goToSleep() {
   // Restore Analog-to-Digital Converter
   ADCSRA = old_ADCSRA; 
   
-  // Re-enable and reset the IR Receiver to prepare for parsing
-  irrecv.enableIRIn();
+  // Re-enable the IR Receiver
+  IrReceiver.start();
   
   Serial.println(F("System Woken Up!"));
 }
 
-// Sends a 32-bit float over RC5 in 16 sequential chunks
-void sendFloatRC5(float value) {
-  uint8_t *dataPtr = (uint8_t *)&value;
-  
-  for (int i = 0; i < 4; i++) { // For each of the 4 bytes in a 32-bit float
-    uint8_t byteToSend = dataPtr[i];
+// Sends a 16-bit voltage (mV) over RC5 in 8 sequential chunks
+void sendVoltageRC5(uint16_t mv) {
+  for (int i = 0; i < 8; i++) { // 8 chunks of 2 bits = 16 bits
+    uint8_t payload = (mv >> (i * 2)) & 0x03; // Extract 2 bits
     
-    for (int chunk = 0; chunk < 4; chunk++) { // Split each byte into 4 chunks (2 bits each)
-      uint8_t sequence = (i * 4) + chunk;     // Unique index from 0 to 15
-      uint8_t payload = (byteToSend >> (chunk * 2)) & 0x03; // Extract 2 bits
-      
-      // Construct the 6-bit RC5 Command:
-      // Bit 5: 1 (Data Flag / Separator)
-      // Bits 4-2: Sequence & 0x07 (3-bit sequence mapping, wraps twice: 0-7, then 0-7)
-      // Bits 1-0: 2 bits of raw data payload
-      uint8_t rc5Command = 0x20 | ((sequence & 0x07) << 2) | payload;
-      
-      // Transmit the fragment
-      irsend.sendRC5(DEVICE_ID, rc5Command, 1);
-      
-      // Small gap between chunks to let Master receive and buffer the current packet
-      delay(40); 
-    }
+    // Construct the 6-bit RC5 Command:
+    // Bit 5: 1 (Data Flag)
+    // Bits 4-2: Sequence Index (0 to 7)
+    // Bits 1-0: 2 bits of raw data payload
+    uint8_t rc5Command = 0x20 | (i << 2) | payload;
+
+    // Transmit the fragment
+    IrSender.sendRC5(DEVICE_ID, rc5Command, 0); // 0 repeats for speed
+
+    // Small gap between chunks
+    delay(30);
   }
 }
 
@@ -107,42 +98,38 @@ void setup() {
   Serial.begin(9600);
   pinMode(IR_RECEIVE_PIN, INPUT_PULLUP);
   
-  // Initialize the IR receiver
-  irrecv.enableIRIn();
+  // Initialize the IR receiver and sender
+  IrReceiver.begin(IR_RECEIVE_PIN, DISABLE_LED_FEEDBACK);
+  IrSender.begin(IR_SEND_PIN, DISABLE_LED_FEEDBACK);
+
   Serial.print(F("Cell Node Initialized. ID: "));
   Serial.println(DEVICE_ID);
 }
 
 void loop() {
-  bool activityDetected = false;
   unsigned long startWait = millis();
   
-  // When waking up, give the system 500ms to receive and decode commands before going back to sleep
+  // When waking up, give the system 500ms to receive and decode commands
   while (millis() - startWait < 500) {
-    if (irrecv.decode(&results)) {
-      activityDetected = true;
-      
-      // Ensure the received transmission is RC5 and matches our cell's assigned Device ID
-      if (results.decode_type == RC5 && results.address == DEVICE_ID) {
-        
+    if (IrReceiver.decode()) {
+      // Check if it's RC5 and for our address
+      if (IrReceiver.decodedIRData.protocol == RC5 && IrReceiver.decodedIRData.address == DEVICE_ID) {
         // Command 0x01: Master request for battery voltage
-        if (results.value == 0x01) {
-          Serial.println(F("Query Received! Sending Battery Status..."));
+        if (IrReceiver.decodedIRData.command == 0x01) {
+          Serial.println(F("Query Received!"));
           
-          float vcc = readVcc() / 1000.0; // Calculate Vcc and convert to Volts
+          uint16_t vcc = (uint16_t)readVcc();
           
-          Serial.print(F("Current Vcc: "));
-          Serial.print(vcc, 3);
-          Serial.println(F("V"));
+          Serial.print(F("Vcc: "));
+          Serial.print(vcc);
+          Serial.println(F("mV"));
           
-          sendFloatRC5(vcc); // Send back encoded as 16 chunk frames
+          sendVoltageRC5(vcc);
         }
       }
-      irrecv.resume(); // Receive the next value
+      IrReceiver.resume();
     }
   }
   
-  // If no IR signals were targeting this device, return to deep sleep
   goToSleep();
 }
-
