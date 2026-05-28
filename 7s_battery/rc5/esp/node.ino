@@ -1,4 +1,3 @@
-```cpp
 #include <avr/sleep.h>
 #include <avr/power.h>
 #include <IRremote.h> // Using standard IRremote library for Arduino (AVR)
@@ -147,4 +146,3 @@ void loop() {
   goToSleep();
 }
 
-```
