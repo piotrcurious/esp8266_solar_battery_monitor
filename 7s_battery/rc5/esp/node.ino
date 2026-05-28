@@ -11,22 +11,25 @@ const int IR_SEND_PIN = 3;
 
 volatile bool justWokenUp = false;
 
+// Function to read VCC with 4-sample averaging for stability
 long readVcc() {
   #if defined(__AVR_ATmega328P__) || defined(__AVR_ATmega168__)
     ADMUX = _BV(REFS0) | _BV(MUX3) | _BV(MUX2) | _BV(MUX1);
   #endif
   
-  // Reduced settling time from 10ms to 2ms
-  delay(2);
-  ADCSRA |= _BV(ADSC);
-  while (bit_is_set(ADCSRA, ADSC));
+  delay(2); // Short settling
 
-  uint8_t low  = ADCL;
-  uint8_t high = ADCH;
+  long sum = 0;
+  for (int i = 0; i < 4; i++) {
+    ADCSRA |= _BV(ADSC);
+    while (bit_is_set(ADCSRA, ADSC));
+    sum += ADC;
+    delay(1); // Small gap between samples
+  }
 
-  long result = (high << 8) | low;
-  if (result == 0) return 0;
-  result = 1125300L / result;
+  long average = sum / 4;
+  if (average == 0) return 0;
+  long result = 1125300L / average;
   return result;
 }
 
@@ -76,7 +79,6 @@ void loop() {
   unsigned long startWait = millis();
   bool responded = false;
 
-  // Power efficiency: exit loop early if we responded
   while (millis() - startWait < 500 && !responded) {
     if (IrReceiver.decode()) {
       if (IrReceiver.decodedIRData.protocol == RC5 &&
@@ -86,12 +88,11 @@ void loop() {
         if (IrReceiver.decodedIRData.command == 0x01) {
           uint16_t vcc = (uint16_t)readVcc();
           sendVoltageRC5(vcc);
-          responded = true; // Flag to go back to sleep immediately
+          responded = true;
         }
       }
       IrReceiver.resume();
     }
-    // Small yield to allow other background tasks (if any)
     if (!responded) delay(1);
   }
 
