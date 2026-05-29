@@ -120,6 +120,8 @@ static bool  socInit  = false; // one-shot Coulomb initialisation flag
 // Session energy
 static float ahOut = 0.0f, ahIn = 0.0f;
 static float whOut = 0.0f, whIn = 0.0f;
+static float ahOutK = 0.0f, ahInK = 0.0f; // Kahan summation compensators
+static float whOutK = 0.0f, whInK = 0.0f;
 
 // Analytics
 static float sohPct   = 100.0f; // state of health from R_int (%)
@@ -437,12 +439,16 @@ static void updateMeasurements() {
   }
 
   // ── Sag and R_int update
-  vSag = vRested - vPack;
-  if (vSag < 0.0f) vSag = 0.0f;
+  // vSag is absolute deviation from rested voltage
+  vSag = fabsf(vRested - vPack);
   if (fabsf(iA) > SAG_MIN_A) {
     float rEst = vSag / fabsf(iA);
-    if (isfinite(rEst) && rEst > 0.0f && rEst < 1.0f)
-      rInt = lp(rInt, rEst, ALPHA_RINT);
+    if (isfinite(rEst) && rEst > 0.0f && rEst < 1.0f) {
+      // Only update Rint if the voltage has stabilized somewhat (dV/dt small)
+      if (fabsf(dvdtVps) < 0.2f) {
+        rInt = lp(rInt, rEst, ALPHA_RINT);
+      }
+    }
   }
 
   // ── Per-cell
@@ -465,15 +471,25 @@ static void updateMeasurements() {
 
   socBlend = (1.0f - wCoul)*socOcv + wCoul*socCoul;
 
-  // ── Energy accounting
+  // ── Energy accounting (Kahan Summation)
   float dAh = fabsf(iA) * (dt / 3600.0f);
   float dWh = fabsf(pW) * (dt / 3600.0f);
+
+  auto kahanAdd = [](float &sum, float &c, float input) {
+    float y = input - c;
+    float t = sum + y;
+    c = (t - sum) - y;
+    sum = t;
+  };
+
   if (pState == PackState::DISCHARGING) {
-    ahOut += dAh; whOut += dWh;
+    kahanAdd(ahOut, ahOutK, dAh);
+    kahanAdd(whOut, whOutK, dWh);
     if (iA > peakIA) peakIA = iA;
     if (pW > peakPW) peakPW = pW;
   } else if (pState == PackState::CHARGING) {
-    ahIn += dAh; whIn += dWh;
+    kahanAdd(ahIn, ahInK, dAh);
+    kahanAdd(whIn, whInK, dWh);
   }
 
   // ── Smoothed load power (stabilises ETA against transient spikes)
