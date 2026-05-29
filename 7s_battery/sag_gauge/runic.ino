@@ -293,19 +293,13 @@ static void updateMeasurements()
 
   packVRested = restedPackV;
 
-  // Sag and internal resistance estimate only make sense in discharge/load.
-  if (currentA > SAG_UPDATE_CURRENT_A) {
-    sagV = packVRested - packV;
-    if (sagV < 0.0f) sagV = 0.0f;
-
-    float rEst = sagV / currentA;
+  // Sag and internal resistance estimate
+  sagV = fabsf(packVRested - packV);
+  if (fabsf(currentA) > SAG_UPDATE_CURRENT_A) {
+    float rEst = sagV / fabsf(currentA);
     if (isfinite(rEst) && rEst > 0.0f && rEst < 1.0f) {
       rIntOhm = lowpass(rIntOhm, rEst, RINT_ALPHA);
     }
-  } else {
-    // still show measured sag from current resting estimate
-    sagV = packVRested - packV;
-    if (sagV < 0.0f) sagV = 0.0f;
   }
 
   packCellVLoad   = packV / 7.0f;
