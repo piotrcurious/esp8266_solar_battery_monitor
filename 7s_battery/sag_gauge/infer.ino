@@ -36,11 +36,11 @@ static constexpr float RINT_DEAD_MOHM  = 300.0f;  // R_int, end-of-life (mΩ)
 static constexpr uint32_t UI_MS         = 100;    // sample + render period (ms)
 static constexpr uint32_t PAGE_MS       = 5000;   // auto page-flip period (ms)
 
-static constexpr float ALPHA_ADC        = 0.05f;
+static constexpr float ALPHA_ADC        = 0.08f;
 static constexpr float ALPHA_ZERO       = 0.005f; // ACS zero-point drift
 static constexpr float ALPHA_REST_V     = 0.12f;  // vRested convergence at idle
 static constexpr float ALPHA_LOAD_V     = 0.002f; // vRested drift under load
-static constexpr float ALPHA_RINT       = 0.03f;
+static constexpr float ALPHA_RINT       = 0.01f;
 static constexpr float ALPHA_LOAD_W     = 0.04f;  // ETA smoother (~25 s τ)
 static constexpr float ALPHA_WDECAY     = 0.003f; // Coulomb blend decay at rest
 
@@ -443,9 +443,10 @@ static void updateMeasurements() {
   vSag = fabsf(vRested - vPack);
   if (fabsf(iA) > SAG_MIN_A) {
     float rEst = vSag / fabsf(iA);
-    if (isfinite(rEst) && rEst > 0.0f && rEst < 1.0f) {
+    if (isfinite(rEst) && rEst > 0.010f && rEst < 0.800f) {
       // Only update Rint if the voltage has stabilized somewhat (dV/dt small)
-      if (fabsf(dvdtVps) < 0.2f) {
+      // and we have a significant current to avoid noise-floor issues.
+      if (fabsf(dvdtVps) < 0.1f && fabsf(iA) > 1.5f) {
         rInt = lp(rInt, rEst, ALPHA_RINT);
       }
     }
@@ -461,8 +462,12 @@ static void updateMeasurements() {
   if (!socInit) { socCoul = socOcv; wCoul = 0.0f; socInit = true; }
   socCoul -= (iA * dt / 3600.0f / CAP_AH) * 100.0f;   // +I = discharge
   socCoul  = clampf(socCoul, 0.0f, 100.0f);
-  if (pState == PackState::IDLE)
-    socCoul = lp(socCoul, socOcv, 0.002f);              // slow OCV re-anchor
+  if (pState == PackState::IDLE) {
+    // slow OCV re-anchor only if voltage is stable
+    if (fabsf(dvdtVps) < 0.01f) {
+      socCoul = lp(socCoul, socOcv, 0.001f);
+    }
+  }
 
   // Blend weight: ramp during active use, decay back to OCV at rest
   wCoul = (pState != PackState::IDLE)
