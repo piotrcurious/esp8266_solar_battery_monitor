@@ -18,12 +18,18 @@ enum NodeStatus { OFFLINE, ONLINE, INCOMPLETE, CHECKSUM_ERROR };
 
 struct BatteryCell {
     float voltage = 0.0;
+    uint16_t auxData = 0;
     NodeStatus status = OFFLINE;
     unsigned long lastUpdateTime = 0;
     
+    // Decoding state
     uint8_t receivedChunks[8];
     bool chunkPresent[8];
     uint8_t receivedChecksum = 0xFF;
+
+    // Reliability tracking
+    uint32_t totalPolls = 0;
+    uint32_t successfulPolls = 0;
 };
 
 BatteryCell pack[TOTAL_NODES];
@@ -44,8 +50,9 @@ void handleData() {
         json += "{";
         json += "\"id\":" + String(i) + ",";
         json += "\"v\":" + String(pack[i].voltage, 3) + ",";
+        json += "\"aux\":" + String(pack[i].auxData) + ",";
         json += "\"status\":\"" + statusToString(pack[i].status) + "\",";
-        json += "\"age\":" + String((millis() - pack[i].lastUpdateTime) / 1000);
+        json += "\"reliability\":" + String(pack[i].totalPolls > 0 ? (pack[i].successfulPolls * 100.0 / pack[i].totalPolls) : 0, 1);
         json += "}";
         if (i < TOTAL_NODES - 1) json += ",";
     }
@@ -57,6 +64,8 @@ void handleReset() {
     for (int i = 0; i < TOTAL_NODES; i++) {
         pack[i].status = OFFLINE;
         pack[i].voltage = 0.0;
+        pack[i].totalPolls = 0;
+        pack[i].successfulPolls = 0;
     }
     cycleCounter = 0;
     server.send(200, "text/plain", "System Reset OK");
@@ -77,9 +86,9 @@ String getDashboardHTML() {
 
     String html = "<!DOCTYPE html><html lang='en'><head>";
     html += "<meta charset='UTF-8'><meta name='viewport' content='width=device-width, initial-scale=1.0'>";
-    html += "<title>BMS Pro Dashboard</title>";
+    html += "<title>BMS Pro v5</title>";
     html += "<script src='https://cdn.tailwindcss.com'></script>";
-    html += "<meta http-equiv='refresh' content='2'>";
+    html += "<meta http-equiv='refresh' content='3'>";
     html += "</head><body class='bg-slate-950 text-slate-100 min-h-screen font-sans'>";
     html += "<div class='container mx-auto px-4 py-8'>";
 
@@ -90,6 +99,19 @@ String getDashboardHTML() {
     html += "  <div class='bg-slate-900 border border-slate-800 p-4 rounded-xl'><div class='text-[10px] text-slate-500 uppercase font-bold tracking-widest'>Delta</div><div class='text-2xl font-black text-amber-400'>" + String(maxV - minV, 3) + "V</div></div>";
     html += "  <div class='bg-slate-900 border border-slate-800 p-4 rounded-xl'><div class='text-[10px] text-slate-500 uppercase font-bold tracking-widest'>Cycle / Active</div><div class='text-2xl font-black text-emerald-400'>" + String(cycleCounter) + " / " + String(active) + "</div></div>";
     html += "</header>";
+
+    // Cell Balance Visualizer
+    html += "<div class='bg-slate-900 border border-slate-800 p-6 rounded-xl mb-8'>";
+    html += "  <h2 class='text-[10px] text-slate-500 uppercase font-bold tracking-widest mb-4'>Cell Balance Visualizer</h2>";
+    html += "  <div class='flex items-end gap-1 h-24'>";
+    for(int i=0; i<TOTAL_NODES; i++) {
+        float h = (pack[i].status == ONLINE) ? ((pack[i].voltage - 3.0) / 1.2 * 100) : 0;
+        if(h < 5) h = 5; if(h > 100) h = 100;
+        String color = (pack[i].status == ONLINE) ? "bg-teal-500" : "bg-slate-800";
+        if(pack[i].voltage > maxV - 0.01 && pack[i].status == ONLINE) color = "bg-amber-500";
+        html += "<div class='" + color + " rounded-t-sm' style='width: 3%; height: " + String(h) + "%'></div>";
+    }
+    html += "  </div></div>";
 
     html += "<div class='grid grid-cols-2 sm:grid-cols-4 md:grid-cols-8 gap-4 mb-8'>";
     for (int i = 0; i < TOTAL_NODES; i++) {
@@ -102,8 +124,8 @@ String getDashboardHTML() {
         html += "      <div class='text-[9px] uppercase font-bold opacity-60'>Node " + String(i) + "</div>";
         html += "      <div class='text-md font-black'>" + (pack[i].status == ONLINE ? String(pack[i].voltage, 2) + "V" : statusToString(pack[i].status)) + "</div>";
         if(pack[i].status != OFFLINE) {
-            unsigned long age = (millis() - pack[i].lastUpdateTime) / 1000;
-            html += "      <div class='text-[8px] opacity-40'>" + String(age) + "s ago</div>";
+            float rel = pack[i].totalPolls > 0 ? (pack[i].successfulPolls * 100.0 / pack[i].totalPolls) : 0;
+            html += "      <div class='text-[8px] opacity-40 font-mono'>" + String(rel, 0) + "% | Aux:" + String(pack[i].auxData) + "</div>";
         }
         html += "    </div>";
     }
@@ -111,7 +133,7 @@ String getDashboardHTML() {
 
     html += "  <footer class='flex justify-between items-center border-t border-slate-800 pt-6'>";
     html += "    <button onclick=\"fetch('/reset').then(()=>location.reload())\" class='bg-red-500/10 hover:bg-red-500/20 text-red-500 text-xs font-bold py-2 px-4 rounded border border-red-500/20 transition'>Reset Pack State</button>";
-    html += "    <div class='text-[10px] text-slate-600 font-mono'>v4.6.0 | IR-BMS Master</div>";
+    html += "    <div class='text-[10px] text-slate-600 font-mono'>v5.0.0 | Multi-Data IR-BMS</div>";
     html += "  </footer>";
 
     html += "</div></body></html>";
@@ -135,13 +157,12 @@ void processIncomingFragment(int nodeID, uint8_t rc5Cmd) {
     }
 }
 
-// Internal polling logic, returns true if success
-bool pollNodeInternal(int nodeID) {
+bool pollNodeInternal(int nodeID, uint8_t pollCmd) {
     for (int j = 0; j < 8; j++) pack[nodeID].chunkPresent[j] = false;
     pack[nodeID].receivedChecksum = 0xFF;
+    pack[nodeID].totalPolls++;
 
-    // Single poll command (no repeats) to minimize collision risk
-    IrSender.sendRC5(nodeID, 0x01, 0);
+    IrSender.sendRC5(nodeID, pollCmd, 0);
 
     unsigned long startListen = millis();
     bool anyData = false;
@@ -167,17 +188,20 @@ bool pollNodeInternal(int nodeID) {
         return false;
     }
 
-    uint16_t mv = 0;
+    uint16_t data = 0;
     uint8_t calcSum = 0;
     for (int j = 0; j < 8; j++) {
-        mv |= (uint16_t)pack[nodeID].receivedChunks[j] << (j * 2);
+        data |= (uint16_t)pack[nodeID].receivedChunks[j] << (j * 2);
         calcSum += pack[nodeID].receivedChunks[j];
     }
 
     if ((calcSum & 0x0F) == pack[nodeID].receivedChecksum) {
-        pack[nodeID].voltage = mv / 1000.0f;
+        if (pollCmd == 0x01) pack[nodeID].voltage = data / 1000.0f;
+        else if (pollCmd == 0x02) pack[nodeID].auxData = data;
+
         pack[nodeID].status = ONLINE;
         pack[nodeID].lastUpdateTime = millis();
+        pack[nodeID].successfulPolls++;
         return true;
     } else {
         pack[nodeID].status = CHECKSUM_ERROR;
@@ -186,14 +210,14 @@ bool pollNodeInternal(int nodeID) {
 }
 
 void pollNode(int nodeID) {
-    // Attempt 1
-    if (!pollNodeInternal(nodeID)) {
-        // If it failed but wasn't a total timeout, retry once immediately
+    // Every 10th cycle, request Aux data if online
+    uint8_t cmd = (pack[nodeID].status == ONLINE && (cycleCounter % 10 == 9)) ? 0x02 : 0x01;
+
+    if (!pollNodeInternal(nodeID, cmd)) {
         if (pack[nodeID].status == INCOMPLETE || pack[nodeID].status == CHECKSUM_ERROR) {
-            delay(50); // Small gap before retry
-            pollNodeInternal(nodeID);
+            delay(50);
+            pollNodeInternal(nodeID, cmd);
         } else {
-            // Total timeout case
             if (pack[nodeID].status != OFFLINE && (millis() - pack[nodeID].lastUpdateTime > OFFLINE_TIMEOUT)) {
                 pack[nodeID].status = OFFLINE;
             }
