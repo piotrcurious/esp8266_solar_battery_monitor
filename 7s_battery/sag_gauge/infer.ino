@@ -1,6 +1,8 @@
 #include <Arduino.h>
 #include <LovyanGFX.hpp>
 #include <math.h>
+#include <algorithm>
+#include <cstring>
 
 // ================================================================
 //  Hardware
@@ -45,13 +47,17 @@ static constexpr float ALPHA_LOAD_W     = 0.04f;  // ETA smoother (~25 s τ)
 static constexpr float ALPHA_WDECAY     = 0.003f; // Coulomb blend decay at rest
 
 static constexpr float IDLE_A           = 0.20f;  // |I| ≤ this → IDLE
-static constexpr float SAG_MIN_A        = 0.70f;  // |I| ≥ this → update R_int
+static constexpr uint32_t IDLE_STABLE_MS = 2000;  // time at IDLE before zero-tracking
+static constexpr float SAG_MIN_A        = 1.50f;  // |I| ≥ this → update R_int
 
 static constexpr float WMAX_COUL        = 0.80f;  // max Coulomb SOC weight
 static constexpr float WINC             = 0.0002f;// blend weight ramp per tick (~7 min to max)
 
 // dV/dt buffer: DVDT_N × UI_MS ms window
 static constexpr int DVDT_N = 30;  // 3-second window
+
+// Rint median filter buffer
+static constexpr int RINT_MED_N = 7;
 
 // ================================================================
 //  LovyanGFX
@@ -96,6 +102,7 @@ enum class PackState : uint8_t { IDLE, CHARGING, DISCHARGING };
 static float sBatMv  = 0.0f;
 static float sCurMv  = 0.0f;
 static float sZeroMv = 0.0f;  // ACS712 zero-point (ADC-side mV)
+static uint32_t idleMs = 0;
 
 // Core electrical
 static float vPack   = 0.0f;  // loaded terminal voltage (V)
@@ -134,6 +141,10 @@ static int   etaMin   = -1;     // estimated minutes remaining (-1 = unknown)
 // dV/dt ring buffer (sampled every UI_MS ms)
 static float vRing[DVDT_N] = {};
 static int   vRingHead = 0, vRingCount = 0;
+
+// Rint median buffer
+static float rMedBuf[RINT_MED_N] = {};
+static int   rMedHead = 0, rMedCount = 0;
 
 // Timing
 static uint32_t lastMeasUs = 0;
@@ -412,10 +423,16 @@ static void updateMeasurements() {
   sBatMv = lp(sBatMv, (float)adcAvgMv(PIN_BAT_VOLT, 16), ALPHA_ADC);
   sCurMv = lp(sCurMv, (float)adcAvgMv(PIN_CUR_SENS, 16), ALPHA_ADC);
 
-  // ACS712 zero-point: track only while effectively idle
+  // ACS712 zero-point: track only while effectively idle and stable
   if (sZeroMv < 1.0f) sZeroMv = sCurMv;
-  if (fabsf(iA) < IDLE_A)
-    sZeroMv = lp(sZeroMv, sCurMv, ALPHA_ZERO);
+  if (fabsf(iA) < IDLE_A && fabsf(dvdtVps) < 0.02f) {
+    idleMs += (uint32_t)(dt * 1000.0f);
+    if (idleMs > IDLE_STABLE_MS) {
+      sZeroMv = lp(sZeroMv, sCurMv, ALPHA_ZERO);
+    }
+  } else {
+    idleMs = 0;
+  }
 
   // ── Electrical conversion
   vPack = (sBatMv * BAT_DIV) / 1000.0f;
@@ -445,9 +462,19 @@ static void updateMeasurements() {
     float rEst = vSag / fabsf(iA);
     if (isfinite(rEst) && rEst > 0.010f && rEst < 0.800f) {
       // Only update Rint if the voltage has stabilized somewhat (dV/dt small)
-      // and we have a significant current to avoid noise-floor issues.
-      if (fabsf(dvdtVps) < 0.1f && fabsf(iA) > 1.5f) {
-        rInt = lp(rInt, rEst, ALPHA_RINT);
+      if (fabsf(dvdtVps) < 0.1f) {
+        // Median filter for Rint to reject outliers
+        rMedBuf[rMedHead] = rEst;
+        rMedHead = (rMedHead + 1) % RINT_MED_N;
+        if (rMedCount < RINT_MED_N) ++rMedCount;
+
+        if (rMedCount >= 3) {
+          float tmp[RINT_MED_N];
+          memcpy(tmp, rMedBuf, rMedCount * sizeof(float));
+          std::sort(tmp, tmp + rMedCount);
+          float med = tmp[rMedCount / 2];
+          rInt = lp(rInt, med, ALPHA_RINT);
+        }
       }
     }
   }

@@ -48,8 +48,8 @@ static constexpr uint32_t UI_REFRESH_MS = 100;
 static constexpr float ADC_ALPHA_FAST = 0.20f;
 static constexpr float ADC_ALPHA_SLOW = 0.03f;
 static constexpr float REST_CURRENT_A = 0.20f;
-static constexpr float SAG_UPDATE_CURRENT_A = 0.70f;
-static constexpr float RINT_ALPHA = 0.03f;
+static constexpr float SAG_UPDATE_CURRENT_A = 1.50f;
+static constexpr float RINT_ALPHA = 0.01f;
 
 // ============================================================
 // LovyanGFX custom device
