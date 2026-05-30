@@ -23,6 +23,9 @@ static constexpr float CUR_DIV   = (CUR_R_TOP + CUR_R_BOT) / CUR_R_BOT;
 static constexpr float ACS712_MV_A  = 185.0f;
 static constexpr float CUR_POLARITY = 1.0f;   // flip to -1 if sense is backwards
 
+// Calibration
+static constexpr float BAT_V_OFFSET = 0.0f;   // add to measured pack voltage (V)
+
 // ================================================================
 //  Pack parameters  ← configure for your battery
 // ================================================================
@@ -47,6 +50,7 @@ static constexpr float ALPHA_LOAD_W     = 0.04f;  // ETA smoother (~25 s τ)
 static constexpr float ALPHA_WDECAY     = 0.003f; // Coulomb blend decay at rest
 
 static constexpr float IDLE_A           = 0.20f;  // |I| ≤ this → IDLE
+static constexpr float COULOMB_DEADBAND_A = 0.05f; // ignore |I| ≤ this for integration
 static constexpr uint32_t IDLE_STABLE_MS = 2000;  // time at IDLE before zero-tracking
 static constexpr float SAG_MIN_A        = 1.50f;  // |I| ≥ this → update R_int
 
@@ -411,14 +415,8 @@ static void renderPage1() {
 // ================================================================
 //  Measurement + inference  (called every UI_MS ms)
 // ================================================================
-static void updateMeasurements() {
-  // Accurate dt from micros() – not a fixed constant
-  uint32_t nowUs = micros();
-  float dt = (lastMeasUs == 0)
-    ? (UI_MS / 1000.0f)
-    : clampf((float)(nowUs - lastMeasUs) * 1e-6f, 0.001f, 1.0f);
-  lastMeasUs = nowUs;
 
+static void sampleSensors(float dt) {
   // ── ADC (16-point hardware average per pin)
   sBatMv = lp(sBatMv, (float)adcAvgMv(PIN_BAT_VOLT, 16), ALPHA_ADC);
   sCurMv = lp(sCurMv, (float)adcAvgMv(PIN_CUR_SENS, 16), ALPHA_ADC);
@@ -433,20 +431,21 @@ static void updateMeasurements() {
   } else {
     idleMs = 0;
   }
+}
 
-  // ── Electrical conversion
-  vPack = (sBatMv * BAT_DIV) / 1000.0f;
+static void calculateElectrical() {
+  vPack = (sBatMv * BAT_DIV) / 1000.0f + BAT_V_OFFSET;
   iA    = CUR_POLARITY * (sCurMv - sZeroMv) * CUR_DIV / ACS712_MV_A;
   pW    = vPack * iA;
 
-  // ── Pack state
   if      (iA >  IDLE_A) pState = PackState::DISCHARGING;
   else if (iA < -IDLE_A) pState = PackState::CHARGING;
   else                    pState = PackState::IDLE;
 
-  // ── Rested-voltage estimator
-  //    Under load: Voc ≈ Vterminal + sign(I)·|I|·R_int
-  //    Sign flips for charging so the estimator stays consistent.
+  vCellLoad = vPack / (float)CELLS_S;
+}
+
+static void updateVocEstimator() {
   if (vRested < 1.0f) vRested = vPack;
   if (pState == PackState::IDLE) {
     vRested = lp(vRested, vPack, ALPHA_REST_V);
@@ -454,96 +453,64 @@ static void updateMeasurements() {
     float iSign = (pState == PackState::DISCHARGING) ? 1.0f : -1.0f;
     vRested = lp(vRested, vPack + iSign * fabsf(iA) * rInt, ALPHA_LOAD_V);
   }
-
-  // ── Sag and R_int update
-  // vSag is absolute deviation from rested voltage
   vSag = fabsf(vRested - vPack);
+  vCellRest = vRested / (float)CELLS_S;
+  socOcv = socFromV(vCellRest);
+}
+
+static void updateRintEstimator() {
   if (fabsf(iA) > SAG_MIN_A) {
     float rEst = vSag / fabsf(iA);
     if (isfinite(rEst) && rEst > 0.010f && rEst < 0.800f) {
-      // Only update Rint if the voltage has stabilized somewhat (dV/dt small)
       if (fabsf(dvdtVps) < 0.1f) {
-        // Median filter for Rint to reject outliers
         rMedBuf[rMedHead] = rEst;
         rMedHead = (rMedHead + 1) % RINT_MED_N;
         if (rMedCount < RINT_MED_N) ++rMedCount;
-
         if (rMedCount >= 3) {
           float tmp[RINT_MED_N];
           memcpy(tmp, rMedBuf, rMedCount * sizeof(float));
           std::sort(tmp, tmp + rMedCount);
-          float med = tmp[rMedCount / 2];
-          rInt = lp(rInt, med, ALPHA_RINT);
+          rInt = lp(rInt, tmp[rMedCount / 2], ALPHA_RINT);
         }
       }
     }
   }
+  sohPct = clampf(100.0f * (RINT_DEAD_MOHM - rInt * 1000.0f) / (RINT_DEAD_MOHM - RINT_FRESH_MOHM), 0.0f, 100.0f);
+}
 
-  // ── Per-cell
-  vCellLoad = vPack   / (float)CELLS_S;
-  vCellRest = vRested / (float)CELLS_S;
-  socOcv    = socFromV(vCellRest);
-
-  // ── Coulomb-counting SOC
-  //    Initialised once from OCV; re-anchored toward OCV while resting.
+static void updateSoc(float dt) {
   if (!socInit) { socCoul = socOcv; wCoul = 0.0f; socInit = true; }
-  socCoul -= (iA * dt / 3600.0f / CAP_AH) * 100.0f;   // +I = discharge
+  float iInt = (fabsf(iA) < COULOMB_DEADBAND_A) ? 0.0f : iA;
+  socCoul -= (iInt * dt / 3600.0f / CAP_AH) * 100.0f;
   socCoul  = clampf(socCoul, 0.0f, 100.0f);
-  if (pState == PackState::IDLE) {
-    // slow OCV re-anchor only if voltage is stable
-    if (fabsf(dvdtVps) < 0.01f) {
-      socCoul = lp(socCoul, socOcv, 0.001f);
-    }
+  if (pState == PackState::IDLE && fabsf(dvdtVps) < 0.01f) {
+    socCoul = lp(socCoul, socOcv, 0.001f);
   }
+  wCoul = (pState != PackState::IDLE) ? clampf(wCoul + WINC, 0.0f, WMAX_COUL) : lp(wCoul, 0.0f, ALPHA_WDECAY);
+  socBlend = (1.0f - wCoul) * socOcv + wCoul * socCoul;
+}
 
-  // Blend weight: ramp during active use, decay back to OCV at rest
-  wCoul = (pState != PackState::IDLE)
-    ? clampf(wCoul + WINC, 0.0f, WMAX_COUL)
-    : lp(wCoul, 0.0f, ALPHA_WDECAY);
-
-  socBlend = (1.0f - wCoul)*socOcv + wCoul*socCoul;
-
-  // ── Energy accounting (Kahan Summation)
+static void integrateEnergy(float dt) {
   float dAh = fabsf(iA) * (dt / 3600.0f);
   float dWh = fabsf(pW) * (dt / 3600.0f);
-
   auto kahanAdd = [](float &sum, float &c, float input) {
-    float y = input - c;
-    float t = sum + y;
-    c = (t - sum) - y;
-    sum = t;
+    float y = input - c; float t = sum + y;
+    c = (t - sum) - y; sum = t;
   };
-
   if (pState == PackState::DISCHARGING) {
-    kahanAdd(ahOut, ahOutK, dAh);
-    kahanAdd(whOut, whOutK, dWh);
-    if (iA > peakIA) peakIA = iA;
-    if (pW > peakPW) peakPW = pW;
+    kahanAdd(ahOut, ahOutK, dAh); kahanAdd(whOut, whOutK, dWh);
+    if (iA > peakIA) peakIA = iA; if (pW > peakPW) peakPW = pW;
   } else if (pState == PackState::CHARGING) {
-    kahanAdd(ahIn, ahInK, dAh);
-    kahanAdd(whIn, whInK, dWh);
+    kahanAdd(ahIn, ahInK, dAh); kahanAdd(whIn, whInK, dWh);
   }
-
-  // ── Smoothed load power (stabilises ETA against transient spikes)
-  avgLoadW = (pState == PackState::DISCHARGING)
-    ? lp(avgLoadW, pW, ALPHA_LOAD_W)
-    : lp(avgLoadW, 0.0f, 0.01f);
-
-  // ── Estimated time remaining
+  avgLoadW = (pState == PackState::DISCHARGING) ? lp(avgLoadW, pW, ALPHA_LOAD_W) : lp(avgLoadW, 0.0f, 0.01f);
   if (avgLoadW > 5.0f) {
     float remWh = (socBlend/100.0f) * CAP_AH * (float)CELLS_S * NOM_V_CELL;
     etaMin = (int)clampf(remWh / avgLoadW * 60.0f, 0.0f, 9999.0f);
-  } else {
-    etaMin = -1;
-  }
+  } else etaMin = -1;
+}
 
-  // ── State of Health (linear R_int degradation model)
-  //    SoH = 100% at RINT_FRESH, 0% at RINT_DEAD
-  float rMo  = rInt * 1000.0f;
-  sohPct = clampf(100.0f*(RINT_DEAD_MOHM-rMo)/(RINT_DEAD_MOHM-RINT_FRESH_MOHM),
-                  0.0f, 100.0f);
-
-  // ── dV/dt  (rolling window, UI_MS-spaced samples)
+static void updateDvdt() {
   vRing[vRingHead] = vPack;
   vRingHead = (vRingHead + 1) % DVDT_N;
   if (vRingCount < DVDT_N) ++vRingCount;
@@ -552,6 +519,20 @@ static void updateMeasurements() {
     float ws   = (float)(vRingCount - 1) * (UI_MS / 1000.0f);
     dvdtVps    = (vRing[(vRingHead-1+DVDT_N)%DVDT_N] - vRing[oldest]) / ws;
   }
+}
+
+static void updateMeasurements() {
+  uint32_t nowUs = micros();
+  float dt = (lastMeasUs == 0) ? (UI_MS / 1000.0f) : clampf((float)(nowUs - lastMeasUs) * 1e-6f, 0.001f, 1.0f);
+  lastMeasUs = nowUs;
+
+  sampleSensors(dt);
+  calculateElectrical();
+  updateVocEstimator();
+  updateRintEstimator();
+  updateSoc(dt);
+  integrateEnergy(dt);
+  updateDvdt();
 }
 
 // ================================================================
