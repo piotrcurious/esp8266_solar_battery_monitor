@@ -100,7 +100,7 @@ public:
         }
     }
     void setTextSize(int s) { _text_size = s; }
-    void setTextColor(uint32_t c, uint32_t b) { _cur_color = c; }
+    void setTextColor(uint32_t c, uint32_t b = 0) { _cur_color = c; }
     void setCursor(int x, int y) { _cur_x = x; _cur_y = y; }
     void print(const char* s) {
         int len = strlen(s);

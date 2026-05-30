@@ -75,9 +75,10 @@ static constexpr int DVDT_N = 30;  // 3-second window
 // Rint median filter buffer
 static constexpr int RINT_MED_N = 7;
 
-// Voltage history
+// History buffers
 static constexpr int HIST_N = 40;
 static float vHist[HIST_N] = {};
+static float iHist[HIST_N] = {};
 static int histIdx = 0;
 static uint32_t lastHistMs = 0;
 
@@ -151,6 +152,7 @@ static uint32_t sessionStartMs = 0;
 // Session energy
 static float ahOut = 0.0f, ahIn = 0.0f;
 static float whOut = 0.0f, whIn = 0.0f;
+static float ahTotal = 0.0f; // Lifetime Ah for cycle counting
 static float rtEff = 100.0f;
 static float ahOutK = 0.0f, ahInK = 0.0f; // Kahan summation compensators
 static float whOutK = 0.0f, whInK = 0.0f;
@@ -424,36 +426,43 @@ static void renderPage1() {
   canvas.fillRoundRect(0,0,160,13,2,H);
   canvas.setTextSize(1);
   canvas.setTextColor(lcd.color888(130,175,255), H);
-  canvas.setCursor(3,3); canvas.print("Voltage Trend");
-  snprintf(b,sizeof(b),"%.1fV %s", vPack, stateStr());
+  canvas.setCursor(3,3); canvas.print("Trends");
+  snprintf(b,sizeof(b),"%.1fV %+.1fA", vPack, iA);
   canvas.setTextColor(lcd.color888(155,155,175), H);
-  canvas.setCursor(88,3); canvas.print(b);
+  canvas.setCursor(80,3); canvas.print(b);
 
-  // Sparkline (Full width trend)
-  float plotData[HIST_N];
-  for (int i=0; i<HIST_N; i++) plotData[i] = vHist[(histIdx + i) % HIST_N];
-  drawSparkline(3, 16, 154, 30, plotData, HIST_N, lcd.color888(100, 200, 255));
+  // Voltage Sparkline
+  float vPlot[HIST_N];
+  for (int i=0; i<HIST_N; i++) vPlot[i] = vHist[(histIdx + i) % HIST_N];
+  drawSparkline(3, 15, 75, 25, vPlot, HIST_N, lcd.color888(100, 200, 255));
+  canvas.setCursor(3, 41); canvas.setTextColor(lcd.color888(100, 150, 200)); canvas.print("Volt");
+
+  // Current Sparkline
+  float iPlot[HIST_N];
+  for (int i=0; i<HIST_N; i++) iPlot[i] = iHist[(histIdx + i) % HIST_N];
+  drawSparkline(82, 15, 75, 25, iPlot, HIST_N, lcd.color888(255, 150, 100));
+  canvas.setCursor(82, 41); canvas.setTextColor(lcd.color888(200, 100, 50)); canvas.print("Amps");
 
   // ETA and Load Info
   canvas.setTextSize(1);
   canvas.setTextColor(lcd.color888(180, 180, 200), TFT_BLACK);
-  canvas.setCursor(3, 50);
+  canvas.setCursor(3, 54);
   if (etaMin >= 0) {
     int h=etaMin/60, m=etaMin%60;
-    if (h>0) snprintf(b,sizeof(b),"ETA: %dh%02dm remaining", h, m);
-    else     snprintf(b,sizeof(b),"ETA: %dm remaining", m);
-  } else snprintf(b,sizeof(b),"ETA: stable");
+    if (h>0) snprintf(b,sizeof(b),"ETA %dh%02dm", h, m);
+    else     snprintf(b,sizeof(b),"ETA %dm", m);
+  } else snprintf(b,sizeof(b),"ETA stable");
   canvas.print(b);
 
-  snprintf(b,sizeof(b),"Avg: %.1fW  dV: %+.1fmV/s", avgLoadW, dvdtVps*1000.0f);
-  canvas.setCursor(3, 59); canvas.print(b);
+  snprintf(b,sizeof(b),"Avg %.0fW", fabsf(avgLoadW));
+  canvas.setCursor(100, 54); canvas.print(b);
 
   // Health summary
-  canvas.setCursor(3, 68);
+  canvas.setCursor(3, 65);
   canvas.setTextColor(lcd.color888(140, 140, 160), TFT_BLACK);
-  canvas.print("Health: ");
+  canvas.print("Health ");
   canvas.setTextColor(sohPct>70?lcd.color888(60,230,80):lcd.color888(255,150,30), TFT_BLACK);
-  snprintf(b,sizeof(b),"%.0f%% (R:%.0fmO)", sohPct, rInt*1000.0f);
+  snprintf(b,sizeof(b),"%.0f%% R:%.0fmO", sohPct, rInt*1000.0f);
   canvas.print(b);
 
   drawPageDots(146, 75, 3, 1);
@@ -497,6 +506,11 @@ static void renderPage2() {
   canvas.setCursor(3,65); canvas.setTextColor(lcd.color888(200,200,220), TFT_BLACK); canvas.print("Efficiency:");
   snprintf(b,sizeof(b),"%.1f%%", rtEff);
   canvas.setCursor(80,65); canvas.setTextColor(lcd.color888(100,200,255), TFT_BLACK); canvas.print(b);
+
+  canvas.setCursor(3,73); canvas.setTextColor(lcd.color888(150,150,170), TFT_BLACK); canvas.print("Life Cycles:");
+  float cycles = ahTotal / (CAP_AH * 2.0f);
+  snprintf(b,sizeof(b),"%.1f", cycles);
+  canvas.setCursor(80,73); canvas.setTextColor(lcd.color888(200,150,255), TFT_BLACK); canvas.print(b);
 
   drawPageDots(146, 75, 3, 2);
 }
@@ -563,7 +577,11 @@ static float getEffectiveCapAh() {
 }
 
 static void updateRintEstimator() {
-  if (fabsf(iA) > SAG_MIN_A) {
+  static float lastIA_Rint = 0.0f;
+  float dI = fabsf(iA - lastIA_Rint);
+  lastIA_Rint = iA;
+
+  if (fabsf(iA) > SAG_MIN_A && dI < 0.2f) {
     float rEstRaw = vSag / fabsf(iA);
     // Normalize measured Rint to 100% SOC equivalent using the factor
     float rEst = rEstRaw / getRintSocFactor(socBlend);
@@ -623,6 +641,7 @@ static void saveState() {
   prefs.putFloat("ahIn", ahIn);
   prefs.putFloat("whOut", whOut);
   prefs.putFloat("whIn", whIn);
+  prefs.putFloat("ahTotal", ahTotal);
   prefs.putFloat("rInt", rInt);
   prefs.putFloat("sZeroMv", sZeroMv);
   prefs.end();
@@ -634,6 +653,7 @@ static void loadState() {
   ahIn = prefs.getFloat("ahIn", 0.0f);
   whOut = prefs.getFloat("whOut", 0.0f);
   whIn = prefs.getFloat("whIn", 0.0f);
+  ahTotal = prefs.getFloat("ahTotal", 0.0f);
   rInt = prefs.getFloat("rInt", RINT_FRESH_MOHM / 1000.0f);
   sZeroMv = prefs.getFloat("sZeroMv", 0.0f);
   prefs.end();
@@ -642,15 +662,19 @@ static void loadState() {
 static void integrateEnergy(float dt) {
   float dAh = fabsf(iA) * (dt / 3600.0f);
   float dWh = fabsf(pW) * (dt / 3600.0f);
+
+  static float ahTotalK = 0.0f;
   auto kahanAdd = [](float &sum, float &c, float input) {
     float y = input - c; float t = sum + y;
     c = (t - sum) - y; sum = t;
   };
   if (pState == PackState::DISCHARGING) {
     kahanAdd(ahOut, ahOutK, dAh); kahanAdd(whOut, whOutK, dWh);
+    kahanAdd(ahTotal, ahTotalK, dAh);
     if (iA > peakIA) peakIA = iA; if (pW > peakPW) peakPW = pW;
   } else if (pState == PackState::CHARGING) {
     kahanAdd(ahIn, ahInK, dAh); kahanAdd(whIn, whInK, dWh);
+    kahanAdd(ahTotal, ahTotalK, dAh);
   }
   if (whIn > 0.1f) rtEff = clampf(whOut / whIn * 100.0f, 0.0f, 100.0f);
   avgLoadW = (pState == PackState::DISCHARGING) ? lp(avgLoadW, pW, ALPHA_LOAD_W) : lp(avgLoadW, 0.0f, 0.01f);
@@ -660,7 +684,10 @@ static void integrateEnergy(float dt) {
     etaMin = (int)clampf(remWh / avgLoadW * 60.0f, 0.0f, 9999.0f);
   } else if (pState == PackState::CHARGING && avgLoadW < -2.0f) {
     float needWh = (1.0f - socBlend/100.0f) * getEffectiveCapAh() * (float)CELLS_S * NOM_V_CELL;
-    etaMin = (int)clampf(needWh / fabsf(avgLoadW) * 60.0f, 0.0f, 9999.0f);
+    float chgW = fabsf(avgLoadW);
+    // CV phase compensation: current tapers, so ETA is longer than linear.
+    if (vCellRest > 4.10f) chgW *= 0.5f;
+    etaMin = (int)clampf(needWh / chgW * 60.0f, 0.0f, 9999.0f);
   } else {
     etaMin = -1;
     if (pState == PackState::IDLE) avgLoadW = lp(avgLoadW, 0.0f, 0.01f);
@@ -691,11 +718,12 @@ static void updateMeasurements() {
   integrateEnergy(dt);
   updateDvdt();
 
-  // Update history buffer every 5 seconds
+  // Update history buffers every 5 seconds
   uint32_t now = millis();
   if (lastHistMs == 0 || now - lastHistMs > 5000) {
     lastHistMs = now;
     vHist[histIdx] = vPack;
+    iHist[histIdx] = iA;
     histIdx = (histIdx + 1) % HIST_N;
   }
 }
