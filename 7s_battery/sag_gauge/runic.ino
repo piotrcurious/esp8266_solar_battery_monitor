@@ -19,6 +19,9 @@ static constexpr int TFT_BL   = 4;
 static constexpr int PIN_BAT_VOLT = 34;  // battery divider -> ADC
 static constexpr int PIN_CUR_SENS = 35;  // ACS712 divider -> ADC
 
+// ----- Pack parameters -----
+static constexpr int   CELLS_S = 7;
+
 // ----- Battery divider -----
 // Choose values that keep 29.4V safely below ADC range.
 // 110k / 10k => ratio 12.0, so 29.4V -> 2.45V at ADC.
@@ -272,7 +275,8 @@ static void updateMeasurements()
   // Calibrate ACS712 zero at boot and gently track drift when idle.
   if (acsZeroMvFilt <= 1.0f) acsZeroMvFilt = adcCurMvFilt;
   if (fabsf(currentA) < REST_CURRENT_A) {
-    acsZeroMvFilt = lowpass(acsZeroMvFilt, adcCurMvFilt, 0.01f);
+    // simplified stability check for runic: just use a very slow alpha
+    acsZeroMvFilt = lowpass(acsZeroMvFilt, adcCurMvFilt, 0.005f);
   }
 
   // Convert ADC-side to real-side values.
@@ -288,7 +292,8 @@ static void updateMeasurements()
     restedPackV = lowpass(restedPackV, packV, 0.12f);
   } else {
     // Under load, keep the estimate mostly stable, but allow a tiny drift.
-    restedPackV = lowpass(restedPackV, packV + fabsf(currentA) * rIntOhm, 0.002f);
+    float iSign = (currentA > 0) ? 1.0f : -1.0f;
+    restedPackV = lowpass(restedPackV, packV + iSign * fabsf(currentA) * rIntOhm, 0.002f);
   }
 
   packVRested = restedPackV;
@@ -302,8 +307,8 @@ static void updateMeasurements()
     }
   }
 
-  packCellVLoad   = packV / 7.0f;
-  packCellVRested = packVRested / 7.0f;
+  packCellVLoad   = packV / (float)CELLS_S;
+  packCellVRested = packVRested / (float)CELLS_S;
 
   socLoadPct = socFromCellVoltage(packCellVLoad);
   socRestPct = socFromCellVoltage(packCellVRested);
