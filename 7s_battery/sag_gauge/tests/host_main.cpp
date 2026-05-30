@@ -121,6 +121,9 @@ int main() {
             printf("--- Charging at 5A ---\n");
             sim.current_i = -5.0f;
         }
+        if (i == 1100) {
+            printf("Check CHG ETA: ");
+        }
         if (i == 1500) {
             printf("--- Idle ---\n");
             sim.current_i = 0.0f;

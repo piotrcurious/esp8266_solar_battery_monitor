@@ -44,4 +44,19 @@ extern MockSerial Serial;
 extern unsigned long _mock_millis_offset;
 extern unsigned long _mock_micros_offset;
 
+#include <map>
+#include <string>
+
+class Preferences {
+    std::map<std::string, float> _data;
+public:
+    void begin(const char* name, bool readonly) {}
+    void end() {}
+    void putFloat(const char* key, float val) { _data[key] = val; }
+    float getFloat(const char* key, float def) {
+        if (_data.find(key) == _data.end()) return def;
+        return _data[key];
+    }
+};
+
 #endif
