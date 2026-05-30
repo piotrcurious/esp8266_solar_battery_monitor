@@ -82,6 +82,9 @@ public:
         for (int i=x; i<x+w && i<_w; i++) { if (i>=0 && y>=0) _buffer[y*_w + i] = c; if (i>=0 && y+h-1<_h) _buffer[(y+h-1)*_w + i] = c; }
         for (int j=y; j<y+h && j<_h; j++) { if (x>=0 && j>=0) _buffer[j*_w + x] = c; if (x+w-1<_w && j>=0) _buffer[j*_w + x+w-1] = c; }
     }
+    void drawPixel(int x, int y, uint32_t c) {
+        if (x>=0 && x<_w && y>=0 && y<_h) _buffer[y*_w + x] = c;
+    }
     void fillRoundRect(int x, int y, int w, int h, int r, uint32_t c) {
         fillRect(x, y, w, h, c);
     }
