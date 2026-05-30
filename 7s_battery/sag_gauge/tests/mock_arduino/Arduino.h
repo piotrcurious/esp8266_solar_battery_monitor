@@ -7,6 +7,8 @@
 #include <string.h>
 #include <algorithm>
 #include <stdarg.h>
+#include <map>
+#include <string>
 
 #define ADC_11db 0
 #define OUTPUT 1
@@ -27,9 +29,21 @@ void digitalWrite(int pin, int val);
 bool digitalRead(int pin);
 uint32_t analogReadMilliVolts(int pin);
 
+class String : public std::string {
+public:
+    String(const char* s = "") : std::string(s) {}
+    String(std::string s) : std::string(s) {}
+    void trim() {}
+    float toFloat() { try { return std::stof(*this); } catch(...) { return 0; } }
+    bool startsWith(const char* s) { return find(s) == 0; }
+    String substring(int i) { return String(substr(i)); }
+};
+
 class MockSerial {
 public:
     void begin(int baud) {}
+    bool available() { return false; }
+    String readStringUntil(char c) { return String(""); }
     void printf(const char* fmt, ...) {
         va_list args;
         va_start(args, fmt);
@@ -43,18 +57,22 @@ public:
     void println() { printf("\n"); }
 };
 
+class MockESP {
+public:
+    void restart() { printf("[MOCK ESP] Restarting...\n"); }
+};
+
+extern MockESP ESP;
 extern MockSerial Serial;
 extern unsigned long _mock_millis_offset;
 extern unsigned long _mock_micros_offset;
-
-#include <map>
-#include <string>
 
 class Preferences {
     std::map<std::string, float> _data;
 public:
     void begin(const char* name, bool readonly) {}
     void end() {}
+    void clear() { _data.clear(); }
     void putFloat(const char* key, float val) { _data[key] = val; }
     float getFloat(const char* key, float def) {
         if (_data.find(key) == _data.end()) return def;

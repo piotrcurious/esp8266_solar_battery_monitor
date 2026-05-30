@@ -1,58 +1,53 @@
 #include <Arduino.h>
 #include <LovyanGFX.hpp>
 #include <math.h>
+#include <algorithm>
+#include <cstring>
+#include <Preferences.h>
+
+#ifndef clamp
+#define clamp(v,lo,hi) (((v)<(lo))?(lo):((v)>(hi))?(hi):(v))
+#endif
 
 // ============================================================
 // User hardware configuration
 // ============================================================
 
-// ----- TFT (ST7735 / 160x80) -----
-static constexpr int TFT_SCK  = 18;
-static constexpr int TFT_MOSI = 23;
-static constexpr int TFT_MISO = -1;
-static constexpr int TFT_DC   = 16;
-static constexpr int TFT_CS   = 5;
-static constexpr int TFT_RST  = 17;
-static constexpr int TFT_BL   = 4;
+static constexpr int TFT_SCK  = 18, TFT_MOSI = 23, TFT_MISO = -1;
+static constexpr int TFT_DC   = 16, TFT_CS   = 5,  TFT_RST  = 17, TFT_BL = 4;
+static constexpr int PIN_BAT_VOLT = 34, PIN_CUR_SENS = 35, PIN_BUTTON = 0;
 
-// ----- ADC pins (ADC1 preferred on ESP32) -----
-static constexpr int PIN_BAT_VOLT = 34;  // battery divider -> ADC
-static constexpr int PIN_CUR_SENS = 35;  // ACS712 divider -> ADC
+static constexpr float CUR_POLARITY = 1.0f;
+static constexpr float BAT_V_OFFSET = 0.0f;
 
-// ----- Pack parameters -----
-static constexpr int   CELLS_S = 7;
+struct MonitorConfig {
+    int   cells_s;
+    float cap_ah;
+    float nom_v_cell;
+    float rint_fresh_mo;
+    float rint_dead_mo;
+    float bat_div;
+    float cur_div;
+    float acs_mv_a;
+    float alpha_adc;
+    float alpha_rint;
+    float alpha_rest_v;
+    float alpha_load_v;
+    float idle_a;
+    float sag_min_a;
+    float charge_eff;
+    uint32_t dim_ms;
+};
 
-// ----- Battery divider -----
-// Choose values that keep 29.4V safely below ADC range.
-// 110k / 10k => ratio 12.0, so 29.4V -> 2.45V at ADC.
-static constexpr float BAT_R_TOP = 110000.0f;
-static constexpr float BAT_R_BOT = 10000.0f;
-static constexpr float BAT_DIV_RATIO = (BAT_R_TOP + BAT_R_BOT) / BAT_R_BOT;
+static constexpr MonitorConfig CFG = {
+    7, 20.0f, 3.60f, 60.0f, 300.0f,
+    (110000.0f + 10000.0f) / 10000.0f, 2.0f, 185.0f,
+    0.08f, 0.01f, 0.12f, 0.002f,
+    0.20f, 1.50f, 0.99f, 30000
+};
 
-// ----- ACS712 divider -----
-// 10k / 10k halves the output, keeping a 5V-powered ACS712 safe for ESP32 ADC.
-static constexpr float CUR_R_TOP = 10000.0f;
-static constexpr float CUR_R_BOT = 10000.0f;
-static constexpr float CUR_DIV_RATIO = (CUR_R_TOP + CUR_R_BOT) / CUR_R_BOT;
-
-// ACS712 variant sensitivity.
-// 5A  -> 185 mV/A
-// 20A -> 100 mV/A
-// 30A ->  66 mV/A
-static constexpr float ACS712_SENS_MV_PER_A = 185.0f;
-
-// Flip sign if your sensor orientation is reversed.
-static constexpr float CURRENT_POLARITY = 1.0f;
-
-// ----- Display update -----
 static constexpr uint32_t UI_REFRESH_MS = 100;
-
-// ----- Filter / estimator tuning -----
-static constexpr float ADC_ALPHA_FAST = 0.20f;
-static constexpr float ADC_ALPHA_SLOW = 0.03f;
-static constexpr float REST_CURRENT_A = 0.20f;
-static constexpr float SAG_UPDATE_CURRENT_A = 1.50f;
-static constexpr float RINT_ALPHA = 0.01f;
+static constexpr float ALPHA_ZERO = 0.005f;
 
 // ============================================================
 // LovyanGFX custom device
@@ -276,54 +271,31 @@ static void drawLabelValue(int x, int y, const char *label, float value, const c
 
 static void updateMeasurements()
 {
-  // Read ADC-side voltages after divider
   const uint32_t batMvRaw = readAdcAverageMv(PIN_BAT_VOLT, 16);
   const uint32_t curMvRaw = readAdcAverageMv(PIN_CUR_SENS, 16);
 
-  if (adcBatMvFilt <= 1.0f) adcBatMvFilt = (float)batMvRaw;
-  else adcBatMvFilt = lowpass(adcBatMvFilt, (float)batMvRaw, ADC_ALPHA_SLOW);
+  adcBatMvFilt = (adcBatMvFilt <= 1.0f) ? (float)batMvRaw : lowpass(adcBatMvFilt, (float)batMvRaw, CFG.alpha_adc);
+  adcCurMvFilt = (adcCurMvFilt <= 1.0f) ? (float)curMvRaw : lowpass(adcCurMvFilt, (float)curMvRaw, CFG.alpha_adc);
 
-  if (adcCurMvFilt <= 1.0f) adcCurMvFilt = (float)curMvRaw;
-  else adcCurMvFilt = lowpass(adcCurMvFilt, (float)curMvRaw, ADC_ALPHA_SLOW);
-
-  // Calibrate ACS712 zero at boot and gently track drift when idle.
   if (acsZeroMvFilt <= 1.0f) acsZeroMvFilt = adcCurMvFilt;
-  if (fabsf(currentA) < REST_CURRENT_A) {
-    // simplified stability check for runic: just use a very slow alpha
-    acsZeroMvFilt = lowpass(acsZeroMvFilt, adcCurMvFilt, 0.005f);
-  }
+  if (fabsf(currentA) < CFG.idle_a) acsZeroMvFilt = lowpass(acsZeroMvFilt, adcCurMvFilt, ALPHA_ZERO);
 
-  // Convert ADC-side to real-side values.
-  packV = (adcBatMvFilt * BAT_DIV_RATIO) / 1000.0f;
+  packV = (adcBatMvFilt * CFG.bat_div) / 1000.0f + BAT_V_OFFSET;
+  currentA = CURRENT_POLARITY * ((adcCurMvFilt * CFG.cur_div - acsZeroMvFilt * CFG.cur_div) / CFG.acs_mv_a);
 
-  float sensorMv = adcCurMvFilt * CUR_DIV_RATIO;
-  float zeroMv   = acsZeroMvFilt * CUR_DIV_RATIO;
-  currentA = CURRENT_POLARITY * ((sensorMv - zeroMv) / ACS712_SENS_MV_PER_A);
-
-  // Track resting voltage estimate.
   if (restedPackV <= 1.0f) restedPackV = packV;
-  if (fabsf(currentA) < REST_CURRENT_A) {
-    restedPackV = lowpass(restedPackV, packV, 0.12f);
-  } else {
-    // Under load, keep the estimate mostly stable, but allow a tiny drift.
-    float iSign = (currentA > 0) ? 1.0f : -1.0f;
-    restedPackV = lowpass(restedPackV, packV + iSign * fabsf(currentA) * rIntOhm, 0.002f);
-  }
+  if (fabsf(currentA) < CFG.idle_a) restedPackV = lowpass(restedPackV, packV, CFG.alpha_rest_v);
+  else restedPackV = lowpass(restedPackV, packV + ((currentA > 0) ? 1.0f : -1.0f) * fabsf(currentA) * rIntOhm, CFG.alpha_load_v);
 
   packVRested = restedPackV;
-
-  // Sag and internal resistance estimate
   sagV = fabsf(packVRested - packV);
-  if (fabsf(currentA) > SAG_UPDATE_CURRENT_A) {
+  if (fabsf(currentA) > CFG.sag_min_a) {
     float rEst = sagV / fabsf(currentA);
-    if (isfinite(rEst) && rEst > 0.0f && rEst < 1.0f) {
-      rIntOhm = lowpass(rIntOhm, rEst, RINT_ALPHA);
-    }
+    if (isfinite(rEst) && rEst > 0.0f && rEst < 1.0f) rIntOhm = lowpass(rIntOhm, rEst, CFG.alpha_rint);
   }
 
-  packCellVLoad   = packV / (float)CELLS_S;
-  packCellVRested = packVRested / (float)CELLS_S;
-
+  packCellVLoad = packV / (float)CFG.cells_s;
+  packCellVRested = packVRested / (float)CFG.cells_s;
   socLoadPct = socFromCellVoltage(packCellVLoad);
   socRestPct = socFromCellVoltage(packCellVRested);
 }
@@ -467,7 +439,7 @@ void setup()
   adcBatMvFilt  = (float)bat0;
   adcCurMvFilt  = (float)curZero;
 
-  packV = (adcBatMvFilt * BAT_DIV_RATIO) / 1000.0f;
+  packV = (adcBatMvFilt * CFG.bat_div) / 1000.0f;
   restedPackV = packV;
 
   renderUi();
@@ -476,9 +448,22 @@ void setup()
 
 void loop()
 {
+  uint32_t now = millis();
+
+  // Button handling
+  static bool lastBtn = true;
+  static uint32_t btnDownMs = 0;
+  bool btn = digitalRead(PIN_BUTTON);
+  if (!btn && lastBtn) btnDownMs = now;
+  if (btn && !lastBtn) {
+    uint32_t dur = now - btnDownMs;
+    if (dur > 5000) { prefs.begin("sag_gauge", false); prefs.clear(); prefs.end(); ESP.restart(); }
+    else if (dur > 50) { /* Page flip or other? Runic is single page for now */ }
+  }
+  lastBtn = btn;
+
   updateMeasurements();
 
-  uint32_t now = millis();
   if (now - lastUiMs >= UI_REFRESH_MS) {
     lastUiMs = now;
 
