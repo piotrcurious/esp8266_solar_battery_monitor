@@ -39,3 +39,4 @@ uint32_t analogReadMilliVolts(int pin) {
 }
 
 MockSerial Serial;
+MockESP ESP;

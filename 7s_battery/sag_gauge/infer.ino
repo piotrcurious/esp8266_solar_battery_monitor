@@ -43,13 +43,14 @@ struct MonitorConfig {
     float charge_eff;
     uint32_t dim_ms;
     float km_per_wh;
+    float thermal_k;
 };
 
 static constexpr MonitorConfig CFG = {
     7, 20.0f, 3.60f, 60.0f, 300.0f,
     (110000.0f + 10000.0f) / 10000.0f, 2.0f, 185.0f, 10.0f,
     0.08f, 0.01f, 0.12f, 0.002f,
-    0.20f, 1.50f, 0.99f, 30000, 0.05f
+    0.20f, 1.50f, 0.99f, 30000, 0.05f, 0.2f
 };
 
 // Derived tuning
@@ -133,6 +134,7 @@ static uint32_t idleMs = 0;
 // Core electrical
 static float vPack   = 0.0f;  // loaded terminal voltage (V)
 static float iA      = 0.0f;  // current (A) – positive = discharge
+static float tEst    = 25.0f; // estimated internal temp (C)
 static float vRested = 0.0f;  // estimated open-circuit voltage (V)
 static float vSag    = 0.0f;  // vRested − vPack (V)
 static float rInt    = CFG.rint_fresh_mo / 1000.0f;
@@ -583,9 +585,13 @@ static void renderPage4() {
   snprintf(b, sizeof(b), "%.1fAh", getEffectiveCapAh());
   canvas.setCursor(90, 52); canvas.setTextColor(lcd.color888(100,255,100)); canvas.print(b);
 
-  canvas.setCursor(3, 66); canvas.setTextColor(lcd.color888(180,180,200)); canvas.print("Max Sag:");
+  canvas.setCursor(3, 62); canvas.setTextColor(lcd.color888(180,180,200)); canvas.print("Max Sag:");
   formatUnit(b, sizeof(b), sessionMaxSag, "V", "mV");
-  canvas.setCursor(90, 66); canvas.setTextColor(lcd.color888(255,150,50)); canvas.print(b);
+  canvas.setCursor(90, 62); canvas.setTextColor(lcd.color888(255,150,50)); canvas.print(b);
+
+  canvas.setCursor(3, 72); canvas.setTextColor(lcd.color888(180,180,200)); canvas.print("Est Temp:");
+  snprintf(b, sizeof(b), "%.1f C", tEst);
+  canvas.setCursor(90, 72); canvas.setTextColor(tEst > 50.0f ? lcd.color888(255,100,50) : lcd.color888(100,200,255)); canvas.print(b);
 
   drawPageDots(138, 75, 5, 4);
 }
@@ -614,9 +620,13 @@ static void renderPage3() {
   drawBar(30, "Active", whActive, total, lcd.color888(100,255,100));
   drawBar(42, "Burst",  whBurst,  total, lcd.color888(255,100,50));
 
-  canvas.setCursor(3, 60); canvas.setTextColor(lcd.color888(150,150,160));
-  snprintf(b, sizeof(b), "Total Discharged: %.1f Wh", whOut);
+  canvas.setCursor(3, 56); canvas.setTextColor(lcd.color888(150,150,160));
+  snprintf(b, sizeof(b), "Total Out: %.1f Wh", whOut);
   canvas.print(b);
+
+  float distKm = ahOut * CFG.nom_v_cell * CFG.cells_s * CFG.km_per_wh;
+  snprintf(b, sizeof(b), "Avg: %.1f Wh/km", (distKm > 0.1f) ? (whOut / distKm) : 0);
+  canvas.setCursor(3, 65); canvas.print(b);
 
   drawPageDots(142, 75, 4, 3);
 }
@@ -731,6 +741,12 @@ static void updateVocEstimator() {
 
 static float getEffectiveCapAh() {
   return CFG.cap_ah * (0.7f + 0.3f * (sohPct / 100.0f));
+}
+
+static void updateThermal(float dt) {
+    float powerLost = iA * iA * rInt;
+    float deltaT = (powerLost - CFG.thermal_k * (tEst - 25.0f)) * (dt / 120.0f);
+    tEst += deltaT;
 }
 
 static void updateRintEstimator() {
@@ -890,6 +906,7 @@ static void updateMeasurements() {
   updateRintEstimator();
   updateSoc(dt);
   integrateEnergy(dt);
+  updateThermal(dt);
   updateDvdt();
 
   // Update history buffers every 5 seconds
@@ -966,15 +983,22 @@ void loop() {
         lcd.setBrightness(200);
         isDimmed = false;
     } else {
-        if (dur > 2000) resetSession();
-    else if (dur > 50) { uiPage = (uiPage + 1) % 5; pageMs = now; }
+        if (dur > 5000) {
+            prefs.begin("sag_gauge", false);
+            prefs.clear();
+            prefs.end();
+            ESP.restart();
+        }
+        else if (dur > 2000) resetSession();
+        else if (dur > 50) { uiPage = (uiPage + 1) % 5; pageMs = now; }
     }
   }
   lastBtn = btn;
 
   // Auto-dimming
   if (!isDimmed && now - lastActMs > CFG.dim_ms && pState == PackState::IDLE) {
-      lcd.setBrightness(20);
+      if (now - lastActMs > CFG.dim_ms * 10) lcd.setBrightness(0); // Auto-off after 10x dim period
+      else lcd.setBrightness(20);
       isDimmed = true;
   }
   if (isDimmed && pState != PackState::IDLE) {
@@ -987,6 +1011,21 @@ void loop() {
   if (!isDimmed && now - pageMs >= PAGE_MS) {
     uiPage = (uiPage + 1) % 5;
     pageMs  = now;
+  }
+
+  // Serial command parser
+  if (Serial.available()) {
+      String cmd = Serial.readStringUntil('\n');
+      cmd.trim();
+      if (cmd == "RESET") resetSession();
+      else if (cmd == "SETZERO") { sZeroMv = sCurMv; saveState(); }
+      else if (cmd.startsWith("SETCAP ")) {
+          float newCap = cmd.substring(7).toFloat();
+          if (newCap > 1.0f) {
+              // This requires a non-const config, but for now we just log it
+              Serial.println("Manual cap update not yet supported via serial");
+          }
+      }
   }
 
   // Sample + render at fixed cadence (fixes Coulomb integration rate and dV/dt)
