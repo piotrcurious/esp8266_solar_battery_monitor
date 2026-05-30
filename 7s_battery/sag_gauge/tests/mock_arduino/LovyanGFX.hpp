@@ -13,7 +13,7 @@ namespace lgfx {
         void setPanel(void* p) {}
         void init() {}
         void setRotation(int r) {}
-        void setBrightness(int b) {}
+        void setBrightness(int b) { printf("[MOCK LGFX] Brightness set to %d\n", b); }
         void setColorDepth(int d) {}
         uint32_t color888(uint8_t r, uint8_t g, uint8_t b) {
             return (r << 16) | (g << 8) | b;

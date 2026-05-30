@@ -16,16 +16,6 @@ static constexpr int TFT_SCK  = 18, TFT_MOSI = 23, TFT_MISO = -1;
 static constexpr int TFT_DC   = 16, TFT_CS   = 5,  TFT_RST  = 17, TFT_BL = 4;
 static constexpr int PIN_BAT_VOLT = 34, PIN_CUR_SENS = 35, PIN_BUTTON = 0;
 
-// Voltage divider (110 k / 10 k → ×12.0; 29.4 V → 2.45 V at ADC)
-static constexpr float BAT_R_TOP = 110000.0f, BAT_R_BOT = 10000.0f;
-static constexpr float BAT_DIV   = (BAT_R_TOP + BAT_R_BOT) / BAT_R_BOT;
-
-// ACS712 half-divider (10 k / 10 k, keeps 5 V sensor output safe for ESP32 ADC)
-static constexpr float CUR_R_TOP = 10000.0f, CUR_R_BOT = 10000.0f;
-static constexpr float CUR_DIV   = (CUR_R_TOP + CUR_R_BOT) / CUR_R_BOT;
-
-// ACS712 variant: 5 A → 185 mV/A | 20 A → 100 mV/A | 30 A → 66 mV/A
-static constexpr float ACS712_MV_A  = 185.0f;
 static constexpr float CUR_POLARITY = 1.0f;   // flip to -1 if sense is backwards
 
 // Calibration
@@ -38,6 +28,11 @@ struct MonitorConfig {
     float rint_fresh_mo;
     float rint_dead_mo;
 
+    float bat_div;
+    float cur_div;
+    float acs_mv_a;
+    float ref_load_a;
+
     float alpha_adc;
     float alpha_rint;
     float alpha_rest_v;
@@ -46,12 +41,15 @@ struct MonitorConfig {
     float idle_a;
     float sag_min_a;
     float charge_eff;
+    uint32_t dim_ms;
+    float km_per_wh;
 };
 
 static constexpr MonitorConfig CFG = {
     7, 20.0f, 3.60f, 60.0f, 300.0f,
+    (110000.0f + 10000.0f) / 10000.0f, 2.0f, 185.0f, 10.0f,
     0.08f, 0.01f, 0.12f, 0.002f,
-    0.20f, 1.50f, 0.99f
+    0.20f, 1.50f, 0.99f, 30000, 0.05f
 };
 
 // Derived tuning
@@ -118,6 +116,9 @@ public:
 static LGFX        lcd;
 static LGFX_Sprite canvas(&lcd);
 
+// Forward declarations
+static float getEffectiveCapAh();
+
 // ================================================================
 //  State
 // ================================================================
@@ -155,6 +156,7 @@ static float    sessionStartSoc = 0.0f;
 // Session energy
 static float ahOut = 0.0f, ahIn = 0.0f;
 static float sessionMaxDod = 0.0f;
+static float sessionMaxSag = 0.0f;
 static float whOut = 0.0f, whIn = 0.0f;
 static float whCruise = 0.0f, whActive = 0.0f, whBurst = 0.0f;
 static float ahTotal = 0.0f; // Lifetime Ah for cycle counting
@@ -182,8 +184,10 @@ static int   rMedHead = 0, rMedCount = 0;
 static uint32_t lastMeasUs = 0;
 static uint32_t lastUiMs   = 0;
 static uint32_t lastSaveMs = 0;
+static uint32_t lastActMs  = 0;
 static uint32_t pageMs     = 0;
 static int      uiPage     = 0;
+static bool     isDimmed   = false;
 
 static Preferences prefs;
 
@@ -288,6 +292,14 @@ static void drawSegBar(int x, int y, int w, int h,
       if (f >= 1.0f) {
           canvas.fillRect(sx+2, y+2, sw-4, 2, blendCol(c, 0xFFFFFF, 0.3f));
       }
+
+      // Charging animation: scan-line highlight
+      if (pState == PackState::CHARGING) {
+          int scanX = (millis() / 50) % (w + 20) - 10;
+          if (scanX > i*(sw+G) && scanX < (i+1)*(sw+G)) {
+              canvas.fillRect(sx+1, y+1, sw-2, h-2, blendCol(c, 0xFFFFFF, 0.4f));
+          }
+      }
     }
   }
 }
@@ -305,9 +317,20 @@ static void drawSparkline(int x, int y, int w, int h, float* data, int n, uint32
 
   canvas.drawRect(x, y, w, h, lcd.color888(40,40,55));
 
+  // Peak indicator
+  int peakY = y + h - 1 - (int)((maxV - minV) / (maxV - minV) * (h-1)); // Should be y
+  peakY = y;
+  canvas.drawPixel(x+w-2, peakY, 0xFFFFFF);
+  canvas.drawPixel(x+w-3, peakY, 0xFFFFFF);
+
   // Mid-line reference
   int midY = y + h/2;
   for (int i=x; i<x+w; i+=4) canvas.drawPixel(i, midY, lcd.color888(60,60,70));
+
+  // Health color bands (left edge 2px)
+  canvas.fillRect(x, y, 2, h, lcd.color888(255, 40, 40));
+  canvas.fillRect(x, y, 2, (int)(h*0.7f), lcd.color888(255, 170, 30));
+  canvas.fillRect(x, y, 2, (int)(h*0.3f), lcd.color888(60, 255, 90));
 
   // Range labels
   char lbl[16];
@@ -377,6 +400,10 @@ static void renderPage0() {
   canvas.drawRect(3, 27, 72, 3, lcd.color888(40,40,60));
   canvas.fillRect(3, 27, (int)(72 * loadPct), 3, pState == PackState::CHARGING ? lcd.color888(100,255,100) : lcd.color888(255,100,50));
 
+  // Peak load ghost marker
+  float peakLoadPct = clampf(fabsf(peakIA) / 20.0f, 0.0f, 1.0f);
+  canvas.fillRect(3 + (int)(72 * peakLoadPct) - 1, 27, 2, 3, lcd.color888(150,150,150));
+
   canvas.setTextSize(1);
   uint32_t loadCol = (fabsf(iA) > 15.0f) ? lcd.color888(255, 100, 50) : lcd.color888(180, 180, 200);
   canvas.setTextColor(loadCol, TFT_BLACK);
@@ -398,7 +425,13 @@ static void renderPage0() {
   formatUnit(sS, sizeof(sS), vSag, "V", "mV");
   formatUnit(sR, sizeof(sR), rInt, "O", "mO");
   snprintf(b,sizeof(b),"%s %s", sS, sR);
-  canvas.setTextColor(lcd.color888(140,140,160), TFT_BLACK);
+
+  if (fabsf(dvdtVps) > 0.5f) {
+      canvas.fillRect(2, 31, 64, 10, lcd.color888(60, 20, 20));
+      canvas.setTextColor(lcd.color888(255,150,150));
+  } else {
+      canvas.setTextColor(lcd.color888(140,140,160), TFT_BLACK);
+  }
   canvas.setCursor(3,32); canvas.print(b);
 
   // Blended SOC bar (single clean bar replaces original double-overlay)
@@ -418,17 +451,21 @@ static void renderPage0() {
 
   if (etaMin >= 0) {
     int h=etaMin/60, m=etaMin%60;
-    if (h>0) snprintf(b,sizeof(b),"~%dh%dm",h,m);
-    else     snprintf(b,sizeof(b),"~%dm",m);
-  } else snprintf(b,sizeof(b),"~---");
+    if (h>0) snprintf(b,sizeof(b),"%dh%dm",h,m);
+    else     snprintf(b,sizeof(b),"%dm",m);
+  } else snprintf(b,sizeof(b),"---");
   canvas.setTextColor(lcd.color888(100,190,255), TFT_BLACK);
   canvas.setCursor(108,63); canvas.print(b);
 
-  // Sag Prediction (at 10A load)
-  float vPred10A = vRested - (10.0f * rInt * getRintSocFactor(socBlend));
-  snprintf(b, sizeof(b), "Est @ 10A: %.1fV", vPred10A);
-  canvas.setTextColor(lcd.color888(160,160,180), TFT_BLACK);
-  canvas.setCursor(68, 32);
+  float remWh = (socBlend/100.0f) * getEffectiveCapAh() * (float)CFG.cells_s * CFG.nom_v_cell;
+  snprintf(b, sizeof(b), "%.1fkm", remWh * CFG.km_per_wh);
+  canvas.setCursor(108, 72); canvas.setTextColor(lcd.color888(150, 255, 150)); canvas.print(b);
+
+  // Sag Prediction (at reference load)
+  float vPredRef = vRested - (CFG.ref_load_a * rInt * getRintSocFactor(socBlend));
+  snprintf(b, sizeof(b), "Est @ %.0fA: %.1fV", CFG.ref_load_a, vPredRef);
+  canvas.setTextColor(lcd.color888(120,120,140), TFT_BLACK);
+  canvas.setCursor(68, 72);
   // Let's reorganize Page 0 a bit.
 
   // Ah / sag pill / page dots
@@ -514,6 +551,43 @@ static void renderPage1() {
   canvas.print(b);
 
   drawPageDots(146, 75, 3, 1);
+}
+
+static void renderPage4() {
+  char b[48];
+  const uint32_t H = lcd.color888(14,14,24);
+  canvas.fillRoundRect(0,0,160,13,2,H);
+  canvas.setTextSize(1);
+  canvas.setTextColor(lcd.color888(150,255,150), H);
+  canvas.setCursor(3,3); canvas.print("Battery Health Detail");
+
+  canvas.setTextColor(lcd.color888(180,180,200), TFT_BLACK);
+  canvas.setCursor(3, 18); canvas.print("SOH (Rint):");
+  float sohRint = 100.0f * (CFG.rint_dead_mo - rInt * 1000.0f) / (CFG.rint_dead_mo - CFG.rint_fresh_mo);
+  snprintf(b, sizeof(b), "%.0f%%", sohRint);
+  canvas.setCursor(90, 18); canvas.setTextColor(lcd.color888(100,200,255)); canvas.print(b);
+
+  canvas.setTextColor(lcd.color888(180,180,200), TFT_BLACK);
+  canvas.setCursor(3, 28); canvas.print("SOH (Age) :");
+  float cycles  = ahTotal / (CFG.cap_ah * 2.0f);
+  float sohCycle = 100.0f - (cycles / 5.0f);
+  snprintf(b, sizeof(b), "%.0f%%", sohCycle);
+  canvas.setCursor(90, 28); canvas.setTextColor(lcd.color888(200,150,255)); canvas.print(b);
+
+  canvas.setTextColor(lcd.color888(180,180,200), TFT_BLACK);
+  canvas.setCursor(3, 42); canvas.print("Nominal Cap:");
+  snprintf(b, sizeof(b), "%.1fAh", CFG.cap_ah);
+  canvas.setCursor(90, 42); canvas.print(b);
+
+  canvas.setCursor(3, 52); canvas.print("Effect. Cap:");
+  snprintf(b, sizeof(b), "%.1fAh", getEffectiveCapAh());
+  canvas.setCursor(90, 52); canvas.setTextColor(lcd.color888(100,255,100)); canvas.print(b);
+
+  canvas.setCursor(3, 66); canvas.setTextColor(lcd.color888(180,180,200)); canvas.print("Max Sag:");
+  formatUnit(b, sizeof(b), sessionMaxSag, "V", "mV");
+  canvas.setCursor(90, 66); canvas.setTextColor(lcd.color888(255,150,50)); canvas.print(b);
+
+  drawPageDots(138, 75, 5, 4);
 }
 
 static void renderPage3() {
@@ -615,16 +689,17 @@ static void sampleSensors(float dt) {
   }
 }
 
-// Forward declaration for calculateElectrical
+// Forward declarations
 static void saveState();
+static float getEffectiveCapAh();
 
 static void calculateElectrical() {
-  vPack = (sBatMv * BAT_DIV) / 1000.0f + BAT_V_OFFSET;
+  vPack = (sBatMv * CFG.bat_div) / 1000.0f + BAT_V_OFFSET;
 
   // ADC Sanity checks
   if (vPack < 10.0f || vPack > 35.0f) vPack = clampf(vPack, 10.0f, 35.0f);
 
-  iA    = CUR_POLARITY * (sCurMv - sZeroMv) * CUR_DIV / ACS712_MV_A;
+  iA    = CUR_POLARITY * (sCurMv - sZeroMv) * CFG.cur_div / CFG.acs_mv_a;
   pW    = vPack * iA;
 
   PackState oldState = pState;
@@ -860,7 +935,7 @@ void setup() {
   if (sZeroMv < 100.0f) sZeroMv = sCurMvBoot;
   sCurMv = sCurMvBoot;
 
-  vPack     = (sBatMv * BAT_DIV) / 1000.0f;
+  vPack     = (sBatMv * CFG.bat_div) / 1000.0f;
   vRested   = vPack;
   vCellRest = vPack / (float)CFG.cells_s;
   socOcv    = socFromV(vCellRest);
@@ -886,14 +961,31 @@ void loop() {
   if (!btn && lastBtn) { btnDownMs = now; }
   if (btn && !lastBtn) {
     uint32_t dur = now - btnDownMs;
-    if (dur > 2000) resetSession();
-    else if (dur > 50) { uiPage = (uiPage + 1) % 4; pageMs = now; }
+    lastActMs = now;
+    if (isDimmed) {
+        lcd.setBrightness(200);
+        isDimmed = false;
+    } else {
+        if (dur > 2000) resetSession();
+    else if (dur > 50) { uiPage = (uiPage + 1) % 5; pageMs = now; }
+    }
   }
   lastBtn = btn;
 
+  // Auto-dimming
+  if (!isDimmed && now - lastActMs > CFG.dim_ms && pState == PackState::IDLE) {
+      lcd.setBrightness(20);
+      isDimmed = true;
+  }
+  if (isDimmed && pState != PackState::IDLE) {
+      lcd.setBrightness(200);
+      isDimmed = false;
+      lastActMs = now;
+  }
+
   // Non-blocking auto page flip (only if button not used recently)
-  if (now - pageMs >= PAGE_MS) {
-    uiPage = (uiPage + 1) % 4;
+  if (!isDimmed && now - pageMs >= PAGE_MS) {
+    uiPage = (uiPage + 1) % 5;
     pageMs  = now;
   }
 
@@ -906,11 +998,12 @@ void loop() {
     if      (uiPage == 0) renderPage0();
     else if (uiPage == 1) renderPage1();
     else if (uiPage == 2) renderPage2();
-    else                  renderPage3();
+    else if (uiPage == 3) renderPage3();
+    else                  renderPage4();
     canvas.pushSprite(&lcd, 0, 0);
 
-  // Periodic save (5 min)
-  if (now - lastSaveMs > 300000) {
+  // Periodic save (1 min)
+  if (now - lastSaveMs > 60000) {
     lastSaveMs = now;
     saveState();
   }
