@@ -127,12 +127,12 @@ static LGFX_Sprite canvas(&lcd);
 // State
 // ============================================================
 
-static float adcBatMvFilt   = 0.0f;  // ADC-side mV after divider
-static float adcCurMvFilt   = 0.0f;  // ADC-side mV after divider
-static float acsZeroMvFilt   = 0.0f;  // ACS712 zero at ADC-side after divider
+static float adcBatMvFilt   = 0.0f;
+static float adcCurMvFilt   = 0.0f;
+static float acsZeroMvFilt   = 0.0f;
 
-static float restedPackV    = 0.0f;   // slow estimate of unloaded pack voltage
-static float rIntOhm        = 0.060f; // estimated internal resistance (ohm)
+static float restedPackV    = 0.0f;
+static float rIntOhm        = 0.060f;
 static float currentA       = 0.0f;
 static float packV          = 0.0f;
 static float packVRested    = 0.0f;
@@ -215,13 +215,20 @@ static uint32_t colorBlend(uint32_t a, uint32_t b, float t)
   return lcd.color888(r, g, bl);
 }
 
-static uint32_t socColor(float soc)
+static uint32_t colorBlend(uint32_t a, uint32_t b, float t)
 {
-  // red -> amber -> green
-  if (soc < 20.0f) return lcd.color888(255, 40, 40);
-  if (soc < 50.0f) return lcd.color888(255, 170, 30);
-  if (soc < 80.0f) return lcd.color888(180, 220, 40);
-  return lcd.color888(60, 255, 90);
+  t = (t < 0.0f) ? 0.0f : (t > 1.0f) ? 1.0f : t;
+  uint8_t ar = (a >> 16) & 0xFF, ag = (a >> 8) & 0xFF, ab = a & 0xFF;
+  uint8_t br = (b >> 16) & 0xFF, bg = (b >> 8) & 0xFF, bb = b & 0xFF;
+  return lcd.color888(ar + (int)((br-ar)*t), ag + (int)((bg-ag)*t), ab + (int)((bb-ab)*t));
+}
+
+static uint32_t socColor(float s)
+{
+  if (s < 15.0f) return colorBlend(lcd.color888(255, 0, 0), lcd.color888(255, 100, 0), s / 15.0f);
+  if (s < 40.0f) return colorBlend(lcd.color888(255, 100, 0), lcd.color888(255, 255, 0), (s - 15.0f) / 25.0f);
+  if (s < 70.0f) return colorBlend(lcd.color888(255, 255, 0), lcd.color888(0, 255, 0), (s - 40.0f) / 30.0f);
+  return colorBlend(lcd.color888(0, 255, 0), lcd.color888(100, 255, 255), (s - 70.0f) / 30.0f);
 }
 
 static void drawBarSegmented(int x, int y, int w, int h, float soc, uint32_t fillColor, uint32_t outlineColor, uint32_t emptyColor)
@@ -373,9 +380,9 @@ static void renderUi()
   canvas.print("A");
 
   canvas.setCursor(96, 40);
-  canvas.print("SAG ");
-  canvas.print(sagV * 1000.0f, 0);
-  canvas.print("mV");
+  canvas.print("S ");
+  if (sagV < 1.0f) { canvas.print(sagV * 1000.0f, 0); canvas.print("mV"); }
+  else { canvas.print(sagV, 1); canvas.print("V"); }
 
   // Main gauge: bright estimate with loaded shadow beneath
   const int gx = 4;

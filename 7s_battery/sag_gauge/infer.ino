@@ -5,6 +5,10 @@
 #include <cstring>
 #include <Preferences.h>
 
+#ifndef clamp
+#define clamp(v,lo,hi) (((v)<(lo))?(lo):((v)>(hi))?(hi):(v))
+#endif
+
 // ================================================================
 //  Hardware
 // ================================================================
@@ -27,47 +31,45 @@ static constexpr float CUR_POLARITY = 1.0f;   // flip to -1 if sense is backward
 // Calibration
 static constexpr float BAT_V_OFFSET = 0.0f;   // add to measured pack voltage (V)
 
-// ================================================================
-//  Pack parameters  ← configure for your battery
-// ================================================================
-static constexpr int   CELLS_S         = 7;       // series cell count
-static constexpr float CAP_AH          = 20.0f;   // nominal capacity (Ah)
-static constexpr float NOM_V_CELL      = 3.60f;   // nominal per-cell voltage (V)
-static constexpr float RINT_FRESH_MOHM = 60.0f;   // R_int, new pack  (mΩ)
-static constexpr float RINT_DEAD_MOHM  = 300.0f;  // R_int, end-of-life (mΩ)
+struct MonitorConfig {
+    int   cells_s;
+    float cap_ah;
+    float nom_v_cell;
+    float rint_fresh_mo;
+    float rint_dead_mo;
 
-// Normalization factor for Rint based on SOC (R_actual / R_nominal)
-// Li-ion Rint typically increases at low SOC.
+    float alpha_adc;
+    float alpha_rint;
+    float alpha_rest_v;
+    float alpha_load_v;
+
+    float idle_a;
+    float sag_min_a;
+    float charge_eff;
+};
+
+static constexpr MonitorConfig CFG = {
+    7, 20.0f, 3.60f, 60.0f, 300.0f,
+    0.08f, 0.01f, 0.12f, 0.002f,
+    0.20f, 1.50f, 0.99f
+};
+
+// Derived tuning
+static constexpr uint32_t UI_MS         = 100;
+static constexpr uint32_t PAGE_MS       = 5000;
+static constexpr float ALPHA_ZERO       = 0.005f;
+static constexpr float ALPHA_LOAD_W     = 0.04f;
+static constexpr float ALPHA_WDECAY     = 0.003f;
+static constexpr float COULOMB_DEADBAND_A = 0.05f;
+static constexpr uint32_t IDLE_STABLE_MS = 2000;
+static constexpr float WMAX_COUL        = 0.80f;
+static constexpr float WINC             = 0.0002f;
+
 static float getRintSocFactor(float soc) {
   if (soc > 80.0f) return 1.0f;
   if (soc < 10.0f) return 1.5f;
-  // Linear ramp from 80% SOC (1.0x) to 10% SOC (1.5x)
   return 1.0f + (80.0f - soc) * (0.5f / 70.0f);
 }
-
-// ================================================================
-//  Tuning
-// ================================================================
-static constexpr uint32_t UI_MS         = 100;    // sample + render period (ms)
-static constexpr uint32_t PAGE_MS       = 5000;   // auto page-flip period (ms)
-
-static constexpr float ALPHA_ADC        = 0.08f;
-static constexpr float ALPHA_ZERO       = 0.005f; // ACS zero-point drift
-static constexpr float ALPHA_REST_V     = 0.12f;  // vRested convergence at idle
-static constexpr float ALPHA_LOAD_V     = 0.002f; // vRested drift under load
-static constexpr float ALPHA_RINT       = 0.01f;
-static constexpr float ALPHA_LOAD_W     = 0.04f;  // ETA smoother (~25 s τ)
-static constexpr float ALPHA_WDECAY     = 0.003f; // Coulomb blend decay at rest
-
-static constexpr float IDLE_A           = 0.20f;  // |I| ≤ this → IDLE
-static constexpr float COULOMB_DEADBAND_A = 0.05f; // ignore |I| ≤ this for integration
-static constexpr uint32_t IDLE_STABLE_MS = 2000;  // time at IDLE before zero-tracking
-static constexpr float SAG_MIN_A        = 1.50f;  // |I| ≥ this → update R_int
-
-static constexpr float WMAX_COUL        = 0.80f;  // max Coulomb SOC weight
-static constexpr float WINC             = 0.0002f;// blend weight ramp per tick (~7 min to max)
-
-static constexpr float CHARGE_EFF       = 0.99f;  // minor Coulomb loss during charge
 
 // dV/dt buffer: DVDT_N × UI_MS ms window
 static constexpr int DVDT_N = 30;  // 3-second window
@@ -132,7 +134,7 @@ static float vPack   = 0.0f;  // loaded terminal voltage (V)
 static float iA      = 0.0f;  // current (A) – positive = discharge
 static float vRested = 0.0f;  // estimated open-circuit voltage (V)
 static float vSag    = 0.0f;  // vRested − vPack (V)
-static float rInt    = RINT_FRESH_MOHM / 1000.0f;
+static float rInt    = CFG.rint_fresh_mo / 1000.0f;
 static float pW      = 0.0f;  // instantaneous power (W)
 static PackState pState = PackState::IDLE;
 
@@ -148,6 +150,7 @@ static float wCoul    = 0.0f;  // Coulomb blend weight [0 … WMAX_COUL]
 static bool  socInit  = false; // one-shot Coulomb initialisation flag
 
 static uint32_t sessionStartMs = 0;
+static float    sessionStartSoc = 0.0f;
 
 // Session energy
 static float ahOut = 0.0f, ahIn = 0.0f;
@@ -226,10 +229,10 @@ static uint32_t blendCol(uint32_t a, uint32_t b, float t) {
     (uint8_t)(ab + (int)((bb-ab)*t + 0.5f)));
 }
 static uint32_t socCol(float s) {
-  if (s<20) return lcd.color888(255, 40, 40);
-  if (s<50) return lcd.color888(255,170, 30);
-  if (s<80) return lcd.color888(180,220, 40);
-  return           lcd.color888( 60,255, 90);
+  if (s < 15.0f) return blendCol(lcd.color888(255, 0, 0), lcd.color888(255, 100, 0), s / 15.0f);
+  if (s < 40.0f) return blendCol(lcd.color888(255, 100, 0), lcd.color888(255, 255, 0), (s - 15.0f) / 25.0f);
+  if (s < 70.0f) return blendCol(lcd.color888(255, 255, 0), lcd.color888(0, 255, 0), (s - 40.0f) / 30.0f);
+  return blendCol(lcd.color888(0, 255, 0), lcd.color888(100, 255, 255), (s - 70.0f) / 30.0f);
 }
 static uint32_t dvdtCol(float d) {
   if (d < -0.050f) return lcd.color888(255, 60, 60);  // fast drain
@@ -249,6 +252,11 @@ static const char* stateStr() {
     case PackState::CHARGING:    return "CHG  ";
     default:                     return "IDLE ";
   }
+}
+
+static void formatUnit(char* buf, size_t sz, float val, const char* unit, const char* milliUnit) {
+    if (fabsf(val) < 1.0f) snprintf(buf, sz, "%.0f%s", val * 1000.0f, milliUnit);
+    else                  snprintf(buf, sz, "%.2f%s", val, unit);
 }
 
 // ================================================================
@@ -282,21 +290,38 @@ static void drawSegBar(int x, int y, int w, int h,
   }
 }
 
-static void drawSparkline(int x, int y, int w, int h, float* data, int n, uint32_t color) {
+static void drawSparkline(int x, int y, int w, int h, float* data, int n, uint32_t color, const char* unit = "") {
   if (n < 2) return;
   float minV = 999, maxV = -999;
   for (int i=0; i<n; i++) {
     if (data[i] < minV) minV = data[i];
     if (data[i] > maxV) maxV = data[i];
   }
-  if (maxV - minV < 0.1f) { minV -= 0.05f; maxV += 0.05f; }
+  float span = maxV - minV;
+  if (span < 0.01f) span = 1.0f;
+  minV -= span * 0.1f; maxV += span * 0.1f; // 10% padding
 
-  canvas.drawRect(x, y, w, h, lcd.color888(40,40,50));
+  canvas.drawRect(x, y, w, h, lcd.color888(40,40,55));
+
+  // Mid-line reference
+  int midY = y + h/2;
+  for (int i=x; i<x+w; i+=4) canvas.drawPixel(i, midY, lcd.color888(60,60,70));
+
+  // Range labels
+  char lbl[16];
+  canvas.setTextSize(0); canvas.setTextColor(lcd.color888(120,120,140));
+  snprintf(lbl, sizeof(lbl), "%.1f%s", maxV, unit);
+  canvas.setCursor(x+2, y+1); canvas.print(lbl);
+  snprintf(lbl, sizeof(lbl), "%.1f%s", minV, unit);
+  canvas.setCursor(x+2, y+h-7); canvas.print(lbl);
+  canvas.setTextSize(1);
+
   for (int i=0; i<n-1; i++) {
     int x0 = x + (i * w) / (n-1);
     int x1 = x + ((i+1) * w) / (n-1);
-    int y0 = y + h - (int)((data[i] - minV) / (maxV - minV) * (h-1));
-    int y1 = y + h - (int)((data[(i+1)] - minV) / (maxV - minV) * (h-1));
+    int y0 = y + h - 1 - (int)((data[i] - minV) / (maxV - minV) * (h-1));
+    int y1 = y + h - 1 - (int)((data[i+1] - minV) / (maxV - minV) * (h-1));
+    y0 = clamp(y0, y, y+h-1); y1 = clamp(y1, y, y+h-1);
     canvas.drawLine(x0, y0, x1, y1, color);
   }
 }
@@ -326,7 +351,7 @@ static void renderPage0() {
   // Header
   canvas.fillRoundRect(0,0,160,13,2,H);
   canvas.setTextSize(1);
-  snprintf(b,sizeof(b),"%dS %.1fV", CELLS_S, vPack);
+  snprintf(b,sizeof(b),"%dS %.1fV", CFG.cells_s, vPack);
   canvas.setTextColor(socCol(socBlend), H);
   canvas.setCursor(3,3); canvas.print(b);
 
@@ -345,8 +370,14 @@ static void renderPage0() {
   snprintf(b,sizeof(b),"%.2fV", vCellRest);
   canvas.setCursor(3,14); canvas.print(b);
 
+  // Load bar relative to ~20A
+  float loadPct = clampf(fabsf(iA) / 20.0f, 0.0f, 1.0f);
+  canvas.drawRect(3, 27, 72, 3, lcd.color888(40,40,60));
+  canvas.fillRect(3, 27, (int)(72 * loadPct), 3, pState == PackState::CHARGING ? lcd.color888(100,255,100) : lcd.color888(255,100,50));
+
   canvas.setTextSize(1);
-  canvas.setTextColor(lcd.color888(180,180,200), TFT_BLACK);
+  uint32_t loadCol = (fabsf(iA) > 15.0f) ? lcd.color888(255, 100, 50) : lcd.color888(180, 180, 200);
+  canvas.setTextColor(loadCol, TFT_BLACK);
   snprintf(b,sizeof(b),"I %+.1fA", iA);
   canvas.setCursor(88,15); canvas.print(b);
   snprintf(b,sizeof(b),"P %5.0fW", fabsf(pW));
@@ -359,7 +390,10 @@ static void renderPage0() {
   canvas.setTextSize(1);
 
   // Sag / R_int / dV/dt label
-  snprintf(b,sizeof(b),"Sag:%.0fmV  R:%.0fmO ", vSag*1000.0f, rInt*1000.0f);
+  char sS[16], sR[16];
+  formatUnit(sS, sizeof(sS), vSag, "V", "mV");
+  formatUnit(sR, sizeof(sR), rInt, "O", "mO");
+  snprintf(b,sizeof(b),"S:%s R:%s ", sS, sR);
   canvas.setTextColor(lcd.color888(140,140,160), TFT_BLACK);
   canvas.setCursor(3,31); canvas.print(b);
   canvas.setTextColor(dvdtCol(dvdtVps), TFT_BLACK);
@@ -434,14 +468,14 @@ static void renderPage1() {
   // Voltage Sparkline
   float vPlot[HIST_N];
   for (int i=0; i<HIST_N; i++) vPlot[i] = vHist[(histIdx + i) % HIST_N];
-  drawSparkline(3, 15, 75, 25, vPlot, HIST_N, lcd.color888(100, 200, 255));
-  canvas.setCursor(3, 41); canvas.setTextColor(lcd.color888(100, 150, 200)); canvas.print("Volt");
+  drawSparkline(3, 15, 75, 25, vPlot, HIST_N, lcd.color888(100, 200, 255), "V");
+  canvas.setCursor(30, 41); canvas.setTextColor(lcd.color888(100, 150, 200)); canvas.print("Voltage");
 
   // Current Sparkline
   float iPlot[HIST_N];
   for (int i=0; i<HIST_N; i++) iPlot[i] = iHist[(histIdx + i) % HIST_N];
-  drawSparkline(82, 15, 75, 25, iPlot, HIST_N, lcd.color888(255, 150, 100));
-  canvas.setCursor(82, 41); canvas.setTextColor(lcd.color888(200, 100, 50)); canvas.print("Amps");
+  drawSparkline(82, 15, 75, 25, iPlot, HIST_N, lcd.color888(255, 150, 100), "A");
+  canvas.setCursor(105, 41); canvas.setTextColor(lcd.color888(200, 100, 50)); canvas.print("Current");
 
   // ETA and Load Info
   canvas.setTextSize(1);
@@ -508,8 +542,8 @@ static void renderPage2() {
   canvas.setCursor(80,65); canvas.setTextColor(lcd.color888(100,200,255), TFT_BLACK); canvas.print(b);
 
   canvas.setCursor(3,73); canvas.setTextColor(lcd.color888(150,150,170), TFT_BLACK); canvas.print("Life Cycles:");
-  float cycles = ahTotal / (CAP_AH * 2.0f);
-  snprintf(b,sizeof(b),"%.1f", cycles);
+  float cycles = ahTotal / (CFG.cap_ah * 2.0f);
+  snprintf(b,sizeof(b),"%.1f  (%+.1f%%)", cycles, socBlend - sessionStartSoc);
   canvas.setCursor(80,73); canvas.setTextColor(lcd.color888(200,150,255), TFT_BLACK); canvas.print(b);
 
   drawPageDots(146, 75, 3, 2);
@@ -521,12 +555,12 @@ static void renderPage2() {
 
 static void sampleSensors(float dt) {
   // ── ADC (16-point hardware average per pin)
-  sBatMv = lp(sBatMv, (float)adcAvgMv(PIN_BAT_VOLT, 16), ALPHA_ADC);
-  sCurMv = lp(sCurMv, (float)adcAvgMv(PIN_CUR_SENS, 16), ALPHA_ADC);
+  sBatMv = lp(sBatMv, (float)adcAvgMv(PIN_BAT_VOLT, 16), CFG.alpha_adc);
+  sCurMv = lp(sCurMv, (float)adcAvgMv(PIN_CUR_SENS, 16), CFG.alpha_adc);
 
   // ACS712 zero-point: track only while effectively idle and stable
   if (sZeroMv < 1.0f) sZeroMv = sCurMv;
-  if (fabsf(iA) < IDLE_A && fabsf(dvdtVps) < 0.02f) {
+  if (fabsf(iA) < CFG.idle_a && fabsf(dvdtVps) < 0.02f) {
     idleMs += (uint32_t)(dt * 1000.0f);
     if (idleMs > IDLE_STABLE_MS) {
       sZeroMv = lp(sZeroMv, sCurMv, ALPHA_ZERO);
@@ -541,39 +575,42 @@ static void saveState();
 
 static void calculateElectrical() {
   vPack = (sBatMv * BAT_DIV) / 1000.0f + BAT_V_OFFSET;
+
+  // ADC Sanity checks
+  if (vPack < 10.0f || vPack > 35.0f) vPack = clampf(vPack, 10.0f, 35.0f);
+
   iA    = CUR_POLARITY * (sCurMv - sZeroMv) * CUR_DIV / ACS712_MV_A;
   pW    = vPack * iA;
 
   PackState oldState = pState;
-  if      (iA >  IDLE_A) pState = PackState::DISCHARGING;
-  else if (iA < -IDLE_A) pState = PackState::CHARGING;
+  if      (iA >  CFG.idle_a) pState = PackState::DISCHARGING;
+  else if (iA < -CFG.idle_a) pState = PackState::CHARGING;
   else                    pState = PackState::IDLE;
 
   if (pState != oldState && oldState != PackState::IDLE) {
     saveState(); // Save immediately when a session ends
   }
 
-  vCellLoad = vPack / (float)CELLS_S;
+  vCellLoad = vPack / (float)CFG.cells_s;
 }
 
 static void updateVocEstimator() {
   if (vRested < 1.0f) vRested = vPack;
   if (pState == PackState::IDLE) {
-    vRested = lp(vRested, vPack, ALPHA_REST_V);
+    vRested = lp(vRested, vPack, CFG.alpha_rest_v);
   } else {
     float iSign = (pState == PackState::DISCHARGING) ? 1.0f : -1.0f;
     // Account for SOC-dependent Rint increase in the Voc estimation path
     float rCurrent = rInt * getRintSocFactor(socBlend);
-    vRested = lp(vRested, vPack + iSign * fabsf(iA) * rCurrent, ALPHA_LOAD_V);
+    vRested = lp(vRested, vPack + iSign * fabsf(iA) * rCurrent, CFG.alpha_load_v);
   }
   vSag = fabsf(vRested - vPack);
-  vCellRest = vRested / (float)CELLS_S;
+  vCellRest = vRested / (float)CFG.cells_s;
   socOcv = socFromV(vCellRest);
 }
 
 static float getEffectiveCapAh() {
-  // Capacity fades as SOH decreases. Linear model (e.g. 70% min cap at 0% SOH)
-  return CAP_AH * (0.7f + 0.3f * (sohPct / 100.0f));
+  return CFG.cap_ah * (0.7f + 0.3f * (sohPct / 100.0f));
 }
 
 static void updateRintEstimator() {
@@ -581,7 +618,7 @@ static void updateRintEstimator() {
   float dI = fabsf(iA - lastIA_Rint);
   lastIA_Rint = iA;
 
-  if (fabsf(iA) > SAG_MIN_A && dI < 0.2f) {
+  if (fabsf(iA) > CFG.sag_min_a && dI < 0.2f) {
     float rEstRaw = vSag / fabsf(iA);
     // Normalize measured Rint to 100% SOC equivalent using the factor
     float rEst = rEstRaw / getRintSocFactor(socBlend);
@@ -595,12 +632,12 @@ static void updateRintEstimator() {
           float tmp[RINT_MED_N];
           memcpy(tmp, rMedBuf, rMedCount * sizeof(float));
           std::sort(tmp, tmp + rMedCount);
-          rInt = lp(rInt, tmp[rMedCount / 2], ALPHA_RINT);
+          rInt = lp(rInt, tmp[rMedCount / 2], CFG.alpha_rint);
         }
       }
     }
   }
-  sohPct = clampf(100.0f * (RINT_DEAD_MOHM - rInt * 1000.0f) / (RINT_DEAD_MOHM - RINT_FRESH_MOHM), 0.0f, 100.0f);
+  sohPct = clampf(100.0f * (CFG.rint_dead_mo - rInt * 1000.0f) / (CFG.rint_dead_mo - CFG.rint_fresh_mo), 0.0f, 100.0f);
 }
 
 static void resetSession() {
@@ -608,6 +645,7 @@ static void resetSession() {
   ahOutK = ahInK = whOutK = whInK = 0.0f;
   peakIA = peakPW = 0.0f;
   sessionStartMs = millis();
+  sessionStartSoc = socBlend;
   saveState();
 }
 
@@ -616,7 +654,7 @@ static void updateSoc(float dt) {
   float iInt = (fabsf(iA) < COULOMB_DEADBAND_A) ? 0.0f : iA;
 
   // Apply charge efficiency factor
-  float eff = (iInt < 0.0f) ? CHARGE_EFF : 1.0f;
+  float eff = (iInt < 0.0f) ? CFG.charge_eff : 1.0f;
 
   socCoul -= (iInt * eff * dt / 3600.0f / getEffectiveCapAh()) * 100.0f;
   socCoul  = clampf(socCoul, 0.0f, 100.0f);
@@ -654,7 +692,7 @@ static void loadState() {
   whOut = prefs.getFloat("whOut", 0.0f);
   whIn = prefs.getFloat("whIn", 0.0f);
   ahTotal = prefs.getFloat("ahTotal", 0.0f);
-  rInt = prefs.getFloat("rInt", RINT_FRESH_MOHM / 1000.0f);
+  rInt = prefs.getFloat("rInt", CFG.rint_fresh_mo / 1000.0f);
   sZeroMv = prefs.getFloat("sZeroMv", 0.0f);
   prefs.end();
 }
@@ -677,13 +715,12 @@ static void integrateEnergy(float dt) {
     kahanAdd(ahTotal, ahTotalK, dAh);
   }
   if (whIn > 0.1f) rtEff = clampf(whOut / whIn * 100.0f, 0.0f, 100.0f);
-  avgLoadW = (pState == PackState::DISCHARGING) ? lp(avgLoadW, pW, ALPHA_LOAD_W) : lp(avgLoadW, 0.0f, 0.01f);
   avgLoadW = lp(avgLoadW, pW, ALPHA_LOAD_W);
   if (pState == PackState::DISCHARGING && avgLoadW > 2.0f) {
-    float remWh = (socBlend/100.0f) * getEffectiveCapAh() * (float)CELLS_S * NOM_V_CELL;
+    float remWh = (socBlend/100.0f) * getEffectiveCapAh() * (float)CFG.cells_s * CFG.nom_v_cell;
     etaMin = (int)clampf(remWh / avgLoadW * 60.0f, 0.0f, 9999.0f);
   } else if (pState == PackState::CHARGING && avgLoadW < -2.0f) {
-    float needWh = (1.0f - socBlend/100.0f) * getEffectiveCapAh() * (float)CELLS_S * NOM_V_CELL;
+    float needWh = (1.0f - socBlend/100.0f) * getEffectiveCapAh() * (float)CFG.cells_s * CFG.nom_v_cell;
     float chgW = fabsf(avgLoadW);
     // CV phase compensation: current tapers, so ETA is longer than linear.
     if (vCellRest > 4.10f) chgW *= 0.5f;
@@ -762,13 +799,14 @@ void setup() {
 
   vPack     = (sBatMv * BAT_DIV) / 1000.0f;
   vRested   = vPack;
-  vCellRest = vPack / (float)CELLS_S;
+  vCellRest = vPack / (float)CFG.cells_s;
   socOcv    = socFromV(vCellRest);
   socBlend  = socOcv;
   // socInit = false  →  Coulomb SOC initialises from OCV on first tick
 
   for (int i=0; i<HIST_N; i++) vHist[i] = vPack;
   sessionStartMs = millis();
+  sessionStartSoc = socBlend;
   lastUiMs = pageMs = millis();
 }
 
