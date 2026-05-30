@@ -154,6 +154,7 @@ static float    sessionStartSoc = 0.0f;
 
 // Session energy
 static float ahOut = 0.0f, ahIn = 0.0f;
+static float sessionMaxDod = 0.0f;
 static float whOut = 0.0f, whIn = 0.0f;
 static float ahTotal = 0.0f; // Lifetime Ah for cycle counting
 static float rtEff = 100.0f;
@@ -423,7 +424,11 @@ static void renderPage0() {
   canvas.setCursor(108,63); canvas.print(b);
 
   // Ah / sag pill / page dots
-  if (socBlend < 15.0f && (millis() / 500) % 2 == 0) {
+  bool critical = (vCellLoad < 3.1f);
+  if (critical && (millis() / 250) % 2 == 0) {
+    snprintf(b,sizeof(b),"CRITICAL!");
+    canvas.setTextColor(lcd.color888(255,255,255), lcd.color888(255,0,0));
+  } else if (socBlend < 15.0f && (millis() / 500) % 2 == 0) {
     snprintf(b,sizeof(b),"LOW BAT!");
     canvas.setTextColor(lcd.color888(255,50,50), TFT_BLACK);
   } else {
@@ -432,11 +437,12 @@ static void renderPage0() {
   }
   canvas.setCursor(3,72); canvas.print(b);
 
-  uint32_t pillC = vSag>0.8f ? lcd.color888(255,60,60) :
-                   vSag>0.3f ? lcd.color888(255,160,40) :
+  uint32_t pillC = vSag>1.2f ? lcd.color888(255,40,40) :
+                   vSag>0.5f ? lcd.color888(255,160,40) :
                                lcd.color888(60,230,80);
   canvas.fillRoundRect(126,71,16,8,4,pillC); // rounded pill
-  canvas.drawRoundRect(126,71,16,8,4,lcd.color888(100,100,100)); // border
+  if (vSag > 1.2f && (millis()/250)%2==0) canvas.drawRoundRect(126,71,16,8,4,lcd.color888(255,255,255));
+  else                                     canvas.drawRoundRect(126,71,16,8,4,lcd.color888(100,100,100));
   drawPageDots(146, 75, 3, 0);
 }
 
@@ -637,11 +643,18 @@ static void updateRintEstimator() {
       }
     }
   }
-  sohPct = clampf(100.0f * (CFG.rint_dead_mo - rInt * 1000.0f) / (CFG.rint_dead_mo - CFG.rint_fresh_mo), 0.0f, 100.0f);
+
+  // Refined SOH: Weighted combination of Rint health and cycle-based aging.
+  float sohRint = 100.0f * (CFG.rint_dead_mo - rInt * 1000.0f) / (CFG.rint_dead_mo - CFG.rint_fresh_mo);
+  float cycles  = ahTotal / (CFG.cap_ah * 2.0f);
+  float sohCycle = 100.0f - (cycles / 5.0f); // Assume ~500 cycles EOL (simplified aging model)
+
+  sohPct = clampf(0.8f * sohRint + 0.2f * sohCycle, 0.0f, 100.0f);
 }
 
 static void resetSession() {
   ahOut = ahIn = whOut = whIn = 0.0f;
+  sessionMaxDod = 0.0f;
   ahOutK = ahInK = whOutK = whInK = 0.0f;
   peakIA = peakPW = 0.0f;
   sessionStartMs = millis();
@@ -664,13 +677,16 @@ static void updateSoc(float dt) {
   // Hard-sync to 100% when voltage is very high and charging is finished
   if (pState == PackState::CHARGING && vCellRest > 4.15f && fabsf(iA) < 0.3f) {
     socCoul = lp(socCoul, 100.0f, 0.01f);
-    // Auto-reset session if we are full and AhOut was significant
-    if (socCoul > 99.5f && ahOut > 0.5f) {
+    // Auto-reset session if we are full and significant discharge occurred
+    if (socCoul > 99.5f && sessionMaxDod > 20.0f) {
       resetSession();
     }
   }
   wCoul = (pState != PackState::IDLE) ? clampf(wCoul + WINC, 0.0f, WMAX_COUL) : lp(wCoul, 0.0f, ALPHA_WDECAY);
   socBlend = (1.0f - wCoul) * socOcv + wCoul * socCoul;
+
+  float currentDod = 100.0f - socBlend;
+  if (currentDod > sessionMaxDod) sessionMaxDod = currentDod;
 }
 
 static void saveState() {
