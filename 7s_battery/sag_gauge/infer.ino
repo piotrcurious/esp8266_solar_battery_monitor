@@ -67,11 +67,19 @@ static constexpr float SAG_MIN_A        = 1.50f;  // |I| ≥ this → update R_i
 static constexpr float WMAX_COUL        = 0.80f;  // max Coulomb SOC weight
 static constexpr float WINC             = 0.0002f;// blend weight ramp per tick (~7 min to max)
 
+static constexpr float CHARGE_EFF       = 0.99f;  // minor Coulomb loss during charge
+
 // dV/dt buffer: DVDT_N × UI_MS ms window
 static constexpr int DVDT_N = 30;  // 3-second window
 
 // Rint median filter buffer
 static constexpr int RINT_MED_N = 7;
+
+// Voltage history
+static constexpr int HIST_N = 40;
+static float vHist[HIST_N] = {};
+static int histIdx = 0;
+static uint32_t lastHistMs = 0;
 
 // ================================================================
 //  LovyanGFX
@@ -137,6 +145,8 @@ static float socCoul  = 0.0f;  // Coulomb-counted SOC (%)
 static float socBlend = 0.0f;  // displayed blended SOC (%)
 static float wCoul    = 0.0f;  // Coulomb blend weight [0 … WMAX_COUL]
 static bool  socInit  = false; // one-shot Coulomb initialisation flag
+
+static uint32_t sessionStartMs = 0;
 
 // Session energy
 static float ahOut = 0.0f, ahIn = 0.0f;
@@ -270,11 +280,30 @@ static void drawSegBar(int x, int y, int w, int h,
   }
 }
 
-static void drawPageDots(int x0, int x1, int y, int cur) {
-  for (int i = 0; i < 2; ++i) {
-    int px = (i==0)?x0:x1;
-    if (i==cur) canvas.fillCircle(px, y, 2, lcd.color888(200,200,240));
-    else        canvas.drawCircle(px, y, 2, lcd.color888( 70, 70, 90));
+static void drawSparkline(int x, int y, int w, int h, float* data, int n, uint32_t color) {
+  if (n < 2) return;
+  float minV = 999, maxV = -999;
+  for (int i=0; i<n; i++) {
+    if (data[i] < minV) minV = data[i];
+    if (data[i] > maxV) maxV = data[i];
+  }
+  if (maxV - minV < 0.1f) { minV -= 0.05f; maxV += 0.05f; }
+
+  canvas.drawRect(x, y, w, h, lcd.color888(40,40,50));
+  for (int i=0; i<n-1; i++) {
+    int x0 = x + (i * w) / (n-1);
+    int x1 = x + ((i+1) * w) / (n-1);
+    int y0 = y + h - (int)((data[i] - minV) / (maxV - minV) * (h-1));
+    int y1 = y + h - (int)((data[(i+1)] - minV) / (maxV - minV) * (h-1));
+    canvas.drawLine(x0, y0, x1, y1, color);
+  }
+}
+
+static void drawPageDots(int x, int y, int total, int cur) {
+  for (int i = 0; i < total; ++i) {
+    int px = x + i*7;
+    if (i==cur) canvas.fillRoundRect(px, y, 5, 2, 1, lcd.color888(200,200,240));
+    else        canvas.drawRoundRect(px, y, 5, 2, 1, lcd.color888( 70, 70, 90));
   }
 }
 
@@ -321,6 +350,12 @@ static void renderPage0() {
   snprintf(b,sizeof(b),"P %5.0fW", fabsf(pW));
   canvas.setCursor(88,24); canvas.print(b);
 
+  canvas.setTextSize(0);
+  canvas.setTextColor(lcd.color888(100,100,120), TFT_BLACK);
+  snprintf(b,sizeof(b),"Pk:%.0fW", peakPW);
+  canvas.setCursor(120,24); canvas.print(b);
+  canvas.setTextSize(1);
+
   // Sag / R_int / dV/dt label
   snprintf(b,sizeof(b),"Sag:%.0fmV  R:%.0fmO ", vSag*1000.0f, rInt*1000.0f);
   canvas.setTextColor(lcd.color888(140,140,160), TFT_BLACK);
@@ -366,7 +401,7 @@ static void renderPage0() {
                                lcd.color888(60,230,80);
   canvas.fillRoundRect(126,71,16,8,4,pillC); // rounded pill
   canvas.drawRoundRect(126,71,16,8,4,lcd.color888(100,100,100)); // border
-  drawPageDots(149,156,75, 0);
+  drawPageDots(146, 75, 3, 0);
 }
 
 // ================================================================
@@ -389,64 +424,81 @@ static void renderPage1() {
   canvas.fillRoundRect(0,0,160,13,2,H);
   canvas.setTextSize(1);
   canvas.setTextColor(lcd.color888(130,175,255), H);
-  canvas.setCursor(3,3); canvas.print("Analytics");
+  canvas.setCursor(3,3); canvas.print("Voltage Trend");
   snprintf(b,sizeof(b),"%.1fV %s", vPack, stateStr());
   canvas.setTextColor(lcd.color888(155,155,175), H);
   canvas.setCursor(88,3); canvas.print(b);
 
-  // ETA (large)
-  canvas.setTextSize(2);
+  // Sparkline (Full width trend)
+  float plotData[HIST_N];
+  for (int i=0; i<HIST_N; i++) plotData[i] = vHist[(histIdx + i) % HIST_N];
+  drawSparkline(3, 16, 154, 30, plotData, HIST_N, lcd.color888(100, 200, 255));
+
+  // ETA and Load Info
+  canvas.setTextSize(1);
+  canvas.setTextColor(lcd.color888(180, 180, 200), TFT_BLACK);
+  canvas.setCursor(3, 50);
   if (etaMin >= 0) {
     int h=etaMin/60, m=etaMin%60;
-    if (h>0) snprintf(b,sizeof(b),"%dh%02dm",h,m);
-    else     snprintf(b,sizeof(b),"%dm left",m);
-    canvas.setTextColor(lcd.color888(90,210,255), TFT_BLACK);
-  } else {
-    snprintf(b,sizeof(b),"-- left");
-    canvas.setTextColor(lcd.color888(65,65,85), TFT_BLACK);
-  }
-  canvas.setCursor(3,14); canvas.print(b);
-
-  // @avg load / dV/dt
-  canvas.setTextSize(1);
-  snprintf(b,sizeof(b),"@%.1fW avg  dV:%.0fmV/s %s",
-           avgLoadW, dvdtVps*1000.0f, dvdtLabel(dvdtVps));
-  canvas.setTextColor(dvdtCol(dvdtVps), TFT_BLACK);
-  canvas.setCursor(3,31); canvas.print(b);
-
-  // Ah out / in
-  canvas.setTextColor(lcd.color888(100,100,120), TFT_BLACK);
-  canvas.setCursor(3,40); canvas.print("Ah ");
-  snprintf(b,sizeof(b),"%.2f out", ahOut);
-  canvas.setTextColor(lcd.color888(255,120,80), TFT_BLACK); canvas.print(b);
-  snprintf(b,sizeof(b),"  %.2f in", ahIn);
-  canvas.setTextColor(lcd.color888(80,200,255), TFT_BLACK); canvas.print(b);
-
-  // Wh out / in
-  canvas.setTextColor(lcd.color888(100,100,120), TFT_BLACK);
-  canvas.setCursor(3,49); canvas.print("Wh ");
-  snprintf(b,sizeof(b),"%.1f out", whOut);
-  canvas.setTextColor(lcd.color888(255,120,80), TFT_BLACK); canvas.print(b);
-  snprintf(b,sizeof(b),"  %.1f in", whIn);
-  canvas.setTextColor(lcd.color888(80,200,255), TFT_BLACK); canvas.print(b);
-
-  // SoH / R_int
-  canvas.setCursor(3,58);
-  canvas.setTextColor(lcd.color888(100,100,120), TFT_BLACK);
-  canvas.print("SoH:");
-  canvas.setTextColor(sohPct>70?lcd.color888(60,230,80):lcd.color888(255,150,30), TFT_BLACK);
-  snprintf(b,sizeof(b),"%.0f%%  R:%.0fmO  SOC:%.0f%%",
-           sohPct, rInt*1000.0f, socBlend);
+    if (h>0) snprintf(b,sizeof(b),"ETA: %dh%02dm remaining", h, m);
+    else     snprintf(b,sizeof(b),"ETA: %dm remaining", m);
+  } else snprintf(b,sizeof(b),"ETA: stable");
   canvas.print(b);
 
-  // Peaks
-  canvas.setCursor(3,67);
-  canvas.setTextColor(lcd.color888(100,100,120), TFT_BLACK);
-  canvas.print("Peak ");
-  snprintf(b,sizeof(b),"%.1fA  %.0fW", peakIA, peakPW);
-  canvas.setTextColor(lcd.color888(210,170,255), TFT_BLACK); canvas.print(b);
+  snprintf(b,sizeof(b),"Avg: %.1fW  dV: %+.1fmV/s", avgLoadW, dvdtVps*1000.0f);
+  canvas.setCursor(3, 59); canvas.print(b);
 
-  drawPageDots(149,156,76, 1);
+  // Health summary
+  canvas.setCursor(3, 68);
+  canvas.setTextColor(lcd.color888(140, 140, 160), TFT_BLACK);
+  canvas.print("Health: ");
+  canvas.setTextColor(sohPct>70?lcd.color888(60,230,80):lcd.color888(255,150,30), TFT_BLACK);
+  snprintf(b,sizeof(b),"%.0f%% (R:%.0fmO)", sohPct, rInt*1000.0f);
+  canvas.print(b);
+
+  drawPageDots(146, 75, 3, 1);
+}
+
+static void renderPage2() {
+  char b[48];
+  const uint32_t H = lcd.color888(14,14,24);
+
+  // Header
+  canvas.fillRoundRect(0,0,160,13,2,H);
+  canvas.setTextSize(1);
+  canvas.setTextColor(lcd.color888(255,200,100), H);
+  canvas.setCursor(3,3); canvas.print("Session Summary");
+
+  uint32_t sec = (millis() - sessionStartMs) / 1000;
+  int h = sec / 3600, m = (sec / 60) % 60, s = sec % 60;
+  snprintf(b, sizeof(b), "%02d:%02d:%02d", h, m, s);
+  canvas.setTextColor(lcd.color888(150,150,150), H);
+  canvas.setCursor(110, 3); canvas.print(b);
+
+  canvas.setTextSize(1);
+  canvas.setTextColor(lcd.color888(180,180,200), TFT_BLACK);
+
+  canvas.setCursor(3,18); canvas.print("Ah Out:");
+  snprintf(b,sizeof(b),"%.2f Ah", ahOut);
+  canvas.setCursor(80,18); canvas.setTextColor(lcd.color888(255,100,100), TFT_BLACK); canvas.print(b);
+
+  canvas.setCursor(3,28); canvas.setTextColor(lcd.color888(180,180,200), TFT_BLACK); canvas.print("Ah In:");
+  snprintf(b,sizeof(b),"%.2f Ah", ahIn);
+  canvas.setCursor(80,28); canvas.setTextColor(lcd.color888(100,255,100), TFT_BLACK); canvas.print(b);
+
+  canvas.setCursor(3,40); canvas.setTextColor(lcd.color888(180,180,200), TFT_BLACK); canvas.print("Wh Out:");
+  snprintf(b,sizeof(b),"%.1f Wh", whOut);
+  canvas.setCursor(80,40); canvas.setTextColor(lcd.color888(255,100,100), TFT_BLACK); canvas.print(b);
+
+  canvas.setCursor(3,50); canvas.setTextColor(lcd.color888(180,180,200), TFT_BLACK); canvas.print("Wh In:");
+  snprintf(b,sizeof(b),"%.1f Wh", whIn);
+  canvas.setCursor(80,50); canvas.setTextColor(lcd.color888(100,255,100), TFT_BLACK); canvas.print(b);
+
+  canvas.setCursor(3,65); canvas.setTextColor(lcd.color888(200,200,220), TFT_BLACK); canvas.print("Efficiency:");
+  snprintf(b,sizeof(b),"%.1f%%", rtEff);
+  canvas.setCursor(80,65); canvas.setTextColor(lcd.color888(100,200,255), TFT_BLACK); canvas.print(b);
+
+  drawPageDots(146, 75, 3, 2);
 }
 
 // ================================================================
@@ -469,6 +521,9 @@ static void sampleSensors(float dt) {
     idleMs = 0;
   }
 }
+
+// Forward declaration for calculateElectrical
+static void saveState();
 
 static void calculateElectrical() {
   vPack = (sBatMv * BAT_DIV) / 1000.0f + BAT_V_OFFSET;
@@ -530,10 +585,22 @@ static void updateRintEstimator() {
   sohPct = clampf(100.0f * (RINT_DEAD_MOHM - rInt * 1000.0f) / (RINT_DEAD_MOHM - RINT_FRESH_MOHM), 0.0f, 100.0f);
 }
 
+static void resetSession() {
+  ahOut = ahIn = whOut = whIn = 0.0f;
+  ahOutK = ahInK = whOutK = whInK = 0.0f;
+  peakIA = peakPW = 0.0f;
+  sessionStartMs = millis();
+  saveState();
+}
+
 static void updateSoc(float dt) {
   if (!socInit) { socCoul = socOcv; wCoul = 0.0f; socInit = true; }
   float iInt = (fabsf(iA) < COULOMB_DEADBAND_A) ? 0.0f : iA;
-  socCoul -= (iInt * dt / 3600.0f / getEffectiveCapAh()) * 100.0f;
+
+  // Apply charge efficiency factor
+  float eff = (iInt < 0.0f) ? CHARGE_EFF : 1.0f;
+
+  socCoul -= (iInt * eff * dt / 3600.0f / getEffectiveCapAh()) * 100.0f;
   socCoul  = clampf(socCoul, 0.0f, 100.0f);
   if (pState == PackState::IDLE && fabsf(dvdtVps) < 0.01f) {
     socCoul = lp(socCoul, socOcv, 0.001f);
@@ -541,6 +608,10 @@ static void updateSoc(float dt) {
   // Hard-sync to 100% when voltage is very high and charging is finished
   if (pState == PackState::CHARGING && vCellRest > 4.15f && fabsf(iA) < 0.3f) {
     socCoul = lp(socCoul, 100.0f, 0.01f);
+    // Auto-reset session if we are full and AhOut was significant
+    if (socCoul > 99.5f && ahOut > 0.5f) {
+      resetSession();
+    }
   }
   wCoul = (pState != PackState::IDLE) ? clampf(wCoul + WINC, 0.0f, WMAX_COUL) : lp(wCoul, 0.0f, ALPHA_WDECAY);
   socBlend = (1.0f - wCoul) * socOcv + wCoul * socCoul;
@@ -619,6 +690,14 @@ static void updateMeasurements() {
   updateSoc(dt);
   integrateEnergy(dt);
   updateDvdt();
+
+  // Update history buffer every 5 seconds
+  uint32_t now = millis();
+  if (lastHistMs == 0 || now - lastHistMs > 5000) {
+    lastHistMs = now;
+    vHist[histIdx] = vPack;
+    histIdx = (histIdx + 1) % HIST_N;
+  }
 }
 
 // ================================================================
@@ -647,8 +726,11 @@ void setup() {
   // Boot calibration – stable 64-sample average before any load
   delay(300);
   sBatMv  = (float)adcAvgMv(PIN_BAT_VOLT, 32);
-  sCurMv  = (float)adcAvgMv(PIN_CUR_SENS, 64);
-  sZeroMv = sCurMv;
+  float sCurMvBoot = (float)adcAvgMv(PIN_CUR_SENS, 64);
+
+  // Use loaded sZeroMv if it looks valid, otherwise calibrate from boot
+  if (sZeroMv < 100.0f) sZeroMv = sCurMvBoot;
+  sCurMv = sCurMvBoot;
 
   vPack     = (sBatMv * BAT_DIV) / 1000.0f;
   vRested   = vPack;
@@ -657,6 +739,8 @@ void setup() {
   socBlend  = socOcv;
   // socInit = false  →  Coulomb SOC initialises from OCV on first tick
 
+  for (int i=0; i<HIST_N; i++) vHist[i] = vPack;
+  sessionStartMs = millis();
   lastUiMs = pageMs = millis();
 }
 
@@ -668,7 +752,7 @@ void loop() {
 
   // Non-blocking page flip
   if (now - pageMs >= PAGE_MS) {
-    uiPage = (uiPage + 1) % 2;
+    uiPage = (uiPage + 1) % 3;
     pageMs  = now;
   }
 
@@ -678,8 +762,9 @@ void loop() {
     updateMeasurements();
 
     canvas.fillScreen(TFT_BLACK);
-    if (uiPage == 0) renderPage0();
-    else             renderPage1();
+    if      (uiPage == 0) renderPage0();
+    else if (uiPage == 1) renderPage1();
+    else                  renderPage2();
     canvas.pushSprite(&lcd, 0, 0);
 
   // Periodic save (5 min)

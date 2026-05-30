@@ -99,7 +99,7 @@ int main() {
     setup();
 
     float dt = 0.1f; // 100ms steps
-    for (int i = 0; i < 5000; ++i) {
+    for (int i = 0; i < 6000; ++i) {
         // Drift the zero point slightly over time
         driftyZeroMv += 0.005f;
 
@@ -128,10 +128,18 @@ int main() {
             printf("--- Idle ---\n");
             sim.current_i = 0.0f;
         }
+        if (i == 2000) {
+            printf("--- High Load (20A) to test Peukert ---\n");
+            sim.current_i = 20.0f;
+        }
         if (i == 2500) {
+            printf("--- Idle ---\n");
+            sim.current_i = 0.0f;
+        }
+        if (i == 3000) {
             printf("--- Removing Zero Drift ---\n");
         }
-        if (i == 3500) {
+        if (i == 4000) {
             printf("--- Long Idle with Noise ---\n");
             sim.current_i = 0.0f;
         }
@@ -151,7 +159,9 @@ int main() {
         if (i == 200) canvas.savePPM("shot_100pct_load.ppm");
         if (i == 500) canvas.savePPM("shot_oscillating.ppm");
         if (i == 1200) canvas.savePPM("shot_charging.ppm");
-        if (i == 4999) {
+        if (i == 2200) canvas.savePPM("shot_peukert.ppm");
+        if (i == 4500) canvas.savePPM("shot_summary.ppm");
+        if (i == 5999) {
             canvas.savePPM("shot_final_idle.ppm");
             printf("\n--- Final Report ---\n");
             printf("Rint MSE (during load): %.2f\n", rint_samples > 0 ? rint_mse_sum / rint_samples : 0);
