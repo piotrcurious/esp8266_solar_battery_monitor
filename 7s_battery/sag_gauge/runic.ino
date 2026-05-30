@@ -349,8 +349,14 @@ static void renderUi()
   canvas.setTextSize(2);
   canvas.setTextColor(socColor(socRestPct), TFT_BLACK);
   canvas.setCursor(4, 18);
-  canvas.print(packCellVRested, 2);
-  canvas.print("V/c");
+  // Flash if low battery
+  if (socRestPct < 15.0f && (millis() / 500) % 2 == 0) {
+      canvas.setTextColor(lcd.color888(255, 40, 40), TFT_BLACK);
+      canvas.print("LOW BAT!");
+  } else {
+      canvas.print(packCellVRested, 2);
+      canvas.print("V/c");
+  }
 
   // Small right status
   canvas.setTextSize(1);

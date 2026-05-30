@@ -118,8 +118,18 @@ int main() {
             sim.current_i = 0.0f;
         }
         if (i == 1000) {
-            printf("--- Charging at 5A ---\n");
-            sim.current_i = -5.0f;
+            printf("--- Charging (CC/CV simulation) ---\n");
+        }
+        if (i >= 1000 && i < 2000) {
+            float v = sim.get_v_terminal();
+            if (v > 4.15f * 7.0f) {
+                // CV Phase: current tapers
+                sim.current_i = -5.0f * (4.2f * 7.0f - v) / (0.05f * 7.0f);
+                if (sim.current_i > 0) sim.current_i = 0;
+            } else {
+                // CC Phase
+                sim.current_i = -5.0f;
+            }
         }
         if (i == 1100) {
             printf("Check CHG ETA: ");
