@@ -35,6 +35,15 @@ static constexpr float NOM_V_CELL      = 3.60f;   // nominal per-cell voltage (V
 static constexpr float RINT_FRESH_MOHM = 60.0f;   // R_int, new pack  (mΩ)
 static constexpr float RINT_DEAD_MOHM  = 300.0f;  // R_int, end-of-life (mΩ)
 
+// Normalization factor for Rint based on SOC (R_actual / R_nominal)
+// Li-ion Rint typically increases at low SOC.
+static float getRintSocFactor(float soc) {
+  if (soc > 80.0f) return 1.0f;
+  if (soc < 10.0f) return 1.5f;
+  // Linear ramp from 80% SOC (1.0x) to 10% SOC (1.5x)
+  return 1.0f + (80.0f - soc) * (0.5f / 70.0f);
+}
+
 // ================================================================
 //  Tuning
 // ================================================================
@@ -131,6 +140,7 @@ static bool  socInit  = false; // one-shot Coulomb initialisation flag
 // Session energy
 static float ahOut = 0.0f, ahIn = 0.0f;
 static float whOut = 0.0f, whIn = 0.0f;
+static float rtEff = 100.0f;
 static float ahOutK = 0.0f, ahInK = 0.0f; // Kahan summation compensators
 static float whOutK = 0.0f, whInK = 0.0f;
 
@@ -270,10 +280,10 @@ static void renderPage0() {
   // Header
   canvas.fillRoundRect(0,0,160,13,2,H);
   canvas.setTextSize(1);
-  snprintf(b,sizeof(b),"%dS  %.1fV", CELLS_S, vPack);
+  snprintf(b,sizeof(b),"%dS %.1fV Eff:%.0f%%", CELLS_S, vPack, rtEff);
   canvas.setTextColor(socCol(socBlend), H);
   canvas.setCursor(3,3); canvas.print(b);
-  snprintf(b,sizeof(b),"%.0fW  %s", fabsf(pW), stateStr());
+  snprintf(b,sizeof(b),"%.0fW %s", fabsf(pW), stateStr());
   canvas.setTextColor(lcd.color888(195,195,215), H);
   canvas.setCursor(93,3); canvas.print(b);
 
@@ -451,16 +461,26 @@ static void updateVocEstimator() {
     vRested = lp(vRested, vPack, ALPHA_REST_V);
   } else {
     float iSign = (pState == PackState::DISCHARGING) ? 1.0f : -1.0f;
-    vRested = lp(vRested, vPack + iSign * fabsf(iA) * rInt, ALPHA_LOAD_V);
+    // Account for SOC-dependent Rint increase in the Voc estimation path
+    float rCurrent = rInt * getRintSocFactor(socBlend);
+    vRested = lp(vRested, vPack + iSign * fabsf(iA) * rCurrent, ALPHA_LOAD_V);
   }
   vSag = fabsf(vRested - vPack);
   vCellRest = vRested / (float)CELLS_S;
   socOcv = socFromV(vCellRest);
 }
 
+static float getEffectiveCapAh() {
+  // Capacity fades as SOH decreases. Linear model (e.g. 70% min cap at 0% SOH)
+  return CAP_AH * (0.7f + 0.3f * (sohPct / 100.0f));
+}
+
 static void updateRintEstimator() {
   if (fabsf(iA) > SAG_MIN_A) {
-    float rEst = vSag / fabsf(iA);
+    float rEstRaw = vSag / fabsf(iA);
+    // Normalize measured Rint to 100% SOC equivalent using the factor
+    float rEst = rEstRaw / getRintSocFactor(socBlend);
+
     if (isfinite(rEst) && rEst > 0.010f && rEst < 0.800f) {
       if (fabsf(dvdtVps) < 0.1f) {
         rMedBuf[rMedHead] = rEst;
@@ -481,10 +501,14 @@ static void updateRintEstimator() {
 static void updateSoc(float dt) {
   if (!socInit) { socCoul = socOcv; wCoul = 0.0f; socInit = true; }
   float iInt = (fabsf(iA) < COULOMB_DEADBAND_A) ? 0.0f : iA;
-  socCoul -= (iInt * dt / 3600.0f / CAP_AH) * 100.0f;
+  socCoul -= (iInt * dt / 3600.0f / getEffectiveCapAh()) * 100.0f;
   socCoul  = clampf(socCoul, 0.0f, 100.0f);
   if (pState == PackState::IDLE && fabsf(dvdtVps) < 0.01f) {
     socCoul = lp(socCoul, socOcv, 0.001f);
+  }
+  // Hard-sync to 100% when voltage is very high and charging is finished
+  if (pState == PackState::CHARGING && vCellRest > 4.15f && fabsf(iA) < 0.3f) {
+    socCoul = lp(socCoul, 100.0f, 0.01f);
   }
   wCoul = (pState != PackState::IDLE) ? clampf(wCoul + WINC, 0.0f, WMAX_COUL) : lp(wCoul, 0.0f, ALPHA_WDECAY);
   socBlend = (1.0f - wCoul) * socOcv + wCoul * socCoul;
@@ -503,9 +527,10 @@ static void integrateEnergy(float dt) {
   } else if (pState == PackState::CHARGING) {
     kahanAdd(ahIn, ahInK, dAh); kahanAdd(whIn, whInK, dWh);
   }
+  if (whIn > 0.1f) rtEff = clampf(whOut / whIn * 100.0f, 0.0f, 100.0f);
   avgLoadW = (pState == PackState::DISCHARGING) ? lp(avgLoadW, pW, ALPHA_LOAD_W) : lp(avgLoadW, 0.0f, 0.01f);
   if (avgLoadW > 5.0f) {
-    float remWh = (socBlend/100.0f) * CAP_AH * (float)CELLS_S * NOM_V_CELL;
+    float remWh = (socBlend/100.0f) * getEffectiveCapAh() * (float)CELLS_S * NOM_V_CELL;
     etaMin = (int)clampf(remWh / avgLoadW * 60.0f, 0.0f, 9999.0f);
   } else etaMin = -1;
 }

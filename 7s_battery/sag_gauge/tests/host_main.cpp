@@ -17,7 +17,9 @@ struct BatterySim {
     float polarization_v = 0.0f; // Simplified polarization voltage
 
     float get_v_terminal() {
-        return voc_at_soc(current_soc) - current_i * rint - polarization_v;
+        float r_factor = 1.0f;
+        if (current_soc < 0.8f) r_factor = 1.0f + (0.8f - current_soc) * (0.5f / 0.7f);
+        return voc_at_soc(current_soc) - current_i * (rint * r_factor) - polarization_v;
     }
 
     float voc_at_soc(float soc) {
@@ -93,6 +95,7 @@ int main() {
     mock_adc_func = my_mock_adc;
 
     printf("--- Starting Simulation ---\n");
+    // sim.rint = 0.140f; // test degraded battery
     setup();
 
     float dt = 0.1f; // 100ms steps
