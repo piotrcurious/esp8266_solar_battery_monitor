@@ -60,14 +60,20 @@ std::normal_distribution<float> noise_dist(0.0, 5.0); // 5mV RMS noise
 // Mock ADC implementation
 extern uint32_t (*mock_adc_func)(int);
 
+float driftyZeroMv = 1250.0f;
+
 uint32_t my_mock_adc(int pin) {
     float noise = noise_dist(generator);
+
+    // Occasional massive spike (outlier)
+    if (rand() % 100 == 0) noise += (rand() % 2 == 0 ? 500.0f : -500.0f);
+
     if (pin == 34) { // PIN_BAT_VOLT
         float v_target = sim.get_v_terminal();
         return (uint32_t)((v_target * 1000.0f / 12.0f) + noise);
     }
     if (pin == 35) { // PIN_CUR_SENS
-        float sZeroMv = 1250.0f; // 2.5V after 1/2 divider
+        float sZeroMv = driftyZeroMv; // 2.5V after 1/2 divider
         float iA = sim.current_i;
         float ACS712_MV_A = 185.0f;
         float CUR_DIV = 2.0f;
@@ -87,7 +93,10 @@ int main() {
     setup();
 
     float dt = 0.1f; // 100ms steps
-    for (int i = 0; i < 2000; ++i) {
+    for (int i = 0; i < 3000; ++i) {
+        // Drift the zero point slightly over time
+        driftyZeroMv += 0.01f;
+
         if (i == 100) {
             printf("--- Applying 10A Load ---\n");
             sim.current_i = 10.0f;
@@ -110,6 +119,9 @@ int main() {
             printf("--- Idle ---\n");
             sim.current_i = 0.0f;
         }
+        if (i == 2500) {
+            printf("--- Removing Zero Drift ---\n");
+        }
 
         sim.step(dt);
         loop();
@@ -123,7 +135,7 @@ int main() {
             rint_samples++;
         }
 
-        if (i == 1999) {
+        if (i == 2999) {
             printf("\n--- Final Report ---\n");
             printf("Rint MSE (during load): %.2f\n", rint_samples > 0 ? rint_mse_sum / rint_samples : 0);
             printf("Final estimated Rint: %.1f mOhm (True: %.1f)\n", rInt * 1000.0f, sim.rint * 1000.0f);
