@@ -14,7 +14,7 @@
 // ================================================================
 static constexpr int TFT_SCK  = 18, TFT_MOSI = 23, TFT_MISO = -1;
 static constexpr int TFT_DC   = 16, TFT_CS   = 5,  TFT_RST  = 17, TFT_BL = 4;
-static constexpr int PIN_BAT_VOLT = 34, PIN_CUR_SENS = 35;
+static constexpr int PIN_BAT_VOLT = 34, PIN_CUR_SENS = 35, PIN_BUTTON = 0;
 
 // Voltage divider (110 k / 10 k → ×12.0; 29.4 V → 2.45 V at ADC)
 static constexpr float BAT_R_TOP = 110000.0f, BAT_R_BOT = 10000.0f;
@@ -156,6 +156,7 @@ static float    sessionStartSoc = 0.0f;
 static float ahOut = 0.0f, ahIn = 0.0f;
 static float sessionMaxDod = 0.0f;
 static float whOut = 0.0f, whIn = 0.0f;
+static float whCruise = 0.0f, whActive = 0.0f, whBurst = 0.0f;
 static float ahTotal = 0.0f; // Lifetime Ah for cycle counting
 static float rtEff = 100.0f;
 static float ahOutK = 0.0f, ahInK = 0.0f; // Kahan summation compensators
@@ -385,6 +386,8 @@ static void renderPage0() {
   canvas.setCursor(88,24); canvas.print(b);
 
   canvas.setTextSize(0);
+  canvas.setTextColor(dvdtCol(dvdtVps), TFT_BLACK);
+  canvas.setCursor(120,15); canvas.print(dvdtLabel(dvdtVps));
   canvas.setTextColor(lcd.color888(100,100,120), TFT_BLACK);
   snprintf(b,sizeof(b),"Pk:%.0fW", peakPW);
   canvas.setCursor(120,24); canvas.print(b);
@@ -394,14 +397,12 @@ static void renderPage0() {
   char sS[16], sR[16];
   formatUnit(sS, sizeof(sS), vSag, "V", "mV");
   formatUnit(sR, sizeof(sR), rInt, "O", "mO");
-  snprintf(b,sizeof(b),"S:%s R:%s ", sS, sR);
+  snprintf(b,sizeof(b),"%s %s", sS, sR);
   canvas.setTextColor(lcd.color888(140,140,160), TFT_BLACK);
-  canvas.setCursor(3,31); canvas.print(b);
-  canvas.setTextColor(dvdtCol(dvdtVps), TFT_BLACK);
-  canvas.print(dvdtLabel(dvdtVps));
+  canvas.setCursor(3,32); canvas.print(b);
 
   // Blended SOC bar (single clean bar replaces original double-overlay)
-  drawSegBar(3,40,154,22, socBlend,
+  drawSegBar(3,44,154,18, socBlend,
     socCol(socBlend), lcd.color888(65,65,85), lcd.color888(12,12,18));
 
   // SOC / SoH / ETA
@@ -422,6 +423,13 @@ static void renderPage0() {
   } else snprintf(b,sizeof(b),"~---");
   canvas.setTextColor(lcd.color888(100,190,255), TFT_BLACK);
   canvas.setCursor(108,63); canvas.print(b);
+
+  // Sag Prediction (at 10A load)
+  float vPred10A = vRested - (10.0f * rInt * getRintSocFactor(socBlend));
+  snprintf(b, sizeof(b), "Est @ 10A: %.1fV", vPred10A);
+  canvas.setTextColor(lcd.color888(160,160,180), TFT_BLACK);
+  canvas.setCursor(68, 32);
+  // Let's reorganize Page 0 a bit.
 
   // Ah / sag pill / page dots
   bool critical = (vCellLoad < 3.1f);
@@ -506,6 +514,37 @@ static void renderPage1() {
   canvas.print(b);
 
   drawPageDots(146, 75, 3, 1);
+}
+
+static void renderPage3() {
+  char b[48];
+  const uint32_t H = lcd.color888(14,14,24);
+  canvas.fillRoundRect(0,0,160,13,2,H);
+  canvas.setTextSize(1);
+  canvas.setTextColor(lcd.color888(100,255,200), H);
+  canvas.setCursor(3,3); canvas.print("Energy Distribution");
+
+  auto drawBar = [](int y, const char* lbl, float wh, float total, uint32_t c) {
+    char b[32];
+    canvas.setTextColor(lcd.color888(180,180,200));
+    canvas.setCursor(3, y); canvas.print(lbl);
+    float pct = (total > 0.01f) ? (wh / total) : 0;
+    canvas.drawRect(50, y, 60, 7, lcd.color888(40,40,50));
+    canvas.fillRect(50, y, (int)(60*pct), 7, c);
+    snprintf(b, sizeof(b), "%.1fWh", wh);
+    canvas.setCursor(115, y); canvas.print(b);
+  };
+
+  float total = whCruise + whActive + whBurst;
+  drawBar(18, "Cruise", whCruise, total, lcd.color888(100,200,255));
+  drawBar(30, "Active", whActive, total, lcd.color888(100,255,100));
+  drawBar(42, "Burst",  whBurst,  total, lcd.color888(255,100,50));
+
+  canvas.setCursor(3, 60); canvas.setTextColor(lcd.color888(150,150,160));
+  snprintf(b, sizeof(b), "Total Discharged: %.1f Wh", whOut);
+  canvas.print(b);
+
+  drawPageDots(142, 75, 4, 3);
 }
 
 static void renderPage2() {
@@ -654,6 +693,7 @@ static void updateRintEstimator() {
 
 static void resetSession() {
   ahOut = ahIn = whOut = whIn = 0.0f;
+  whCruise = whActive = whBurst = 0.0f;
   sessionMaxDod = 0.0f;
   ahOutK = ahInK = whOutK = whInK = 0.0f;
   peakIA = peakPW = 0.0f;
@@ -725,6 +765,12 @@ static void integrateEnergy(float dt) {
   if (pState == PackState::DISCHARGING) {
     kahanAdd(ahOut, ahOutK, dAh); kahanAdd(whOut, whOutK, dWh);
     kahanAdd(ahTotal, ahTotalK, dAh);
+
+    // Distribution
+    if (pW < 50.0f) whCruise += dWh;
+    else if (pW < 200.0f) whActive += dWh;
+    else whBurst += dWh;
+
     if (iA > peakIA) peakIA = iA; if (pW > peakPW) peakPW = pW;
   } else if (pState == PackState::CHARGING) {
     kahanAdd(ahIn, ahInK, dAh); kahanAdd(whIn, whInK, dWh);
@@ -786,6 +832,7 @@ static void updateMeasurements() {
 // ================================================================
 void setup() {
   Serial.begin(115200);
+  pinMode(PIN_BUTTON, INPUT_PULLUP);
   analogReadResolution(12);
   analogSetPinAttenuation(PIN_BAT_VOLT, ADC_11db);
   analogSetPinAttenuation(PIN_CUR_SENS, ADC_11db);
@@ -832,9 +879,21 @@ void setup() {
 void loop() {
   uint32_t now = millis();
 
-  // Non-blocking page flip
+  // Button handling
+  static bool lastBtn = true;
+  static uint32_t btnDownMs = 0;
+  bool btn = digitalRead(PIN_BUTTON);
+  if (!btn && lastBtn) { btnDownMs = now; }
+  if (btn && !lastBtn) {
+    uint32_t dur = now - btnDownMs;
+    if (dur > 2000) resetSession();
+    else if (dur > 50) { uiPage = (uiPage + 1) % 4; pageMs = now; }
+  }
+  lastBtn = btn;
+
+  // Non-blocking auto page flip (only if button not used recently)
   if (now - pageMs >= PAGE_MS) {
-    uiPage = (uiPage + 1) % 3;
+    uiPage = (uiPage + 1) % 4;
     pageMs  = now;
   }
 
@@ -846,7 +905,8 @@ void loop() {
     canvas.fillScreen(TFT_BLACK);
     if      (uiPage == 0) renderPage0();
     else if (uiPage == 1) renderPage1();
-    else                  renderPage2();
+    else if (uiPage == 2) renderPage2();
+    else                  renderPage3();
     canvas.pushSprite(&lcd, 0, 0);
 
   // Periodic save (5 min)
@@ -856,12 +916,14 @@ void loop() {
   }
 
     Serial.printf(
-      "V=%.2f I=%+.2fA P=%.1fW | "
-      "soc=%.0f%%(ocv=%.0f%%,cc=%.0f%%) | "
+      "TELE:%.2f,%+.2f,%.1f,%.1f,%.1f,%.0f,%d\n",
+      vPack, iA, pW, socBlend, rInt*1000.0f, sohPct, etaMin);
+
+    Serial.printf(
+      "STAT: soc=%.0f%%(ocv=%.0f%%,cc=%.0f%%) | "
       "soh=%.0f%% R=%.0fmO sag=%.0fmV | "
       "eta=%dm Ah=%.2f/%.2f Wh=%.1f/%.1f | "
       "dV/dt=%+.1fmV/s peak=%.1fA/%.0fW\n",
-      vPack, iA, pW,
       socBlend, socOcv, socCoul,
       sohPct, rInt*1000.0f, vSag*1000.0f,
       etaMin, ahOut, ahIn, whOut, whIn,

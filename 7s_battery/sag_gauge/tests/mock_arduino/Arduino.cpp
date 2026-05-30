@@ -28,6 +28,7 @@ void analogReadResolution(int res) {}
 void analogSetPinAttenuation(int pin, int atten) {}
 void pinMode(int pin, int mode) {}
 void digitalWrite(int pin, int val) {}
+bool digitalRead(int pin) { return true; } // Default HIGH (pullup)
 
 // These will be provided by the test runner
 uint32_t (*mock_adc_func)(int) = nullptr;

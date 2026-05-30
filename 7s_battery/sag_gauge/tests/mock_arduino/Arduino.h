@@ -10,6 +10,8 @@
 
 #define ADC_11db 0
 #define OUTPUT 1
+#define INPUT 0
+#define INPUT_PULLUP 2
 #define HIGH 1
 #define LOW 0
 #define VSPI_HOST 0
@@ -22,6 +24,7 @@ void analogReadResolution(int res);
 void analogSetPinAttenuation(int pin, int atten);
 void pinMode(int pin, int mode);
 void digitalWrite(int pin, int val);
+bool digitalRead(int pin);
 uint32_t analogReadMilliVolts(int pin);
 
 class MockSerial {
