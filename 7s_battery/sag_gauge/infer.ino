@@ -67,7 +67,7 @@ static constexpr float SAG_MIN_A        = 1.50f;  // |I| ≥ this → update R_i
 static constexpr float WMAX_COUL        = 0.80f;  // max Coulomb SOC weight
 static constexpr float WINC             = 0.0002f;// blend weight ramp per tick (~7 min to max)
 
-static constexpr float PEUKERT_EXP      = 1.05f;  // simple capacity loss at high C-rates
+static constexpr float CHARGE_EFF       = 0.99f;  // minor Coulomb loss during charge
 
 // dV/dt buffer: DVDT_N × UI_MS ms window
 static constexpr int DVDT_N = 30;  // 3-second window
@@ -597,15 +597,10 @@ static void updateSoc(float dt) {
   if (!socInit) { socCoul = socOcv; wCoul = 0.0f; socInit = true; }
   float iInt = (fabsf(iA) < COULOMB_DEADBAND_A) ? 0.0f : iA;
 
-  // Apply simple Peukert-like compensation for discharge
-  float pComp = 1.0f;
-  if (iInt > 1.0f) {
-      // Scale based on nominal 1C rate. E.g. at 2x 1C, effective drain is higher.
-      float cRate = iInt / CAP_AH;
-      pComp = powf(cRate + 1.0f, PEUKERT_EXP - 1.0f);
-  }
+  // Apply charge efficiency factor
+  float eff = (iInt < 0.0f) ? CHARGE_EFF : 1.0f;
 
-  socCoul -= (iInt * pComp * dt / 3600.0f / getEffectiveCapAh()) * 100.0f;
+  socCoul -= (iInt * eff * dt / 3600.0f / getEffectiveCapAh()) * 100.0f;
   socCoul  = clampf(socCoul, 0.0f, 100.0f);
   if (pState == PackState::IDLE && fabsf(dvdtVps) < 0.01f) {
     socCoul = lp(socCoul, socOcv, 0.001f);
