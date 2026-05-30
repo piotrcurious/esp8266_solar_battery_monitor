@@ -339,6 +339,12 @@ static void renderUi()
   canvas.print(packV, 1);
   canvas.print("V");
 
+  // Status text in header
+  canvas.setCursor(120, 4);
+  if (currentA > REST_CURRENT_A) canvas.print("DISCH");
+  else if (currentA < -REST_CURRENT_A) canvas.print("CHG");
+  else canvas.print("IDLE");
+
   // Big left value
   canvas.setTextSize(2);
   canvas.setTextColor(socColor(socRestPct), TFT_BLACK);
@@ -351,13 +357,9 @@ static void renderUi()
   canvas.setTextColor(lcd.color888(180, 180, 190), TFT_BLACK);
 
   canvas.setCursor(96, 18);
-  if (currentA > REST_CURRENT_A) {
-    canvas.print("DISCH");
-  } else if (currentA < -REST_CURRENT_A) {
-    canvas.print("CHG");
-  } else {
-    canvas.print("IDLE");
-  }
+  canvas.print("SOC ");
+  canvas.print(socRestPct, 0);
+  canvas.print("%");
 
   canvas.setCursor(96, 29);
   canvas.print("I ");
