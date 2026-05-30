@@ -3,6 +3,7 @@
 #include <math.h>
 #include <algorithm>
 #include <cstring>
+#include <Preferences.h>
 
 // ================================================================
 //  Hardware
@@ -163,8 +164,11 @@ static int   rMedHead = 0, rMedCount = 0;
 // Timing
 static uint32_t lastMeasUs = 0;
 static uint32_t lastUiMs   = 0;
+static uint32_t lastSaveMs = 0;
 static uint32_t pageMs     = 0;
 static int      uiPage     = 0;
+
+static Preferences prefs;
 
 // ================================================================
 //  Helpers
@@ -348,8 +352,13 @@ static void renderPage0() {
   canvas.setCursor(108,63); canvas.print(b);
 
   // Ah / sag pill / page dots
-  snprintf(b,sizeof(b),"Ah:%.2f", ahOut);
-  canvas.setTextColor(lcd.color888(140,140,165), TFT_BLACK);
+  if (socBlend < 15.0f && (millis() / 500) % 2 == 0) {
+    snprintf(b,sizeof(b),"LOW BAT!");
+    canvas.setTextColor(lcd.color888(255,50,50), TFT_BLACK);
+  } else {
+    snprintf(b,sizeof(b),"Ah:%.2f", ahOut);
+    canvas.setTextColor(lcd.color888(140,140,165), TFT_BLACK);
+  }
   canvas.setCursor(3,72); canvas.print(b);
 
   uint32_t pillC = vSag>0.8f ? lcd.color888(255,60,60) :
@@ -466,9 +475,14 @@ static void calculateElectrical() {
   iA    = CUR_POLARITY * (sCurMv - sZeroMv) * CUR_DIV / ACS712_MV_A;
   pW    = vPack * iA;
 
+  PackState oldState = pState;
   if      (iA >  IDLE_A) pState = PackState::DISCHARGING;
   else if (iA < -IDLE_A) pState = PackState::CHARGING;
   else                    pState = PackState::IDLE;
+
+  if (pState != oldState && oldState != PackState::IDLE) {
+    saveState(); // Save immediately when a session ends
+  }
 
   vCellLoad = vPack / (float)CELLS_S;
 }
@@ -532,6 +546,28 @@ static void updateSoc(float dt) {
   socBlend = (1.0f - wCoul) * socOcv + wCoul * socCoul;
 }
 
+static void saveState() {
+  prefs.begin("sag_gauge", false);
+  prefs.putFloat("ahOut", ahOut);
+  prefs.putFloat("ahIn", ahIn);
+  prefs.putFloat("whOut", whOut);
+  prefs.putFloat("whIn", whIn);
+  prefs.putFloat("rInt", rInt);
+  prefs.putFloat("sZeroMv", sZeroMv);
+  prefs.end();
+}
+
+static void loadState() {
+  prefs.begin("sag_gauge", true);
+  ahOut = prefs.getFloat("ahOut", 0.0f);
+  ahIn = prefs.getFloat("ahIn", 0.0f);
+  whOut = prefs.getFloat("whOut", 0.0f);
+  whIn = prefs.getFloat("whIn", 0.0f);
+  rInt = prefs.getFloat("rInt", RINT_FRESH_MOHM / 1000.0f);
+  sZeroMv = prefs.getFloat("sZeroMv", 0.0f);
+  prefs.end();
+}
+
 static void integrateEnergy(float dt) {
   float dAh = fabsf(iA) * (dt / 3600.0f);
   float dWh = fabsf(pW) * (dt / 3600.0f);
@@ -547,10 +583,17 @@ static void integrateEnergy(float dt) {
   }
   if (whIn > 0.1f) rtEff = clampf(whOut / whIn * 100.0f, 0.0f, 100.0f);
   avgLoadW = (pState == PackState::DISCHARGING) ? lp(avgLoadW, pW, ALPHA_LOAD_W) : lp(avgLoadW, 0.0f, 0.01f);
-  if (avgLoadW > 5.0f) {
+  avgLoadW = lp(avgLoadW, pW, ALPHA_LOAD_W);
+  if (pState == PackState::DISCHARGING && avgLoadW > 2.0f) {
     float remWh = (socBlend/100.0f) * getEffectiveCapAh() * (float)CELLS_S * NOM_V_CELL;
     etaMin = (int)clampf(remWh / avgLoadW * 60.0f, 0.0f, 9999.0f);
-  } else etaMin = -1;
+  } else if (pState == PackState::CHARGING && avgLoadW < -2.0f) {
+    float needWh = (1.0f - socBlend/100.0f) * getEffectiveCapAh() * (float)CELLS_S * NOM_V_CELL;
+    etaMin = (int)clampf(needWh / fabsf(avgLoadW) * 60.0f, 0.0f, 9999.0f);
+  } else {
+    etaMin = -1;
+    if (pState == PackState::IDLE) avgLoadW = lp(avgLoadW, 0.0f, 0.01f);
+  }
 }
 
 static void updateDvdt() {
@@ -599,6 +642,8 @@ void setup() {
   canvas.createSprite(160, 80);
   canvas.fillScreen(TFT_BLACK);
 
+  loadState();
+
   // Boot calibration – stable 64-sample average before any load
   delay(300);
   sBatMv  = (float)adcAvgMv(PIN_BAT_VOLT, 32);
@@ -636,6 +681,12 @@ void loop() {
     if (uiPage == 0) renderPage0();
     else             renderPage1();
     canvas.pushSprite(&lcd, 0, 0);
+
+  // Periodic save (5 min)
+  if (now - lastSaveMs > 300000) {
+    lastSaveMs = now;
+    saveState();
+  }
 
     Serial.printf(
       "V=%.2f I=%+.2fA P=%.1fW | "
