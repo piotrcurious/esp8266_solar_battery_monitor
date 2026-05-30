@@ -227,22 +227,29 @@ static uint32_t socColor(float soc)
 static void drawBarSegmented(int x, int y, int w, int h, float soc, uint32_t fillColor, uint32_t outlineColor, uint32_t emptyColor)
 {
   const int segments = 7;
-  const int gap = 2;
+  const int gap = 3;
   const int segW = (w - gap * (segments - 1)) / segments;
   const float perSeg = 100.0f / segments;
+
+  // Background box
+  canvas.fillRoundRect(x-2, y-2, w+4, h+4, 4, lcd.color888(20,20,25));
 
   for (int i = 0; i < segments; ++i) {
     int sx = x + i * (segW + gap);
 
-    canvas.drawRoundRect(sx, y, segW, h, 2, outlineColor);
+    canvas.drawRoundRect(sx, y, segW, h, 3, outlineColor);
     canvas.fillRoundRect(sx + 1, y + 1, segW - 2, h - 2, 2, emptyColor);
 
     float segFill = clampf((soc - i * perSeg) / perSeg, 0.0f, 1.0f);
     if (segFill > 0.0f) {
       int fh = (int)((h - 2) * segFill + 0.5f);
       int fy = y + 1 + (h - 2 - fh);
-      uint32_t c0 = colorBlend(lcd.color888(255, 60, 40), fillColor, segFill);
+      uint32_t c0 = colorBlend(lcd.color888(255, 70, 50), fillColor, segFill);
       canvas.fillRoundRect(sx + 1, fy, segW - 2, fh, 2, c0);
+
+      if (segFill >= 1.0f) {
+        canvas.fillRect(sx+2, y+2, segW-4, 2, colorBlend(c0, 0xFFFFFF, 0.3f));
+      }
     }
   }
 }

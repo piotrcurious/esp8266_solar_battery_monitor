@@ -2,6 +2,8 @@
 #define LOVYANGFX_HPP
 
 #include <stdint.h>
+#include <stdio.h>
+#include <vector>
 
 namespace lgfx {
     class LGFX_Device {
@@ -50,21 +52,68 @@ namespace lgfx {
 #define TFT_BLACK 0
 
 class LGFX_Sprite {
+    int _w=0, _h=0;
+    std::vector<uint32_t> _buffer;
+    uint32_t _cur_color = 0xFFFFFF;
+    int _cur_x=0, _cur_y=0;
+
 public:
     LGFX_Sprite(void* device) {}
     void setColorDepth(int d) {}
-    void createSprite(int w, int h) {}
-    void fillScreen(uint32_t c) {}
-    void fillRoundRect(int x, int y, int w, int h, int r, uint32_t c) {}
-    void drawRoundRect(int x, int y, int w, int h, int r, uint32_t c) {}
+    void createSprite(int w, int h) {
+        _w = w; _h = h;
+        _buffer.assign(w * h, 0);
+    }
+    void fillScreen(uint32_t c) {
+        std::fill(_buffer.begin(), _buffer.end(), c);
+    }
+    void fillRect(int x, int y, int w, int h, uint32_t c) {
+        for (int j=y; j<y+h && j<_h; j++)
+            for (int i=x; i<x+w && i<_w; i++)
+                if (i>=0 && j>=0) _buffer[j*_w + i] = c;
+    }
+    void fillRoundRect(int x, int y, int w, int h, int r, uint32_t c) {
+        fillRect(x, y, w, h, c); // Simplification
+    }
+    void drawRoundRect(int x, int y, int w, int h, int r, uint32_t c) {
+        // Just draw a frame
+        for (int i=x; i<x+w && i<_w; i++) { if (i>=0 && y>=0) _buffer[y*_w + i] = c; if (i>=0 && y+h-1<_h) _buffer[(y+h-1)*_w + i] = c; }
+        for (int j=y; j<y+h && j<_h; j++) { if (x>=0 && j>=0) _buffer[j*_w + x] = c; if (x+w-1<_w && j>=0) _buffer[j*_w + x+w-1] = c; }
+    }
     void setTextSize(int s) {}
-    void setTextColor(uint32_t c, uint32_t b) {}
-    void setCursor(int x, int y) {}
-    void print(const char* s) {}
-    void print(float f, int p = 2) {}
-    void drawCircle(int x, int y, int r, uint32_t c) {}
-    void fillCircle(int x, int y, int r, uint32_t c) {}
+    void setTextColor(uint32_t c, uint32_t b) { _cur_color = c; }
+    void setCursor(int x, int y) { _cur_x = x; _cur_y = y; }
+    void print(const char* s) {
+        // Mock: just draw a small block for each character
+        int len = strlen(s);
+        fillRect(_cur_x, _cur_y, len * 6, 8, _cur_color);
+        _cur_x += len * 6;
+    }
+    void print(float f, int p = 2) {
+        char buf[32]; snprintf(buf, 32, "%.*f", p, f); print(buf);
+    }
+    void drawCircle(int x, int y, int r, uint32_t c) {
+        fillRect(x-r, y-r, r*2, r*2, c); // Simplification
+    }
+    void fillCircle(int x, int y, int r, uint32_t c) {
+        fillRect(x-r, y-r, r*2, r*2, c); // Simplification
+    }
     void pushSprite(void* device, int x, int y) {}
+
+    void savePPM(const char* filename) {
+        FILE* f = fopen(filename, "wb");
+        if (!f) return;
+        fprintf(f, "P6\n%d %d\n255\n", _w, _h);
+        for (uint32_t c : _buffer) {
+            uint8_t r = (c >> 16) & 0xFF;
+            uint8_t g = (c >> 8) & 0xFF;
+            uint8_t b = c & 0xFF;
+            fwrite(&r, 1, 1, f);
+            fwrite(&g, 1, 1, f);
+            fwrite(&b, 1, 1, f);
+        }
+        fclose(f);
+    }
 };
 
 #endif

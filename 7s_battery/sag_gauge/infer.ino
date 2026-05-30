@@ -240,17 +240,28 @@ static const char* stateStr() {
 // ================================================================
 static void drawSegBar(int x, int y, int w, int h,
                        float soc, uint32_t fill, uint32_t border, uint32_t empty) {
-  const int S=7, G=2, sw=(w-G*(S-1))/S;
+  const int S=7, G=3, sw=(w-G*(S-1))/S;
   const float ps = 100.0f/S;
+
+  // Background container
+  canvas.fillRoundRect(x-2, y-2, w+4, h+4, 4, lcd.color888(20,20,30));
+
   for (int i = 0; i < S; ++i) {
     int sx = x + i*(sw+G);
-    canvas.drawRoundRect(sx, y, sw, h, 2, border);
+    canvas.drawRoundRect(sx, y, sw, h, 3, border);
     canvas.fillRoundRect(sx+1, y+1, sw-2, h-2, 2, empty);
+
     float f = clampf((soc-i*ps)/ps, 0.0f, 1.0f);
     if (f > 0.0f) {
       int fh = (int)((h-2)*f + 0.5f);
-      canvas.fillRoundRect(sx+1, y+1+(h-2-fh), sw-2, fh, 2,
-        blendCol(lcd.color888(255,60,40), fill, f));
+      // Vertical fill
+      uint32_t c = blendCol(lcd.color888(255,80,60), fill, f);
+      canvas.fillRoundRect(sx+1, y+1+(h-2-fh), sw-2, fh, 2, c);
+
+      // Top gloss/highlight for the segment if full
+      if (f >= 1.0f) {
+          canvas.fillRect(sx+2, y+2, sw-4, 2, blendCol(c, 0xFFFFFF, 0.3f));
+      }
     }
   }
 }
@@ -280,12 +291,18 @@ static void renderPage0() {
   // Header
   canvas.fillRoundRect(0,0,160,13,2,H);
   canvas.setTextSize(1);
-  snprintf(b,sizeof(b),"%dS %.1fV Eff:%.0f%%", CELLS_S, vPack, rtEff);
+  snprintf(b,sizeof(b),"%dS %.1fV", CELLS_S, vPack);
   canvas.setTextColor(socCol(socBlend), H);
   canvas.setCursor(3,3); canvas.print(b);
-  snprintf(b,sizeof(b),"%.0fW %s", fabsf(pW), stateStr());
-  canvas.setTextColor(lcd.color888(195,195,215), H);
-  canvas.setCursor(93,3); canvas.print(b);
+
+  snprintf(b,sizeof(b),"Eff:%2.0f%%", rtEff);
+  canvas.setTextColor(lcd.color888(180,200,255), H);
+  canvas.setCursor(66,3); canvas.print(b);
+
+  snprintf(b,sizeof(b),"%s", stateStr());
+  canvas.setTextColor(pState == PackState::IDLE ? lcd.color888(150,150,150) :
+                     (pState == PackState::CHARGING ? lcd.color888(100,255,100) : lcd.color888(255,150,100)), H);
+  canvas.setCursor(126,3); canvas.print(b);
 
   // Big cell rested voltage + right column
   canvas.setTextSize(2);
@@ -294,11 +311,11 @@ static void renderPage0() {
   canvas.setCursor(3,14); canvas.print(b);
 
   canvas.setTextSize(1);
-  canvas.setTextColor(lcd.color888(175,175,195), TFT_BLACK);
-  snprintf(b,sizeof(b),"I:%+.1fA", iA);
-  canvas.setCursor(84,15); canvas.print(b);
-  snprintf(b,sizeof(b),"P: %.1fW", fabsf(pW));
-  canvas.setCursor(84,24); canvas.print(b);
+  canvas.setTextColor(lcd.color888(180,180,200), TFT_BLACK);
+  snprintf(b,sizeof(b),"I %+.1fA", iA);
+  canvas.setCursor(88,15); canvas.print(b);
+  snprintf(b,sizeof(b),"P %5.0fW", fabsf(pW));
+  canvas.setCursor(88,24); canvas.print(b);
 
   // Sag / R_int / dV/dt label
   snprintf(b,sizeof(b),"Sag:%.0fmV  R:%.0fmO ", vSag*1000.0f, rInt*1000.0f);
@@ -338,7 +355,8 @@ static void renderPage0() {
   uint32_t pillC = vSag>0.8f ? lcd.color888(255,60,60) :
                    vSag>0.3f ? lcd.color888(255,160,40) :
                                lcd.color888(60,230,80);
-  canvas.fillRoundRect(126,71,16,8,3,pillC);
+  canvas.fillRoundRect(126,71,16,8,4,pillC); // rounded pill
+  canvas.drawRoundRect(126,71,16,8,4,lcd.color888(100,100,100)); // border
   drawPageDots(149,156,75, 0);
 }
 

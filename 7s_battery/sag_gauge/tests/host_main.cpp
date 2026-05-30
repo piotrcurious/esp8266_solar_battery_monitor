@@ -145,7 +145,11 @@ int main() {
             rint_samples++;
         }
 
+        if (i == 200) canvas.savePPM("shot_100pct_load.ppm");
+        if (i == 500) canvas.savePPM("shot_oscillating.ppm");
+        if (i == 1200) canvas.savePPM("shot_charging.ppm");
         if (i == 4999) {
+            canvas.savePPM("shot_final_idle.ppm");
             printf("\n--- Final Report ---\n");
             printf("Rint MSE (during load): %.2f\n", rint_samples > 0 ? rint_mse_sum / rint_samples : 0);
             printf("Final estimated Rint: %.1f mOhm (True: %.1f)\n", rInt * 1000.0f, sim.rint * 1000.0f);
