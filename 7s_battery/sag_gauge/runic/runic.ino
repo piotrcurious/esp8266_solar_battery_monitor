@@ -167,6 +167,8 @@ static void loadState() {
 // Logic
 // ============================================================
 static void updateMeasurements() {
+  static float lastIA_step = 0.0f, lastV_step = 0.0f;
+
   sBatMv = lp(sBatMv, (float)adcAvgMv(PIN_BAT_VOLT, 16), CFG.alpha_adc);
   sCurMv = lp(sCurMv, (float)adcAvgMv(PIN_CUR_SENS, 16), CFG.alpha_adc);
   if (sZeroMv < 1.0f) sZeroMv = sCurMv;
@@ -179,11 +181,20 @@ static void updateMeasurements() {
   if (fabsf(iA) < CFG.idle_a) vRested = lp(vRested, vPack, CFG.alpha_rest_v);
   else vRested = lp(vRested, vPack + (iA > 0 ? 1.0f : -1.0f) * fabsf(iA) * rInt, CFG.alpha_load_v);
 
-  float sag = fabsf(vRested - vPack);
-  if (fabsf(iA) > CFG.sag_min_a) {
-    float rEst = sag / fabsf(iA);
-    if (isfinite(rEst) && rEst > 0.01f && rEst < 0.8f) rInt = lp(rInt, rEst, CFG.alpha_rint);
+  // Advanced Rint Estimation (Step + Steady-State)
+  float dI = iA - lastIA_step;
+  float dV = vPack - lastV_step;
+  if (vPack > 10.05f && vPack < 34.95f) {
+    if (fabsf(dI) > 1.5f) {
+      float rStep = -dV / dI;
+      if (isfinite(rStep) && rStep > 0.01f && rStep < 0.8f) rInt = lp(rInt, rStep, CFG.alpha_rint * 3.0f);
+    }
+    if (fabsf(iA) > CFG.sag_min_a && fabsf(dI) < 0.1f) {
+      float rEst = fabsf(vRested - vPack) / fabsf(iA);
+      if (isfinite(rEst) && rEst > 0.01f && rEst < 0.8f) rInt = lp(rInt, rEst, CFG.alpha_rint);
+    }
   }
+  lastIA_step = iA; lastV_step = vPack;
 
   socOcv = socFromV(vRested / (float)CFG.cells_s);
   // Simple blend for runic
@@ -252,8 +263,11 @@ void loop() {
   if (Serial.available()) {
       String cmd = Serial.readStringUntil('\n');
       cmd.trim();
-      if (cmd == "SETZERO") { sZeroMv = sCurMv; saveState(); }
-      else if (cmd == "RESET") { ahOut = 0; ahOutK = 0; saveState(); }
+      if (cmd == "SETZERO") {
+          if (fabsf(iA) < 1.0f) { sZeroMv = sCurMv; saveState(); Serial.println("Zero CAL OK"); }
+          else Serial.println("ERR: Current too high for zero cal");
+      }
+      else if (cmd == "RESET") { ahOut = 0; ahOutK = 0; saveState(); Serial.println("Session RESET"); }
   }
 
   if (now - lastUiMs >= UI_REFRESH_MS) {

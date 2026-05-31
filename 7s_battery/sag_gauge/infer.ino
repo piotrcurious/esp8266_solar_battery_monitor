@@ -125,6 +125,8 @@ static float getEffectiveCapAh();
 // ================================================================
 enum class PackState : uint8_t { IDLE, CHARGING, DISCHARGING };
 
+static float learnedCapAh = CFG.cap_ah;
+
 // Filtered ADC-side millivolts (at the ADC pin, after the divider)
 static float sBatMv  = 0.0f;
 static float sCurMv  = 0.0f;
@@ -751,7 +753,7 @@ static void updateVocEstimator() {
 }
 
 static float getEffectiveCapAh() {
-  return CFG.cap_ah * (0.7f + 0.3f * (sohPct / 100.0f));
+  return learnedCapAh * (0.7f + 0.3f * (sohPct / 100.0f));
 }
 
 static void updateThermal(float dt) {
@@ -766,6 +768,13 @@ static void updateRintEstimator() {
 
   float dI = iA - lastIA_step;
   float dV = vPack - lastV_step;
+
+  // Gating: Ignore updates if voltage is hitting safety clamps (likely sensor failure)
+  if (vPack <= 10.05f || vPack >= 34.95f) {
+      lastIA_step = iA;
+      lastV_step = vPack;
+      return;
+  }
 
   // 1. Step-based estimation (Instantaneous dV/dI) - Breaks circular dependency with Voc
   if (fabsf(dI) > 1.5f) { // Significant current step
@@ -815,8 +824,6 @@ static void updateRintEstimator() {
 
   sohPct = clampf(0.8f * sohRint + 0.2f * sohCycle, 0.0f, 100.0f);
 }
-
-static float learnedCapAh = CFG.cap_ah;
 
 static void resetSession() {
   // Capacity learning if session was deep enough
@@ -1075,14 +1082,20 @@ void loop() {
   if (Serial.available()) {
       String cmd = Serial.readStringUntil('\n');
       cmd.trim();
-      if (cmd == "RESET") resetSession();
-      else if (cmd == "SETZERO") { sZeroMv = sCurMv; saveState(); }
-      else if (cmd == "UNITS") useImperial = !useImperial;
+      if (cmd == "RESET") { resetSession(); Serial.println("Session RESET"); }
+      else if (cmd == "SETZERO") {
+          if (fabsf(iA) < 1.0f) { sZeroMv = sCurMv; saveState(); Serial.println("Zero CAL OK"); }
+          else Serial.println("ERR: High current");
+      }
+      else if (cmd == "UNITS") { useImperial = !useImperial; Serial.printf("Units: %s\n", useImperial?"IMP":"MET"); }
       else if (cmd.startsWith("SETCAP ")) {
           float newCap = cmd.substring(7).toFloat();
-          if (newCap > 1.0f) {
-              // This requires a non-const config, but for now we just log it
-              Serial.println("Manual cap update not yet supported via serial");
+          if (newCap >= 1.0f && newCap <= 500.0f) {
+              learnedCapAh = newCap;
+              saveState();
+              Serial.printf("CAP SET: %.1fAh\n", learnedCapAh);
+          } else {
+              Serial.println("ERR: Invalid Cap (1-500)");
           }
       }
   }
