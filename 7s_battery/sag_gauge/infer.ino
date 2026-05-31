@@ -154,6 +154,7 @@ static bool  socInit  = false; // one-shot Coulomb initialisation flag
 
 static uint32_t sessionStartMs = 0;
 static float    sessionStartSoc = 0.0f;
+static float    sessionStartVoc = 0.0f;
 
 // Session energy
 static float ahOut = 0.0f, ahIn = 0.0f;
@@ -190,6 +191,7 @@ static uint32_t lastActMs  = 0;
 static uint32_t pageMs     = 0;
 static int      uiPage     = 0;
 static bool     isDimmed   = false;
+static bool     useImperial = false;
 
 static Preferences prefs;
 
@@ -349,6 +351,11 @@ static void drawSparkline(int x, int y, int w, int h, float* data, int n, uint32
     int y0 = y + h - 1 - (int)((data[i] - minV) / (maxV - minV) * (h-1));
     int y1 = y + h - 1 - (int)((data[i+1] - minV) / (maxV - minV) * (h-1));
     y0 = clamp(y0, y, y+h-1); y1 = clamp(y1, y, y+h-1);
+
+    // Area fill (faint)
+    uint32_t fillCol = blendCol(color, TFT_BLACK, 0.7f);
+    canvas.drawLine(x0, y+h-1, x0, y0, fillCol);
+
     canvas.drawLine(x0, y0, x1, y1, color);
   }
 }
@@ -460,7 +467,9 @@ static void renderPage0() {
   canvas.setCursor(108,63); canvas.print(b);
 
   float remWh = (socBlend/100.0f) * getEffectiveCapAh() * (float)CFG.cells_s * CFG.nom_v_cell;
-  snprintf(b, sizeof(b), "%.1fkm", remWh * CFG.km_per_wh);
+  float dist = remWh * CFG.km_per_wh;
+  if (useImperial) snprintf(b, sizeof(b), "%.1fmi", dist * 0.621371f);
+  else             snprintf(b, sizeof(b), "%.1fkm", dist);
   canvas.setCursor(108, 72); canvas.setTextColor(lcd.color888(150, 255, 150)); canvas.print(b);
 
   // Sag Prediction (at reference load)
@@ -625,7 +634,8 @@ static void renderPage3() {
   canvas.print(b);
 
   float distKm = ahOut * CFG.nom_v_cell * CFG.cells_s * CFG.km_per_wh;
-  snprintf(b, sizeof(b), "Avg: %.1f Wh/km", (distKm > 0.1f) ? (whOut / distKm) : 0);
+  if (useImperial) snprintf(b, sizeof(b), "Avg: %.1f Wh/mi", (distKm > 0.1f) ? (whOut / (distKm * 0.621371f)) : 0);
+  else             snprintf(b, sizeof(b), "Avg: %.1f Wh/km", (distKm > 0.1f) ? (whOut / distKm) : 0);
   canvas.setCursor(3, 65); canvas.print(b);
 
   drawPageDots(142, 75, 4, 3);
@@ -683,9 +693,12 @@ static void renderPage2() {
 // ================================================================
 
 static void sampleSensors(float dt) {
+  // Adaptive ADC alpha: faster response during high load
+  float aAdc = CFG.alpha_adc * (1.0f + clampf(fabsf(iA) / 10.0f, 0.0f, 2.0f));
+
   // ── ADC (16-point hardware average per pin)
-  sBatMv = lp(sBatMv, (float)adcAvgMv(PIN_BAT_VOLT, 16), CFG.alpha_adc);
-  sCurMv = lp(sCurMv, (float)adcAvgMv(PIN_CUR_SENS, 16), CFG.alpha_adc);
+  sBatMv = lp(sBatMv, (float)adcAvgMv(PIN_BAT_VOLT, 16), aAdc);
+  sCurMv = lp(sCurMv, (float)adcAvgMv(PIN_CUR_SENS, 16), aAdc);
 
   // ACS712 zero-point: track only while effectively idle and stable
   if (sZeroMv < 1.0f) sZeroMv = sCurMv;
@@ -768,7 +781,10 @@ static void updateRintEstimator() {
           float tmp[RINT_MED_N];
           memcpy(tmp, rMedBuf, rMedCount * sizeof(float));
           std::sort(tmp, tmp + rMedCount);
-          rInt = lp(rInt, tmp[rMedCount / 2], CFG.alpha_rint);
+
+          // Adaptive Rint alpha: faster updates at higher currents (higher SNR)
+          float aRint = CFG.alpha_rint * (1.0f + clampf(fabsf(iA) / 5.0f, 0.0f, 3.0f));
+          rInt = lp(rInt, tmp[rMedCount / 2], aRint);
         }
       }
     }
@@ -782,14 +798,29 @@ static void updateRintEstimator() {
   sohPct = clampf(0.8f * sohRint + 0.2f * sohCycle, 0.0f, 100.0f);
 }
 
+static float learnedCapAh = CFG.cap_ah;
+
 static void resetSession() {
+  // Capacity learning if session was deep enough
+  if (sessionMaxDod > 50.0f && ahOut > 1.0f) {
+      float socDelta = socFromV(sessionStartVoc / CFG.cells_s) - socFromV(vRested / CFG.cells_s);
+      if (socDelta > 20.0f) {
+          float estFullCap = ahOut / (socDelta / 100.0f);
+          if (estFullCap > CFG.cap_ah * 0.5f && estFullCap < CFG.cap_ah * 1.5f) {
+              learnedCapAh = lp(learnedCapAh, estFullCap, 0.1f);
+          }
+      }
+  }
+
   ahOut = ahIn = whOut = whIn = 0.0f;
   whCruise = whActive = whBurst = 0.0f;
   sessionMaxDod = 0.0f;
+  sessionMaxSag = 0.0f;
   ahOutK = ahInK = whOutK = whInK = 0.0f;
   peakIA = peakPW = 0.0f;
   sessionStartMs = millis();
   sessionStartSoc = socBlend;
+  sessionStartVoc = vRested;
   saveState();
 }
 
@@ -827,6 +858,7 @@ static void saveState() {
   prefs.putFloat("whOut", whOut);
   prefs.putFloat("whIn", whIn);
   prefs.putFloat("ahTotal", ahTotal);
+  prefs.putFloat("learnedCapAh", learnedCapAh);
   prefs.putFloat("rInt", rInt);
   prefs.putFloat("sZeroMv", sZeroMv);
   prefs.end();
@@ -839,6 +871,7 @@ static void loadState() {
   whOut = prefs.getFloat("whOut", 0.0f);
   whIn = prefs.getFloat("whIn", 0.0f);
   ahTotal = prefs.getFloat("ahTotal", 0.0f);
+  learnedCapAh = prefs.getFloat("learnedCapAh", CFG.cap_ah);
   rInt = prefs.getFloat("rInt", CFG.rint_fresh_mo / 1000.0f);
   sZeroMv = prefs.getFloat("sZeroMv", 0.0f);
   prefs.end();
@@ -962,6 +995,7 @@ void setup() {
   for (int i=0; i<HIST_N; i++) vHist[i] = vPack;
   sessionStartMs = millis();
   sessionStartSoc = socBlend;
+  sessionStartVoc = vRested;
   lastUiMs = pageMs = millis();
 }
 
@@ -1019,6 +1053,7 @@ void loop() {
       cmd.trim();
       if (cmd == "RESET") resetSession();
       else if (cmd == "SETZERO") { sZeroMv = sCurMv; saveState(); }
+      else if (cmd == "UNITS") useImperial = !useImperial;
       else if (cmd.startsWith("SETCAP ")) {
           float newCap = cmd.substring(7).toFloat();
           if (newCap > 1.0f) {
