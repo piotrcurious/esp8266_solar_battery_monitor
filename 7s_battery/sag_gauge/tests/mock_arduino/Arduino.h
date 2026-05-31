@@ -68,15 +68,21 @@ extern unsigned long _mock_millis_offset;
 extern unsigned long _mock_micros_offset;
 
 class Preferences {
-    std::map<std::string, float> _data;
+    std::map<std::string, float> _data_f;
+    std::map<std::string, uint32_t> _data_u;
 public:
     void begin(const char* name, bool readonly) {}
     void end() {}
-    void clear() { _data.clear(); }
-    void putFloat(const char* key, float val) { _data[key] = val; }
+    void clear() { _data_f.clear(); _data_u.clear(); }
+    void putFloat(const char* key, float val) { _data_f[key] = val; }
     float getFloat(const char* key, float def) {
-        if (_data.find(key) == _data.end()) return def;
-        return _data[key];
+        if (_data_f.find(key) == _data_f.end()) return def;
+        return _data_f[key];
+    }
+    void putUInt(const char* key, uint32_t val) { _data_u[key] = val; }
+    uint32_t getUInt(const char* key, uint32_t def) {
+        if (_data_u.find(key) == _data_u.end()) return def;
+        return _data_u[key];
     }
 };
 

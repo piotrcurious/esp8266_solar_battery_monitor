@@ -12,7 +12,6 @@
 // ============================================================
 // User hardware configuration
 // ============================================================
-
 static constexpr int TFT_SCK  = 18, TFT_MOSI = 23, TFT_MISO = -1;
 static constexpr int TFT_DC   = 16, TFT_CS   = 5,  TFT_RST  = 17, TFT_BL = 4;
 static constexpr int PIN_BAT_VOLT = 34, PIN_CUR_SENS = 35, PIN_BUTTON = 0;
@@ -52,66 +51,26 @@ static constexpr float ALPHA_ZERO = 0.005f;
 // ============================================================
 // LovyanGFX custom device
 // ============================================================
-
-class LGFX : public lgfx::LGFX_Device
-{
-  lgfx::Panel_ST7735 _panel_instance;
-  lgfx::Bus_SPI      _bus_instance;
-  lgfx::Light_PWM    _light_instance;
-
+class LGFX : public lgfx::LGFX_Device {
+  lgfx::Panel_ST7735 _panel;
+  lgfx::Bus_SPI      _bus;
+  lgfx::Light_PWM    _light;
 public:
-  LGFX(void)
-  {
-    { // SPI bus
-      auto cfg = _bus_instance.config();
-      cfg.spi_host   = VSPI_HOST;
-      cfg.spi_mode   = 0;
-      cfg.freq_write  = 40000000;
-      cfg.freq_read   = 16000000;
-      cfg.pin_sclk    = TFT_SCK;
-      cfg.pin_mosi    = TFT_MOSI;
-      cfg.pin_miso    = TFT_MISO;
-      cfg.pin_dc      = TFT_DC;
-      _bus_instance.config(cfg);
-      _panel_instance.setBus(&_bus_instance);
-    }
-
-    { // panel
-      auto cfg = _panel_instance.config();
-      cfg.pin_cs            = TFT_CS;
-      cfg.pin_rst           = TFT_RST;
-      cfg.pin_busy          = -1;
-      cfg.panel_width       = 160;
-      cfg.panel_height      = 80;
-      cfg.offset_x          = 0;   // adjust if your module is shifted
-      cfg.offset_y          = 0;   // adjust if your module is shifted
-      cfg.offset_rotation   = 0;   // adjust if rotation is offset on your panel
-      cfg.dummy_read_pixel  = 8;
-      cfg.dummy_read_bits   = 1;
-      cfg.readable          = true;
-      cfg.invert            = false;
-      cfg.rgb_order         = false; // set true if red/blue are swapped
-      cfg.dlen_16bit        = false;
-      cfg.bus_shared        = false;
-
-      // Uncomment only if your specific panel needs it.
-      // cfg.memory_width  = 160;
-      // cfg.memory_height = 80;
-
-      _panel_instance.config(cfg);
-    }
-
-    { // backlight
-      auto cfg = _light_instance.config();
-      cfg.pin_bl       = TFT_BL;
-      cfg.invert       = false;
-      cfg.freq         = 44100;
-      cfg.pwm_channel  = 7;
-      _light_instance.config(cfg);
-      _panel_instance.setLight(&_light_instance);
-    }
-
-    setPanel(&_panel_instance);
+  LGFX() {
+    { auto c = _bus.config();
+      c.spi_host = VSPI_HOST; c.spi_mode = 0;
+      c.freq_write = 40000000; c.freq_read = 16000000;
+      c.pin_sclk = TFT_SCK; c.pin_mosi = TFT_MOSI;
+      c.pin_miso = TFT_MISO; c.pin_dc = TFT_DC;
+      _bus.config(c); _panel.setBus(&_bus); }
+    { auto c = _panel.config();
+      c.pin_cs = TFT_CS; c.pin_rst = TFT_RST;
+      c.panel_width = 160; c.panel_height = 80;
+      _panel.config(c); }
+    { auto c = _light.config();
+      c.pin_bl = TFT_BL; c.freq = 44100; c.pwm_channel = 7;
+      _light.config(c); _panel.setLight(&_light); }
+    setPanel(&_panel);
   }
 };
 
@@ -121,363 +80,192 @@ static LGFX_Sprite canvas(&lcd);
 // ============================================================
 // State
 // ============================================================
-
-static float adcBatMvFilt   = 0.0f;
-static float adcCurMvFilt   = 0.0f;
-static float acsZeroMvFilt   = 0.0f;
-
-static float restedPackV    = 0.0f;
-static float rIntOhm        = 0.060f;
-static float currentA       = 0.0f;
-static float packV          = 0.0f;
-static float packVRested    = 0.0f;
-static float sagV           = 0.0f;
-static float packCellVLoad   = 0.0f;
-static float packCellVRested = 0.0f;
-static float socLoadPct      = 0.0f;
-static float socRestPct      = 0.0f;
-
+static float sBatMv = 0.0f, sCurMv = 0.0f, sZeroMv = 0.0f;
+static float vPack = 0.0f, iA = 0.0f, vRested = 0.0f, rInt = 0.060f;
+static float socOcv = 0.0f, socCoul = 0.0f, socBlend = 0.0f;
+static float ahOut = 0.0f, ahOutK = 0.0f;
 static uint32_t lastUiMs = 0;
+static Preferences prefs;
+static constexpr uint32_t NVS_VERSION = 2;
 
 // ============================================================
 // Helpers
 // ============================================================
-
-static float clampf(float x, float lo, float hi)
-{
-  return (x < lo) ? lo : (x > hi) ? hi : x;
+static inline float clampf(float x, float lo, float hi) { return x < lo ? lo : x > hi ? hi : x; }
+static inline float lp(float p, float in, float a) { return p + a * (in - p); }
+static uint32_t adcAvgMv(int pin, int n) {
+  uint32_t s = 0; for (int i = 0; i < n; ++i) s += analogReadMilliVolts(pin);
+  return s / (uint32_t)n;
 }
 
-static float lowpass(float prev, float input, float alpha)
-{
-  return prev + alpha * (input - prev);
-}
-
-static uint32_t readAdcAverageMv(int pin, int samples)
-{
-  uint32_t sum = 0;
-  for (int i = 0; i < samples; ++i) {
-    sum += analogReadMilliVolts(pin);
-  }
-  return sum / (uint32_t)samples;
-}
-
-// Approximate Li-ion SOC from cell OCV.
-// This is intentionally smooth, not “perfect chemistry truth”.
-// Uses a coarse discharge curve shape.
-static float socFromCellVoltage(float v)
-{
-  struct Pt { float v; float soc; };
-  static constexpr Pt lut[] = {
-    {4.20f, 100.0f},
-    {4.10f,  95.0f},
-    {4.00f,  88.0f},
-    {3.95f,  84.0f},
-    {3.90f,  78.0f},
-    {3.85f,  70.0f},
-    {3.80f,  62.0f},
-    {3.75f,  54.0f},
-    {3.70f,  45.0f},
-    {3.65f,  36.0f},
-    {3.60f,  28.0f},
-    {3.50f,  16.0f},
-    {3.40f,   8.0f},
-    {3.20f,   0.0f},
+static float socFromV(float v) {
+  static constexpr struct { float v, s; } T[] = {
+    {4.20f,100},{4.10f,95},{4.00f,88},{3.95f,84},{3.90f,78},{3.85f,70},
+    {3.80f,62},{3.75f,54},{3.70f,45},{3.65f,36},{3.60f,28},{3.50f,16},
+    {3.40f,8},{3.20f,0}
   };
-
-  if (v >= lut[0].v) return 100.0f;
-  if (v <= lut[sizeof(lut) / sizeof(lut[0]) - 1].v) return 0.0f;
-
-  for (size_t i = 0; i + 1 < sizeof(lut) / sizeof(lut[0]); ++i) {
-    const Pt &a = lut[i];
-    const Pt &b = lut[i + 1];
-    if (v <= a.v && v >= b.v) {
-      float t = (v - b.v) / (a.v - b.v);
-      return b.soc + t * (a.soc - b.soc);
+  if (v >= T[0].v) return 100.0f;
+  if (v <= T[13].v) return 0.0f;
+  for (int i = 0; i < 13; ++i)
+    if (v <= T[i].v && v >= T[i+1].v) {
+      float t = (v-T[i+1].v)/(T[i].v-T[i+1].v);
+      return T[i+1].s + t*(T[i].s-T[i+1].s);
     }
-  }
   return 0.0f;
 }
 
-static uint32_t colorBlend(uint32_t a, uint32_t b, float t)
-{
+static uint32_t blendCol(uint32_t a, uint32_t b, float t) {
   t = clampf(t, 0.0f, 1.0f);
-  uint8_t ar = (a >> 16) & 0xFF, ag = (a >> 8) & 0xFF, ab = a & 0xFF;
-  uint8_t br = (b >> 16) & 0xFF, bg = (b >> 8) & 0xFF, bb = b & 0xFF;
-  uint8_t r = (uint8_t)(ar + (br - ar) * t);
-  uint8_t g = (uint8_t)(ag + (bg - ag) * t);
-  uint8_t bl = (uint8_t)(ab + (bb - ab) * t);
-  return lcd.color888(r, g, bl);
+  int ar=(a>>16)&0xFF, ag=(a>>8)&0xFF, ab=a&0xFF;
+  int br=(b>>16)&0xFF, bg=(b>>8)&0xFF, bb=b&0xFF;
+  return lcd.color888((uint8_t)(ar+(br-ar)*t), (uint8_t)(ag+(bg-ag)*t), (uint8_t)(ab+(bb-ab)*t));
 }
 
-static uint32_t colorBlend(uint32_t a, uint32_t b, float t)
-{
-  t = (t < 0.0f) ? 0.0f : (t > 1.0f) ? 1.0f : t;
-  uint8_t ar = (a >> 16) & 0xFF, ag = (a >> 8) & 0xFF, ab = a & 0xFF;
-  uint8_t br = (b >> 16) & 0xFF, bg = (b >> 8) & 0xFF, bb = b & 0xFF;
-  return lcd.color888(ar + (int)((br-ar)*t), ag + (int)((bg-ag)*t), ab + (int)((bb-ab)*t));
+static uint32_t socCol(float s) {
+  if (s < 15.0f) return blendCol(0xFF0000, 0xFF6400, s / 15.0f);
+  if (s < 40.0f) return blendCol(0xFF6400, 0xFFFF00, (s - 15.0f) / 25.0f);
+  if (s < 70.0f) return blendCol(0xFFFF00, 0x00FF00, (s - 40.0f) / 30.0f);
+  return blendCol(0x00FF00, 0x64FFFF, (s - 70.0f) / 30.0f);
 }
 
-static uint32_t socColor(float s)
-{
-  if (s < 15.0f) return colorBlend(lcd.color888(255, 0, 0), lcd.color888(255, 100, 0), s / 15.0f);
-  if (s < 40.0f) return colorBlend(lcd.color888(255, 100, 0), lcd.color888(255, 255, 0), (s - 15.0f) / 25.0f);
-  if (s < 70.0f) return colorBlend(lcd.color888(255, 255, 0), lcd.color888(0, 255, 0), (s - 40.0f) / 30.0f);
-  return colorBlend(lcd.color888(0, 255, 0), lcd.color888(100, 255, 255), (s - 70.0f) / 30.0f);
-}
-
-static void drawBarSegmented(int x, int y, int w, int h, float soc, uint32_t fillColor, uint32_t outlineColor, uint32_t emptyColor)
-{
-  const int segments = 7;
-  const int gap = 3;
-  const int segW = (w - gap * (segments - 1)) / segments;
-  const float perSeg = 100.0f / segments;
-
-  // Background box
-  canvas.fillRoundRect(x-2, y-2, w+4, h+4, 4, lcd.color888(20,20,25));
-
-  for (int i = 0; i < segments; ++i) {
-    int sx = x + i * (segW + gap);
-
-    canvas.drawRoundRect(sx, y, segW, h, 3, outlineColor);
-    canvas.fillRoundRect(sx + 1, y + 1, segW - 2, h - 2, 2, emptyColor);
-
-    float segFill = clampf((soc - i * perSeg) / perSeg, 0.0f, 1.0f);
-    if (segFill > 0.0f) {
-      int fh = (int)((h - 2) * segFill + 0.5f);
-      int fy = y + 1 + (h - 2 - fh);
-      uint32_t c0 = colorBlend(lcd.color888(255, 70, 50), fillColor, segFill);
-      canvas.fillRoundRect(sx + 1, fy, segW - 2, fh, 2, c0);
-
-      if (segFill >= 1.0f) {
-        canvas.fillRect(sx+2, y+2, segW-4, 2, colorBlend(c0, 0xFFFFFF, 0.3f));
-      }
+static void drawBar(int x, int y, int w, int h, float soc, uint32_t fill, uint32_t border, uint32_t empty) {
+  const int S=7, G=3, sw=(w-G*(S-1))/S;
+  canvas.fillRoundRect(x-2, y-2, w+4, h+4, 4, lcd.color888(20,20,30));
+  for (int i = 0; i < S; ++i) {
+    int sx = x + i*(sw+G);
+    canvas.drawRoundRect(sx, y, sw, h, 3, border);
+    canvas.fillRoundRect(sx+1, y+1, sw-2, h-2, 2, empty);
+    float f = clampf((soc-i*(100.0f/S))/(100.0f/S), 0.0f, 1.0f);
+    if (f > 0.0f) {
+      int fh = (int)((h-2)*f + 0.5f);
+      canvas.fillRoundRect(sx+1, y+1+(h-2-fh), sw-2, fh, 2, blendCol(0xFF5032, fill, f));
     }
   }
 }
 
-static void drawLabelValue(int x, int y, const char *label, float value, const char *unit, int decimals, uint32_t color)
-{
-  canvas.setTextColor(color, TFT_BLACK);
-  canvas.setCursor(x, y);
-  canvas.print(label);
-  canvas.print(value, decimals);
-  canvas.print(unit);
+static void saveState() {
+  prefs.begin("sag_gauge", false);
+  prefs.putUInt("version", NVS_VERSION);
+  prefs.putFloat("ahOut", ahOut);
+  prefs.putFloat("rInt", rInt);
+  prefs.putFloat("sZeroMv", sZeroMv);
+  prefs.end();
+}
+
+static void loadState() {
+  prefs.begin("sag_gauge", true);
+  uint32_t v = prefs.getUInt("version", 0);
+  if (v == NVS_VERSION) {
+    ahOut = prefs.getFloat("ahOut", 0.0f);
+    rInt = prefs.getFloat("rInt", 0.060f);
+    sZeroMv = prefs.getFloat("sZeroMv", 0.0f);
+  }
+  prefs.end();
 }
 
 // ============================================================
-// Sampling + estimation
+// Logic
 // ============================================================
+static void updateMeasurements() {
+  sBatMv = lp(sBatMv, (float)adcAvgMv(PIN_BAT_VOLT, 16), CFG.alpha_adc);
+  sCurMv = lp(sCurMv, (float)adcAvgMv(PIN_CUR_SENS, 16), CFG.alpha_adc);
+  if (sZeroMv < 1.0f) sZeroMv = sCurMv;
+  if (fabsf(iA) < CFG.idle_a) sZeroMv = lp(sZeroMv, sCurMv, ALPHA_ZERO);
 
-static void updateMeasurements()
-{
-  const uint32_t batMvRaw = readAdcAverageMv(PIN_BAT_VOLT, 16);
-  const uint32_t curMvRaw = readAdcAverageMv(PIN_CUR_SENS, 16);
+  vPack = (sBatMv * CFG.bat_div) / 1000.0f + BAT_V_OFFSET;
+  iA = CUR_POLARITY * (sCurMv - sZeroMv) * CFG.cur_div / CFG.acs_mv_a;
 
-  adcBatMvFilt = (adcBatMvFilt <= 1.0f) ? (float)batMvRaw : lowpass(adcBatMvFilt, (float)batMvRaw, CFG.alpha_adc);
-  adcCurMvFilt = (adcCurMvFilt <= 1.0f) ? (float)curMvRaw : lowpass(adcCurMvFilt, (float)curMvRaw, CFG.alpha_adc);
+  if (vRested < 1.0f) vRested = vPack;
+  if (fabsf(iA) < CFG.idle_a) vRested = lp(vRested, vPack, CFG.alpha_rest_v);
+  else vRested = lp(vRested, vPack + (iA > 0 ? 1.0f : -1.0f) * fabsf(iA) * rInt, CFG.alpha_load_v);
 
-  if (acsZeroMvFilt <= 1.0f) acsZeroMvFilt = adcCurMvFilt;
-  if (fabsf(currentA) < CFG.idle_a) acsZeroMvFilt = lowpass(acsZeroMvFilt, adcCurMvFilt, ALPHA_ZERO);
-
-  packV = (adcBatMvFilt * CFG.bat_div) / 1000.0f + BAT_V_OFFSET;
-  currentA = CURRENT_POLARITY * ((adcCurMvFilt * CFG.cur_div - acsZeroMvFilt * CFG.cur_div) / CFG.acs_mv_a);
-
-  if (restedPackV <= 1.0f) restedPackV = packV;
-  if (fabsf(currentA) < CFG.idle_a) restedPackV = lowpass(restedPackV, packV, CFG.alpha_rest_v);
-  else restedPackV = lowpass(restedPackV, packV + ((currentA > 0) ? 1.0f : -1.0f) * fabsf(currentA) * rIntOhm, CFG.alpha_load_v);
-
-  packVRested = restedPackV;
-  sagV = fabsf(packVRested - packV);
-  if (fabsf(currentA) > CFG.sag_min_a) {
-    float rEst = sagV / fabsf(currentA);
-    if (isfinite(rEst) && rEst > 0.0f && rEst < 1.0f) rIntOhm = lowpass(rIntOhm, rEst, CFG.alpha_rint);
+  float sag = fabsf(vRested - vPack);
+  if (fabsf(iA) > CFG.sag_min_a) {
+    float rEst = sag / fabsf(iA);
+    if (isfinite(rEst) && rEst > 0.01f && rEst < 0.8f) rInt = lp(rInt, rEst, CFG.alpha_rint);
   }
 
-  packCellVLoad = packV / (float)CFG.cells_s;
-  packCellVRested = packVRested / (float)CFG.cells_s;
-  socLoadPct = socFromCellVoltage(packCellVLoad);
-  socRestPct = socFromCellVoltage(packCellVRested);
+  socOcv = socFromV(vRested / (float)CFG.cells_s);
+  // Simple blend for runic
+  socBlend = lp(socBlend, socOcv, 0.05f);
+
+  if (iA > CFG.idle_a) {
+    float dAh = iA * (UI_REFRESH_MS / 3600000.0f);
+    float y = dAh - ahOutK; float t = ahOut + y;
+    ahOutK = (t - ahOut) - y; ahOut = t;
+  }
 }
 
-// ============================================================
-// UI
-// ============================================================
-
-static void renderUi()
-{
+void renderUi() {
+  char b[64];
   canvas.fillScreen(TFT_BLACK);
-
-  // Header band
-  uint32_t headerColor = socColor(socRestPct);
   canvas.fillRoundRect(0, 0, 160, 14, 3, lcd.color888(18, 18, 24));
-  canvas.setTextSize(1);
-  canvas.setTextColor(headerColor, lcd.color888(18, 18, 24));
+  canvas.setTextSize(1); canvas.setTextColor(socCol(socBlend));
   canvas.setCursor(4, 4);
-  canvas.print("7S Li-ion  ");
-  canvas.print(packV, 1);
-  canvas.print("V");
+  snprintf(b, sizeof(b), "%dS Li-ion  %.1fV", CFG.cells_s, vPack);
+  canvas.print(b);
+  canvas.setCursor(120, 4); canvas.print(iA > CFG.idle_a ? "DISCH" : (iA < -CFG.idle_a ? "CHG" : "IDLE"));
 
-  // Status text in header
-  canvas.setCursor(120, 4);
-  if (currentA > REST_CURRENT_A) canvas.print("DISCH");
-  else if (currentA < -REST_CURRENT_A) canvas.print("CHG");
-  else canvas.print("IDLE");
-
-  // Big left value
-  canvas.setTextSize(2);
-  canvas.setTextColor(socColor(socRestPct), TFT_BLACK);
-  canvas.setCursor(4, 18);
-  // Flash if low battery
-  if (socRestPct < 15.0f && (millis() / 500) % 2 == 0) {
-      canvas.setTextColor(lcd.color888(255, 40, 40), TFT_BLACK);
-      canvas.print("LOW BAT!");
-  } else {
-      canvas.print(packCellVRested, 2);
-      canvas.print("V/c");
+  canvas.setTextSize(2); canvas.setCursor(4, 18);
+  if (socBlend < 15.0f && (millis() / 500) % 2 == 0) canvas.print("LOW BAT!");
+  else {
+    snprintf(b, sizeof(b), "%.2fV/c", vRested / CFG.cells_s);
+    canvas.print(b);
   }
 
-  // Small right status
-  canvas.setTextSize(1);
-  canvas.setTextColor(lcd.color888(180, 180, 190), TFT_BLACK);
+  canvas.setTextSize(1); canvas.setTextColor(0xB4B4C0);
+  canvas.setCursor(96, 18); snprintf(b, sizeof(b), "SOC %.0f%%", socBlend); canvas.print(b);
+  canvas.setCursor(96, 29); snprintf(b, sizeof(b), "I %.1fA", iA); canvas.print(b);
+  canvas.setCursor(96, 40); snprintf(b, sizeof(b), "R %.0fmO", rInt * 1000.0f); canvas.print(b);
 
-  canvas.setCursor(96, 18);
-  canvas.print("SOC ");
-  canvas.print(socRestPct, 0);
-  canvas.print("%");
+  drawBar(4, 48, 152, 22, socBlend, socCol(socBlend), 0xB4B4C0, 0);
 
-  canvas.setCursor(96, 29);
-  canvas.print("I ");
-  canvas.print(currentA, 1);
-  canvas.print("A");
-
-  canvas.setCursor(96, 40);
-  canvas.print("S ");
-  if (sagV < 1.0f) { canvas.print(sagV * 1000.0f, 0); canvas.print("mV"); }
-  else { canvas.print(sagV, 1); canvas.print("V"); }
-
-  // Main gauge: bright estimate with loaded shadow beneath
-  const int gx = 4;
-  const int gy = 48;
-  const int gw = 152;
-  const int gh = 22;
-
-  // Shadow gauge = loaded value
-  drawBarSegmented(gx, gy, gw, gh, socLoadPct,
-                   lcd.color888(70, 120, 255),
-                   lcd.color888(40, 40, 60),
-                   lcd.color888(12, 12, 16));
-
-  // Bright overlay = sag-corrected estimate
-  drawBarSegmented(gx, gy, gw, gh, socRestPct,
-                   socColor(socRestPct),
-                   lcd.color888(180, 180, 200),
-                   lcd.color888(0, 0, 0));
-
-  // Bottom stats
-  canvas.setTextSize(1);
-  canvas.setTextColor(lcd.color888(220, 220, 220), TFT_BLACK);
-
-  canvas.setCursor(4, 72);
-  canvas.print("SOC ");
-  canvas.print(socRestPct, 0);
-  canvas.print("%");
-
-  canvas.setCursor(54, 72);
-  canvas.print("R ");
-  canvas.print(rIntOhm * 1000.0f, 0);
-  canvas.print("m");
-
-  canvas.setCursor(96, 72);
-  canvas.print("L ");
-  canvas.print(socLoadPct, 0);
-  canvas.print("%");
-
-  // Tiny hint bar when sag is high
-  if (sagV > 0.8f) {
-    canvas.fillRect(145, 70, 11, 6, lcd.color888(255, 60, 60));
-  } else if (sagV > 0.3f) {
-    canvas.fillRect(145, 70, 11, 6, lcd.color888(255, 160, 40));
-  } else {
-    canvas.fillRect(145, 70, 11, 6, lcd.color888(60, 255, 90));
-  }
+  canvas.setCursor(4, 72); canvas.setTextColor(0xFFFFFF);
+  snprintf(b, sizeof(b), "Ah:%.2f  Sag:%.0fmV", ahOut, fabsf(vRested - vPack) * 1000.0f);
+  canvas.print(b);
 
   canvas.pushSprite(&lcd, 0, 0);
 }
 
-// ============================================================
-// Arduino
-// ============================================================
-
-void setup()
-{
+void setup() {
   Serial.begin(115200);
-
   analogReadResolution(12);
-
-  analogSetPinAttenuation(PIN_BAT_VOLT, ADC_11db);
-  analogSetPinAttenuation(PIN_CUR_SENS, ADC_11db);
-
-  pinMode(TFT_BL, OUTPUT);
-  digitalWrite(TFT_BL, HIGH);
-
-  lcd.init();
-  lcd.setRotation(0);
-  lcd.setBrightness(200);
-  lcd.setColorDepth(16);
-
-  canvas.setColorDepth(16);
+  lcd.init(); lcd.setRotation(0); lcd.setBrightness(200);
   canvas.createSprite(160, 80);
-  canvas.fillScreen(TFT_BLACK);
 
-  // Initial calibration
+  loadState();
+
   delay(300);
-  uint32_t curZero = readAdcAverageMv(PIN_CUR_SENS, 64);
-  uint32_t bat0    = readAdcAverageMv(PIN_BAT_VOLT, 32);
+  float sCurMvBoot = (float)adcAvgMv(PIN_CUR_SENS, 64);
+  if (sZeroMv < 100.0f) sZeroMv = sCurMvBoot;
+  sCurMv = sCurMvBoot;
 
-  acsZeroMvFilt = (float)curZero;
-  adcBatMvFilt  = (float)bat0;
-  adcCurMvFilt  = (float)curZero;
-
-  packV = (adcBatMvFilt * CFG.bat_div) / 1000.0f;
-  restedPackV = packV;
-
-  renderUi();
-  lastUiMs = millis();
+  vPack = vRested = (adcAvgMv(PIN_BAT_VOLT, 32) * CFG.bat_div) / 1000.0f;
+  socBlend = socFromV(vRested / (float)CFG.cells_s);
 }
 
-void loop()
-{
+static uint32_t lastSaveMs = 0;
+
+void loop() {
   uint32_t now = millis();
 
-  // Button handling
-  static bool lastBtn = true;
-  static uint32_t btnDownMs = 0;
-  bool btn = digitalRead(PIN_BUTTON);
-  if (!btn && lastBtn) btnDownMs = now;
-  if (btn && !lastBtn) {
-    uint32_t dur = now - btnDownMs;
-    if (dur > 5000) { prefs.begin("sag_gauge", false); prefs.clear(); prefs.end(); ESP.restart(); }
-    else if (dur > 50) { /* Page flip or other? Runic is single page for now */ }
+  if (Serial.available()) {
+      String cmd = Serial.readStringUntil('\n');
+      cmd.trim();
+      if (cmd == "SETZERO") { sZeroMv = sCurMv; saveState(); }
+      else if (cmd == "RESET") { ahOut = 0; ahOutK = 0; saveState(); }
   }
-  lastBtn = btn;
-
-  updateMeasurements();
 
   if (now - lastUiMs >= UI_REFRESH_MS) {
     lastUiMs = now;
-
+    updateMeasurements();
     renderUi();
 
-    // optional serial debug
-    Serial.print("V=");
-    Serial.print(packV, 2);
-    Serial.print("  I=");
-    Serial.print(currentA, 2);
-    Serial.print("A  sag=");
-    Serial.print(sagV, 3);
-    Serial.print("V  Rint=");
-    Serial.print(rIntOhm * 1000.0f, 1);
-    Serial.println("mOhm");
+    if (now - lastSaveMs > 60000) {
+      lastSaveMs = now;
+      saveState();
+    }
+
+    Serial.printf("V=%.2f I=%.1f R=%.0f SOC=%.0f%%\n", vPack, iA, rInt*1000.0f, socBlend);
   }
 }

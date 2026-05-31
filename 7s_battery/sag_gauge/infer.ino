@@ -194,6 +194,7 @@ static bool     isDimmed   = false;
 static bool     useImperial = false;
 
 static Preferences prefs;
+static constexpr uint32_t NVS_VERSION = 2;
 
 // ================================================================
 //  Helpers
@@ -321,12 +322,6 @@ static void drawSparkline(int x, int y, int w, int h, float* data, int n, uint32
 
   canvas.drawRect(x, y, w, h, lcd.color888(40,40,55));
 
-  // Peak indicator
-  int peakY = y + h - 1 - (int)((maxV - minV) / (maxV - minV) * (h-1)); // Should be y
-  peakY = y;
-  canvas.drawPixel(x+w-2, peakY, 0xFFFFFF);
-  canvas.drawPixel(x+w-3, peakY, 0xFFFFFF);
-
   // Mid-line reference
   int midY = y + h/2;
   for (int i=x; i<x+w; i+=4) canvas.drawPixel(i, midY, lcd.color888(60,60,70));
@@ -344,6 +339,9 @@ static void drawSparkline(int x, int y, int w, int h, float* data, int n, uint32
   snprintf(lbl, sizeof(lbl), "%.1f%s", minV, unit);
   canvas.setCursor(x+2, y+h-7); canvas.print(lbl);
   canvas.setTextSize(1);
+
+  // Peak marker on Y-axis
+  canvas.drawPixel(x+w-2, y, 0xFFFFFF);
 
   for (int i=0; i<n-1; i++) {
     int x0 = x + (i * w) / (n-1);
@@ -474,10 +472,10 @@ static void renderPage0() {
 
   // Sag Prediction (at reference load)
   float vPredRef = vRested - (CFG.ref_load_a * rInt * getRintSocFactor(socBlend));
-  snprintf(b, sizeof(b), "Est @ %.0fA: %.1fV", CFG.ref_load_a, vPredRef);
   canvas.setTextColor(lcd.color888(120,120,140), TFT_BLACK);
-  canvas.setCursor(68, 72);
-  // Let's reorganize Page 0 a bit.
+  canvas.setCursor(60, 72);
+  snprintf(b, sizeof(b), "@%.0fA:%.1fV", CFG.ref_load_a, vPredRef);
+  canvas.print(b);
 
   // Ah / sag pill / page dots
   bool critical = (vCellLoad < 3.1f);
@@ -763,13 +761,33 @@ static void updateThermal(float dt) {
 }
 
 static void updateRintEstimator() {
-  static float lastIA_Rint = 0.0f;
-  float dI = fabsf(iA - lastIA_Rint);
-  lastIA_Rint = iA;
+  static float lastIA_step = 0.0f;
+  static float lastV_step = 0.0f;
 
-  if (fabsf(iA) > CFG.sag_min_a && dI < 0.2f) {
+  float dI = iA - lastIA_step;
+  float dV = vPack - lastV_step;
+
+  // 1. Step-based estimation (Instantaneous dV/dI) - Breaks circular dependency with Voc
+  if (fabsf(dI) > 1.5f) { // Significant current step
+    float rStepRaw = -dV / dI; // -dV because I is positive for discharge
+    float rStep = rStepRaw / getRintSocFactor(socBlend);
+
+    if (isfinite(rStep) && rStep > 0.010f && rStep < 0.800f) {
+        rMedBuf[rMedHead] = rStep;
+        rMedHead = (rMedHead + 1) % RINT_MED_N;
+        if (rMedCount < RINT_MED_N) ++rMedCount;
+    }
+  }
+  lastIA_step = iA;
+  lastV_step = vPack;
+
+  // 2. Steady-state estimation (only if current is stable and high)
+  static float lastIA_steady = 0.0f;
+  float dI_steady = fabsf(iA - lastIA_steady);
+  lastIA_steady = iA;
+
+  if (fabsf(iA) > CFG.sag_min_a && dI_steady < 0.1f) {
     float rEstRaw = vSag / fabsf(iA);
-    // Normalize measured Rint to 100% SOC equivalent using the factor
     float rEst = rEstRaw / getRintSocFactor(socBlend);
 
     if (isfinite(rEst) && rEst > 0.010f && rEst < 0.800f) {
@@ -853,6 +871,7 @@ static void updateSoc(float dt) {
 
 static void saveState() {
   prefs.begin("sag_gauge", false);
+  prefs.putUInt("version", NVS_VERSION);
   prefs.putFloat("ahOut", ahOut);
   prefs.putFloat("ahIn", ahIn);
   prefs.putFloat("whOut", whOut);
@@ -866,14 +885,19 @@ static void saveState() {
 
 static void loadState() {
   prefs.begin("sag_gauge", true);
-  ahOut = prefs.getFloat("ahOut", 0.0f);
-  ahIn = prefs.getFloat("ahIn", 0.0f);
-  whOut = prefs.getFloat("whOut", 0.0f);
-  whIn = prefs.getFloat("whIn", 0.0f);
-  ahTotal = prefs.getFloat("ahTotal", 0.0f);
-  learnedCapAh = prefs.getFloat("learnedCapAh", CFG.cap_ah);
-  rInt = prefs.getFloat("rInt", CFG.rint_fresh_mo / 1000.0f);
-  sZeroMv = prefs.getFloat("sZeroMv", 0.0f);
+  uint32_t v = prefs.getUInt("version", 0);
+  if (v == NVS_VERSION) {
+    ahOut = prefs.getFloat("ahOut", 0.0f);
+    ahIn = prefs.getFloat("ahIn", 0.0f);
+    whOut = prefs.getFloat("whOut", 0.0f);
+    whIn = prefs.getFloat("whIn", 0.0f);
+    ahTotal = prefs.getFloat("ahTotal", 0.0f);
+    learnedCapAh = prefs.getFloat("learnedCapAh", CFG.cap_ah);
+    rInt = prefs.getFloat("rInt", CFG.rint_fresh_mo / 1000.0f);
+    sZeroMv = prefs.getFloat("sZeroMv", 0.0f);
+  } else {
+    Serial.printf("NVS version mismatch: got %d, expected %d. Keeping defaults.\n", v, NVS_VERSION);
+  }
   prefs.end();
 }
 
