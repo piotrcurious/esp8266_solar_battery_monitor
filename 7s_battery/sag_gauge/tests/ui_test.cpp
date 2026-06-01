@@ -11,7 +11,7 @@ uint32_t ui_mock_adc(int pin) {
 }
 
 #define ARDUINO 100
-#include "../infer.ino"
+#include "../sag_gauge.ino"
 
 int main() {
     mock_adc_func = ui_mock_adc;

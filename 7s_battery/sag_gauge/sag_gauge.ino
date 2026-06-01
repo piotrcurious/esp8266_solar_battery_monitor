@@ -1067,12 +1067,16 @@ void loop() {
   }
   lastBtn = btn;
 
-  // Auto-dimming
-  if (!isDimmed && now - lastActMs > CFG.dim_ms && pState == PackState::IDLE) {
-      if (now - lastActMs > CFG.dim_ms * 10) lcd.setBrightness(0); // Auto-off after 10x dim period
-      else lcd.setBrightness(20);
-      isDimmed = true;
+  // Auto-dimming & Auto-off
+  if (pState == PackState::IDLE) {
+      uint32_t idleTime = now - lastActMs;
+      if (idleTime > CFG.dim_ms * 10) {
+          if (!isDimmed || lcd.getBrightness() != 0) { lcd.setBrightness(0); isDimmed = true; }
+      } else if (idleTime > CFG.dim_ms) {
+          if (!isDimmed || lcd.getBrightness() != 20) { lcd.setBrightness(20); isDimmed = true; }
+      }
   }
+
   if (isDimmed && pState != PackState::IDLE) {
       lcd.setBrightness(200);
       isDimmed = false;

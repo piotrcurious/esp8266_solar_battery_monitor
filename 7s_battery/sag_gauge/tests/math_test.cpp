@@ -4,7 +4,7 @@
 #include <math.h>
 
 #define ARDUINO 100
-#include "../infer.ino"
+#include "../sag_gauge.ino"
 
 void test_soc_from_v() {
     printf("Testing socFromV()...\n");

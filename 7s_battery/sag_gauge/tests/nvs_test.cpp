@@ -3,7 +3,7 @@
 #include <assert.h>
 
 #define ARDUINO 100
-#include "../infer.ino"
+#include "../sag_gauge.ino"
 
 int main() {
     setup();
