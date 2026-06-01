@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <cstring>
 #include <Preferences.h>
+#include <esp_task_wdt.h>
 
 #ifndef clamp
 #define clamp(v,lo,hi) (((v)<(lo))?(lo):((v)>(hi))?(hi):(v))
@@ -201,10 +202,10 @@ static constexpr uint32_t NVS_VERSION = 2;
 // ================================================================
 //  Helpers
 // ================================================================
-static inline float clampf(float x, float lo, float hi) {
+inline float clampf(float x, float lo, float hi) {
   return x < lo ? lo : x > hi ? hi : x;
 }
-static inline float lp(float p, float in, float a) {
+inline float lp(float p, float in, float a) {
   return p + a * (in - p);
 }
 static uint32_t adcAvgMv(int pin, int n) {
@@ -988,6 +989,11 @@ static void updateMeasurements() {
 // ================================================================
 void setup() {
   Serial.begin(115200);
+
+  // Watchdog: 5 second timeout
+  esp_task_wdt_init(5, true);
+  esp_task_wdt_add(NULL);
+
   pinMode(PIN_BUTTON, INPUT_PULLUP);
   analogReadResolution(12);
   analogSetPinAttenuation(PIN_BAT_VOLT, ADC_11db);
@@ -1035,6 +1041,7 @@ void setup() {
 // ================================================================
 void loop() {
   uint32_t now = millis();
+  esp_task_wdt_reset();
 
   // Button handling
   static bool lastBtn = true;
