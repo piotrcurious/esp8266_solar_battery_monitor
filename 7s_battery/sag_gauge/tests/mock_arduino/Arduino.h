@@ -9,6 +9,7 @@
 #include <stdarg.h>
 #include <map>
 #include <string>
+#include <vector>
 
 #define ADC_11db 0
 #define OUTPUT 1
@@ -29,21 +30,58 @@ void digitalWrite(int pin, int val);
 bool digitalRead(int pin);
 uint32_t analogReadMilliVolts(int pin);
 
-class String : public std::string {
+class String {
+    std::string _s;
 public:
-    String(const char* s = "") : std::string(s) {}
-    String(std::string s) : std::string(s) {}
-    void trim() {}
-    float toFloat() { try { return std::stof(*this); } catch(...) { return 0; } }
-    bool startsWith(const char* s) { return find(s) == 0; }
-    String substring(int i) { return String(substr(i)); }
+    String(const char* s = "") : _s(s ? s : "") {}
+    String(const std::string& s) : _s(s) {}
+    void trim() {
+        if (_s.empty()) return;
+        size_t first = _s.find_first_not_of(" \t\n\r");
+        if (first == std::string::npos) {
+            _s.clear();
+            return;
+        }
+        _s.erase(0, first);
+        size_t last = _s.find_last_not_of(" \t\n\r");
+        if (last != std::string::npos) _s.erase(last + 1);
+    }
+    float toFloat() const {
+        if (_s.empty()) return 0;
+        try { return std::stof(_s); } catch(...) { return 0; }
+    }
+    bool startsWith(const char* s) const {
+        if (!s) return false;
+        return _s.compare(0, strlen(s), s) == 0;
+    }
+    String substring(int i) const {
+        if (i < 0) i = 0;
+        if (i >= (int)_s.size()) return String("");
+        return String(_s.substr(i));
+    }
+    const char* c_str() const { return _s.c_str(); }
+    bool operator==(const char* s) const { return _s == s; }
+    bool operator==(const String& s) const { return _s == s._s; }
+    size_t length() const { return _s.length(); }
 };
 
 class MockSerial {
 public:
+    std::string _input_buffer;
     void begin(int baud) {}
-    bool available() { return false; }
-    String readStringUntil(char c) { return String(""); }
+    bool available() { return !_input_buffer.empty(); }
+    String readStringUntil(char c) {
+        size_t pos = _input_buffer.find(c);
+        if (pos == std::string::npos) {
+            String s = _input_buffer;
+            _input_buffer.clear();
+            return s;
+        } else {
+            String s = _input_buffer.substr(0, pos);
+            _input_buffer.erase(0, pos + 1);
+            return s;
+        }
+    }
     void printf(const char* fmt, ...) {
         va_list args;
         va_start(args, fmt);
@@ -51,9 +89,11 @@ public:
         va_end(args);
     }
     void print(const char* s) { printf("%s", s); }
+    void print(const String& s) { printf("%s", s.c_str()); }
     void print(float f, int p = 2) { printf("%.*f", p, f); }
     void print(int i) { printf("%d", i); }
     void println(const char* s) { printf("%s\n", s); }
+    void println(const String& s) { printf("%s\n", s.c_str()); }
     void println() { printf("\n"); }
 };
 

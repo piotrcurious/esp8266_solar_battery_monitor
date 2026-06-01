@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <cstring>
 #include <Preferences.h>
+#include <esp_task_wdt.h>
 
 #ifndef clamp
 #define clamp(v,lo,hi) (((v)<(lo))?(lo):((v)>(hi))?(hi):(v))
@@ -240,6 +241,10 @@ void renderUi() {
 
 void setup() {
   Serial.begin(115200);
+
+  esp_task_wdt_init(5, true);
+  esp_task_wdt_add(NULL);
+
   analogReadResolution(12);
   lcd.init(); lcd.setRotation(0); lcd.setBrightness(200);
   canvas.createSprite(160, 80);
@@ -259,6 +264,7 @@ static uint32_t lastSaveMs = 0;
 
 void loop() {
   uint32_t now = millis();
+  esp_task_wdt_reset();
 
   if (Serial.available()) {
       String cmd = Serial.readStringUntil('\n');
