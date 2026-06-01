@@ -6,7 +6,7 @@
 extern MockSerial Serial;
 
 #define ARDUINO 100
-#include "../infer.ino"
+#include "../sag_gauge.ino"
 
 void fuzz_serial(const std::string& cmd) {
     Serial._input_buffer = cmd;
