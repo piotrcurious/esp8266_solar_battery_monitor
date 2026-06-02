@@ -1,0 +1,67 @@
+#pragma once
+#include <math.h>
+#include <algorithm>
+
+#ifndef clamp
+#define clamp(v,lo,hi) (((v)<(lo))?(lo):((v)>(hi))?(hi):(v))
+#endif
+
+static inline float clampf(float x, float lo, float hi) {
+  return x < lo ? lo : x > hi ? hi : x;
+}
+
+static inline float lp(float p, float in, float a) {
+  return p + a * (in - p);
+}
+
+struct MonitorConfig {
+    int   cells_s;
+    float cap_ah;
+    float nom_v_cell;
+    float rint_fresh_mo;
+    float rint_dead_mo;
+    float bat_div;
+    float cur_div;
+    float acs_mv_a;
+    float ref_load_a;
+    float alpha_adc;
+    float alpha_rint;
+    float alpha_rest_v;
+    float alpha_load_v;
+    float idle_a;
+    float sag_min_a;
+    float charge_eff;
+    uint32_t dim_ms;
+    float km_per_wh;
+    float thermal_k;
+};
+
+static constexpr MonitorConfig CFG_DEFAULT = {
+    7, 20.0f, 3.60f, 60.0f, 300.0f,
+    (110000.0f + 10000.0f) / 10000.0f, 2.0f, 185.0f, 10.0f,
+    0.08f, 0.01f, 0.12f, 0.002f,
+    0.20f, 1.50f, 0.99f, 30000, 0.05f, 0.2f
+};
+
+static float getRintSocFactor(float soc) {
+  if (soc > 80.0f) return 1.0f;
+  if (soc < 10.0f) return 1.5f;
+  return 1.0f + (80.0f - soc) * (0.5f / 70.0f);
+}
+
+static float socFromV(float v) {
+  static constexpr struct { float v, s; } T[] = {
+    {4.20f,100},{4.10f,95},{4.00f,88},{3.95f,84},{3.90f,78},
+    {3.85f,70},{3.80f,62},{3.75f,54},{3.70f,45},{3.65f,36},
+    {3.60f,28},{3.50f,16},{3.40f,8},{3.20f,0}
+  };
+  constexpr int N = sizeof(T)/sizeof(T[0]);
+  if (v >= T[0].v) return 100.0f;
+  if (v <= T[N-1].v) return 0.0f;
+  for (int i = 0; i+1 < N; ++i)
+    if (v <= T[i].v && v >= T[i+1].v) {
+      float t = (v-T[i+1].v)/(T[i].v-T[i+1].v);
+      return T[i+1].s + t*(T[i].s-T[i+1].s);
+    }
+  return 0.0f;
+}

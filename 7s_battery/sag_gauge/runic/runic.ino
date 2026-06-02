@@ -5,10 +5,7 @@
 #include <cstring>
 #include <Preferences.h>
 #include <esp_task_wdt.h>
-
-#ifndef clamp
-#define clamp(v,lo,hi) (((v)<(lo))?(lo):((v)>(hi))?(hi):(v))
-#endif
+#include "../battery_logic.h"
 
 // ============================================================
 // User hardware configuration
@@ -20,31 +17,7 @@ static constexpr int PIN_BAT_VOLT = 34, PIN_CUR_SENS = 35, PIN_BUTTON = 0;
 static constexpr float CUR_POLARITY = 1.0f;
 static constexpr float BAT_V_OFFSET = 0.0f;
 
-struct MonitorConfig {
-    int   cells_s;
-    float cap_ah;
-    float nom_v_cell;
-    float rint_fresh_mo;
-    float rint_dead_mo;
-    float bat_div;
-    float cur_div;
-    float acs_mv_a;
-    float alpha_adc;
-    float alpha_rint;
-    float alpha_rest_v;
-    float alpha_load_v;
-    float idle_a;
-    float sag_min_a;
-    float charge_eff;
-    uint32_t dim_ms;
-};
-
-static constexpr MonitorConfig CFG = {
-    7, 20.0f, 3.60f, 60.0f, 300.0f,
-    (110000.0f + 10000.0f) / 10000.0f, 2.0f, 185.0f,
-    0.08f, 0.01f, 0.12f, 0.002f,
-    0.20f, 1.50f, 0.99f, 30000
-};
+static constexpr MonitorConfig CFG = CFG_DEFAULT;
 
 static constexpr uint32_t UI_REFRESH_MS = 100;
 static constexpr float ALPHA_ZERO = 0.005f;
@@ -92,28 +65,11 @@ static constexpr uint32_t NVS_VERSION = 2;
 // ============================================================
 // Helpers
 // ============================================================
-static inline float clampf(float x, float lo, float hi) { return x < lo ? lo : x > hi ? hi : x; }
-static inline float lp(float p, float in, float a) { return p + a * (in - p); }
 static uint32_t adcAvgMv(int pin, int n) {
   uint32_t s = 0; for (int i = 0; i < n; ++i) s += analogReadMilliVolts(pin);
   return s / (uint32_t)n;
 }
 
-static float socFromV(float v) {
-  static constexpr struct { float v, s; } T[] = {
-    {4.20f,100},{4.10f,95},{4.00f,88},{3.95f,84},{3.90f,78},{3.85f,70},
-    {3.80f,62},{3.75f,54},{3.70f,45},{3.65f,36},{3.60f,28},{3.50f,16},
-    {3.40f,8},{3.20f,0}
-  };
-  if (v >= T[0].v) return 100.0f;
-  if (v <= T[13].v) return 0.0f;
-  for (int i = 0; i < 13; ++i)
-    if (v <= T[i].v && v >= T[i+1].v) {
-      float t = (v-T[i+1].v)/(T[i].v-T[i+1].v);
-      return T[i+1].s + t*(T[i].s-T[i+1].s);
-    }
-  return 0.0f;
-}
 
 static uint32_t blendCol(uint32_t a, uint32_t b, float t) {
   t = clampf(t, 0.0f, 1.0f);
@@ -180,7 +136,7 @@ static void updateMeasurements() {
 
   if (vRested < 1.0f) vRested = vPack;
   if (fabsf(iA) < CFG.idle_a) vRested = lp(vRested, vPack, CFG.alpha_rest_v);
-  else vRested = lp(vRested, vPack + (iA > 0 ? 1.0f : -1.0f) * fabsf(iA) * rInt, CFG.alpha_load_v);
+  else vRested = lp(vRested, vPack + (iA > 0 ? 1.0f : -1.0f) * fabsf(iA) * rInt * getRintSocFactor(socBlend), CFG.alpha_load_v);
 
   // Advanced Rint Estimation (Step + Steady-State)
   float dI = iA - lastIA_step;
