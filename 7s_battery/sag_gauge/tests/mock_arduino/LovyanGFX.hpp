@@ -6,6 +6,12 @@
 #include <algorithm>
 #include <cmath>
 
+#ifdef UI_AUDIT
+extern "C" void audit_draw_call(const char* type, int x, int y, int w, int h);
+#else
+#define audit_draw_call(type, x, y, w, h) ((void)0)
+#endif
+
 namespace lgfx {
     class LGFX_Device {
         int _brightness = 0;
@@ -80,6 +86,7 @@ public:
         printf("SPRITE:fillScreen:color=0x%06X\n", c);
     }
     void fillRect(int x, int y, int w, int h, uint32_t c) {
+        audit_draw_call("fillRect", x, y, w, h);
         if (_buffer.empty()) return;
         for (int j=y; j<y+h && j<_h; j++)
             for (int i=x; i<x+w && i<_w; i++)
@@ -87,13 +94,14 @@ public:
         printf("SPRITE:fillRect:x=%d,y=%d,w=%d,h=%d,color=0x%06X\n", x, y, w, h, c);
     }
     void drawRect(int x, int y, int w, int h, uint32_t c) {
+        audit_draw_call("drawRect", x, y, w, h);
         if (_buffer.empty()) return;
         printf("SPRITE:drawRect:x=%d,y=%d,w=%d,h=%d,color=0x%06X\n", x, y, w, h, c);
     }
     void drawPixel(int x, int y, uint32_t c) {
+        audit_draw_call("drawPixel", x, y, 1, 1);
         if (_buffer.empty()) return;
         if (x>=0 && x<_w && y>=0 && y<_h) _buffer[y*_w + x] = c;
-        // Skip logging single pixels to avoid log spam, except for markers
     }
     void fillRoundRect(int x, int y, int w, int h, int r, uint32_t c) {
         fillRect(x, y, w, h, c);
@@ -102,6 +110,8 @@ public:
         drawRect(x, y, w, h, c);
     }
     void drawLine(int x0, int y0, int x1, int y1, uint32_t c) {
+        int w = abs(x1-x0)+1, h = abs(y1-y0)+1;
+        audit_draw_call("drawLine", std::min(x0,x1), std::min(y0,y1), w, h);
         if (_buffer.empty()) return;
         printf("SPRITE:drawLine:x0=%d,y0=%d,x1=%d,y1=%d,color=0x%06X\n", x0, y0, x1, y1, c);
     }
@@ -109,14 +119,24 @@ public:
     void setTextColor(uint32_t c, uint32_t b = 0) { _cur_color = c; }
     void setCursor(int x, int y) { _cur_x = x; _cur_y = y; }
     void print(const char* s) {
-        if (_buffer.empty()) return;
-        printf("SPRITE:print:x=%d,y=%d,size=%d,color=0x%06X,text=\"%s\"\n", _cur_x, _cur_y, _text_size, _cur_color, s);
         int len = strlen(s);
         int cw = 6 * _text_size;
+        int ch = 8 * _text_size;
+        audit_draw_call("print", _cur_x, _cur_y, len*cw, ch);
+        if (_buffer.empty()) return;
+        printf("SPRITE:print:x=%d,y=%d,size=%d,color=0x%06X,text=\"%s\"\n", _cur_x, _cur_y, _text_size, _cur_color, s);
         _cur_x += len * cw;
     }
     void print(float f, int p = 2) {
         char buf[32]; snprintf(buf, 32, "%.*f", p, f); print(buf);
+    }
+    void drawCircle(int x, int y, int r, uint32_t c) {
+        audit_draw_call("drawCircle", x-r, y-r, 2*r, 2*r);
+        if (_buffer.empty()) return;
+    }
+    void fillCircle(int x, int y, int r, uint32_t c) {
+        audit_draw_call("fillCircle", x-r, y-r, 2*r, 2*r);
+        if (_buffer.empty()) return;
     }
     void pushSprite(void* device, int x, int y) {
         printf("SPRITE:pushSprite:x=%d,y=%d\n", x, y);
