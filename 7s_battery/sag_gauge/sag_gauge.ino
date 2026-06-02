@@ -5,20 +5,14 @@
 #include <cstring>
 #include <Preferences.h>
 #include <esp_task_wdt.h>
+#include "hardware_config.h"
 #include "battery_logic.h"
 
 // ================================================================
-//  Hardware
+//  Hardware & Config
 // ================================================================
-static constexpr int TFT_SCK  = 18, TFT_MOSI = 23, TFT_MISO = -1;
-static constexpr int TFT_DC   = 16, TFT_CS   = 5,  TFT_RST  = 17, TFT_BL = 4;
-static constexpr int PIN_BAT_VOLT = 34, PIN_CUR_SENS = 35, PIN_BUTTON = 0;
-
 static constexpr float CUR_POLARITY = 1.0f;   // flip to -1 if sense is backwards
-
-// Calibration
 static constexpr float BAT_V_OFFSET = 0.0f;   // add to measured pack voltage (V)
-
 static constexpr MonitorConfig CFG = CFG_DEFAULT;
 
 // Derived tuning
@@ -45,37 +39,6 @@ static float iHist[HIST_N] = {};
 static int histIdx = 0;
 static uint32_t lastHistMs = 0;
 
-// ================================================================
-//  LovyanGFX
-// ================================================================
-class LGFX : public lgfx::LGFX_Device {
-  lgfx::Panel_ST7735 _panel;
-  lgfx::Bus_SPI      _bus;
-  lgfx::Light_PWM    _light;
-public:
-  LGFX() {
-    { auto c = _bus.config();
-      c.spi_host = VSPI_HOST; c.spi_mode = 0;
-      c.freq_write = 40000000; c.freq_read = 16000000;
-      c.pin_sclk = TFT_SCK; c.pin_mosi = TFT_MOSI;
-      c.pin_miso = TFT_MISO; c.pin_dc = TFT_DC;
-      _bus.config(c); _panel.setBus(&_bus); }
-    { auto c = _panel.config();
-      c.pin_cs = TFT_CS; c.pin_rst = TFT_RST; c.pin_busy = -1;
-      c.panel_width = 160; c.panel_height = 80;
-      c.offset_x = 0; c.offset_y = 0; c.offset_rotation = 0;
-      c.dummy_read_pixel = 8; c.dummy_read_bits = 1;
-      c.readable = true; c.invert = false;
-      c.rgb_order = false; c.dlen_16bit = false; c.bus_shared = false;
-      _panel.config(c); }
-    { auto c = _light.config();
-      c.pin_bl = TFT_BL; c.invert = false;
-      c.freq = 44100; c.pwm_channel = 7;
-      _light.config(c); _panel.setLight(&_light); }
-    setPanel(&_panel);
-  }
-};
-
 static LGFX        lcd;
 static LGFX_Sprite canvas(&lcd);
 
@@ -85,7 +48,6 @@ static float getEffectiveCapAh();
 // ================================================================
 //  State
 // ================================================================
-enum class PackState : uint8_t { IDLE, CHARGING, DISCHARGING };
 
 static float learnedCapAh = CFG.cap_ah;
 
@@ -158,7 +120,6 @@ static bool     isDimmed   = false;
 static bool     useImperial = false;
 
 static Preferences prefs;
-static constexpr uint32_t NVS_VERSION = 2;
 
 // ================================================================
 //  Helpers
@@ -206,6 +167,7 @@ static const char* stateStr() {
 }
 
 static void formatUnit(char* buf, size_t sz, float val, const char* unit, const char* milliUnit) {
+    if (!isfinite(val)) { snprintf(buf, sz, "---"); return; }
     if (fabsf(val) < 1.0f) snprintf(buf, sz, "%.0f%s", val * 1000.0f, milliUnit);
     else                  snprintf(buf, sz, "%.2f%s", val, unit);
 }
@@ -300,9 +262,9 @@ static void drawSparkline(int x, int y, int w, int h, float* data, int n, uint32
 
 static void drawPageDots(int x, int y, int total, int cur) {
   for (int i = 0; i < total; ++i) {
-    int px = x + i*7;
-    if (i==cur) canvas.fillRoundRect(px, y, 5, 2, 1, lcd.color888(200,200,240));
-    else        canvas.drawRoundRect(px, y, 5, 2, 1, lcd.color888( 70, 70, 90));
+    int px = x + i*5;
+    if (i==cur) canvas.fillRoundRect(px, y, 3, 2, 1, lcd.color888(200,200,240));
+    else        canvas.drawRoundRect(px, y, 3, 2, 1, lcd.color888( 70, 70, 90));
   }
 }
 
@@ -437,7 +399,7 @@ static void renderPage0() {
   canvas.fillRoundRect(126,71,16,8,4,pillC); // rounded pill
   if (vSag > 1.2f && (millis()/250)%2==0) canvas.drawRoundRect(126,71,16,8,4,lcd.color888(255,255,255));
   else                                     canvas.drawRoundRect(126,71,16,8,4,lcd.color888(100,100,100));
-  drawPageDots(146, 75, 3, 0);
+  drawPageDots(135, 75, 5, 0);
 }
 
 // ================================================================
@@ -499,7 +461,7 @@ static void renderPage1() {
   snprintf(b,sizeof(b),"%.0f%% R:%.0fmO", sohPct, rInt*1000.0f);
   canvas.print(b);
 
-  drawPageDots(146, 75, 3, 1);
+  drawPageDots(135, 75, 5, 1);
 }
 
 static void renderPage4() {
@@ -540,7 +502,7 @@ static void renderPage4() {
   snprintf(b, sizeof(b), "%.1f C", tEst);
   canvas.setCursor(90, 72); canvas.setTextColor(tEst > 50.0f ? lcd.color888(255,100,50) : lcd.color888(100,200,255)); canvas.print(b);
 
-  drawPageDots(138, 75, 5, 4);
+  drawPageDots(135, 75, 5, 4);
 }
 
 static void renderPage3() {
@@ -576,7 +538,7 @@ static void renderPage3() {
   else             snprintf(b, sizeof(b), "Avg: %.1f Wh/km", (distKm > 0.1f) ? (whOut / distKm) : 0);
   canvas.setCursor(3, 65); canvas.print(b);
 
-  drawPageDots(142, 75, 4, 3);
+  drawPageDots(135, 75, 5, 3);
 }
 
 static void renderPage2() {
@@ -618,12 +580,12 @@ static void renderPage2() {
   snprintf(b,sizeof(b),"%.1f%%", rtEff);
   canvas.setCursor(80,65); canvas.setTextColor(lcd.color888(100,200,255), TFT_BLACK); canvas.print(b);
 
-  canvas.setCursor(3,73); canvas.setTextColor(lcd.color888(150,150,170), TFT_BLACK); canvas.print("Life Cycles:");
+  canvas.setCursor(3,71); canvas.setTextColor(lcd.color888(150,150,170), TFT_BLACK); canvas.print("Life Cycles:");
   float cycles = ahTotal / (CFG.cap_ah * 2.0f);
-  snprintf(b,sizeof(b),"%.1f  (%+.1f%%)", cycles, socBlend - sessionStartSoc);
-  canvas.setCursor(80,73); canvas.setTextColor(lcd.color888(200,150,255), TFT_BLACK); canvas.print(b);
+  snprintf(b,sizeof(b),"%.1f(%+.1f%%)", cycles, socBlend - sessionStartSoc);
+  canvas.setCursor(80,71); canvas.setTextColor(lcd.color888(200,150,255), TFT_BLACK); canvas.print(b);
 
-  drawPageDots(146, 75, 3, 2);
+  drawPageDots(135, 75, 5, 2);
 }
 
 // ================================================================
@@ -632,7 +594,9 @@ static void renderPage2() {
 
 static void sampleSensors(float dt) {
   // Adaptive ADC alpha: faster response during high load
-  float aAdc = CFG.alpha_adc * (1.0f + clampf(fabsf(iA) / 10.0f, 0.0f, 2.0f));
+    float iA_abs = fabsf(iA);
+    if (!isfinite(iA_abs)) iA_abs = 0;
+    float aAdc = CFG.alpha_adc * (1.0f + clampf(iA_abs / 10.0f, 0.0f, 2.0f));
 
   // ── ADC (16-point hardware average per pin)
   sBatMv = lp(sBatMv, (float)adcAvgMv(PIN_BAT_VOLT, 16), aAdc);
@@ -681,8 +645,8 @@ static void updateVocEstimator() {
     vRested = lp(vRested, vPack, CFG.alpha_rest_v);
   } else {
     float iSign = (pState == PackState::DISCHARGING) ? 1.0f : -1.0f;
-    // Account for SOC-dependent Rint increase in the Voc estimation path
-    float rCurrent = rInt * getRintSocFactor(socBlend);
+    // Account for SOC and Temp-dependent Rint increase in the Voc estimation path
+    float rCurrent = rInt * getRintSocFactor(socBlend) * getRintTempFactor(tEst);
     vRested = lp(vRested, vPack + iSign * fabsf(iA) * rCurrent, CFG.alpha_load_v);
   }
   vSag = fabsf(vRested - vPack);
@@ -695,9 +659,13 @@ static float getEffectiveCapAh() {
 }
 
 static void updateThermal(float dt) {
-    float powerLost = iA * iA * rInt;
+    // Dissipated power uses current effective resistance (not normalized)
+    float rCurrent = rInt * getRintSocFactor(socBlend) * getRintTempFactor(tEst);
+    float powerLost = iA * iA * rCurrent;
+    if (!isfinite(powerLost)) powerLost = 0;
     float deltaT = (powerLost - CFG.thermal_k * (tEst - 25.0f)) * (dt / 120.0f);
     tEst += deltaT;
+    if (!isfinite(tEst)) tEst = 25.0f;
 }
 
 static void updateRintEstimator() {
@@ -717,7 +685,8 @@ static void updateRintEstimator() {
   // 1. Step-based estimation (Instantaneous dV/dI) - Breaks circular dependency with Voc
   if (fabsf(dI) > 1.5f) { // Significant current step
     float rStepRaw = -dV / dI; // -dV because I is positive for discharge
-    float rStep = rStepRaw / getRintSocFactor(socBlend);
+    // Normalize to 25C and 100% SOC
+    float rStep = rStepRaw / (getRintSocFactor(socBlend) * getRintTempFactor(tEst));
 
     if (isfinite(rStep) && rStep > 0.010f && rStep < 0.800f) {
         rMedBuf[rMedHead] = rStep;
@@ -735,24 +704,31 @@ static void updateRintEstimator() {
 
   if (fabsf(iA) > CFG.sag_min_a && dI_steady < 0.1f) {
     float rEstRaw = vSag / fabsf(iA);
-    float rEst = rEstRaw / getRintSocFactor(socBlend);
+    float rEst = rEstRaw / (getRintSocFactor(socBlend) * getRintTempFactor(tEst));
 
     if (isfinite(rEst) && rEst > 0.010f && rEst < 0.800f) {
       if (fabsf(dvdtVps) < 0.1f) {
         rMedBuf[rMedHead] = rEst;
         rMedHead = (rMedHead + 1) % RINT_MED_N;
         if (rMedCount < RINT_MED_N) ++rMedCount;
-        if (rMedCount >= 3) {
-          float tmp[RINT_MED_N];
-          memcpy(tmp, rMedBuf, rMedCount * sizeof(float));
-          std::sort(tmp, tmp + rMedCount);
-
-          // Adaptive Rint alpha: faster updates at higher currents (higher SNR)
-          float aRint = CFG.alpha_rint * (1.0f + clampf(fabsf(iA) / 5.0f, 0.0f, 3.0f));
-          rInt = lp(rInt, tmp[rMedCount / 2], aRint);
-        }
       }
     }
+  }
+
+  // 3. Apply filtered Rint from median buffer if we have enough samples
+  if (rMedCount >= 3) {
+      float tmp[RINT_MED_N];
+      memcpy(tmp, rMedBuf, rMedCount * sizeof(float));
+      std::sort(tmp, tmp + rMedCount);
+
+      // Use higher alpha for transient steps, lower for steady state noise rejection
+      float alphaBase = (fabsf(dI) > 1.5f) ? (CFG.alpha_rint * 3.0f) : CFG.alpha_rint;
+      float aRint = alphaBase * (1.0f + clampf(fabsf(iA) / 5.0f, 0.0f, 3.0f));
+
+      float rTarget = tmp[rMedCount / 2];
+      if (isfinite(rTarget) && rTarget > 0.010f) {
+          rInt = lp(rInt, rTarget, aRint);
+      }
   }
 
   // Refined SOH: Weighted combination of Rint health and cycle-based aging.
@@ -788,7 +764,7 @@ static void resetSession() {
 }
 
 static void updateSoc(float dt) {
-  if (!socInit) { socCoul = socOcv; wCoul = 0.0f; socInit = true; }
+  if (!socInit) { socCoul = socOcv; socBlend = socOcv; wCoul = 0.0f; socInit = true; }
   float iInt = (fabsf(iA) < COULOMB_DEADBAND_A) ? 0.0f : iA;
 
   // Apply charge efficiency factor
@@ -808,7 +784,10 @@ static void updateSoc(float dt) {
     }
   }
   wCoul = (pState != PackState::IDLE) ? clampf(wCoul + WINC, 0.0f, WMAX_COUL) : lp(wCoul, 0.0f, ALPHA_WDECAY);
-  socBlend = (1.0f - wCoul) * socOcv + wCoul * socCoul;
+
+  float targetBlend = (1.0f - wCoul) * socOcv + wCoul * socCoul;
+  // Apply final stage smoothing to prevent 1% jumps
+  socBlend = lp(socBlend, targetBlend, 0.1f);
 
   float currentDod = 100.0f - socBlend;
   if (currentDod > sessionMaxDod) sessionMaxDod = currentDod;
@@ -816,6 +795,7 @@ static void updateSoc(float dt) {
 
 static void saveState() {
   prefs.begin("sag_gauge", false);
+  prefs.putUInt("magic", NVS_MAGIC);
   prefs.putUInt("version", NVS_VERSION);
   prefs.putFloat("ahOut", ahOut);
   prefs.putFloat("ahIn", ahIn);
@@ -831,7 +811,8 @@ static void saveState() {
 static void loadState() {
   prefs.begin("sag_gauge", true);
   uint32_t v = prefs.getUInt("version", 0);
-  if (v == NVS_VERSION) {
+  uint32_t m = prefs.getUInt("magic", 0);
+  if (v == NVS_VERSION && m == NVS_MAGIC) {
     ahOut = prefs.getFloat("ahOut", 0.0f);
     ahIn = prefs.getFloat("ahIn", 0.0f);
     whOut = prefs.getFloat("whOut", 0.0f);
@@ -849,6 +830,7 @@ static void loadState() {
 static void integrateEnergy(float dt) {
   float dAh = fabsf(iA) * (dt / 3600.0f);
   float dWh = fabsf(pW) * (dt / 3600.0f);
+  if (!isfinite(dAh) || !isfinite(dWh)) return;
 
   static float ahTotalK = 0.0f;
   auto kahanAdd = [](float &sum, float &c, float input) {
@@ -949,6 +931,8 @@ void setup() {
   canvas.fillScreen(TFT_BLACK);
 
   loadState();
+  Serial.printf("BOOT: SagGauge v3.2 | NVS v%d\n", NVS_VERSION);
+  Serial.printf("CONF: %dS | %.1fAh | %.1fmO\n", CFG.cells_s, learnedCapAh, rInt*1000.0f);
 
   // Boot calibration – stable 64-sample average before any load
   delay(300);

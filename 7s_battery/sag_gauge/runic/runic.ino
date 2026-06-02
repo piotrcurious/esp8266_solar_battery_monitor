@@ -5,48 +5,18 @@
 #include <cstring>
 #include <Preferences.h>
 #include <esp_task_wdt.h>
+#include "../hardware_config.h"
 #include "../battery_logic.h"
 
 // ============================================================
 // User hardware configuration
 // ============================================================
-static constexpr int TFT_SCK  = 18, TFT_MOSI = 23, TFT_MISO = -1;
-static constexpr int TFT_DC   = 16, TFT_CS   = 5,  TFT_RST  = 17, TFT_BL = 4;
-static constexpr int PIN_BAT_VOLT = 34, PIN_CUR_SENS = 35, PIN_BUTTON = 0;
-
 static constexpr float CUR_POLARITY = 1.0f;
 static constexpr float BAT_V_OFFSET = 0.0f;
-
 static constexpr MonitorConfig CFG = CFG_DEFAULT;
 
 static constexpr uint32_t UI_REFRESH_MS = 100;
 static constexpr float ALPHA_ZERO = 0.005f;
-
-// ============================================================
-// LovyanGFX custom device
-// ============================================================
-class LGFX : public lgfx::LGFX_Device {
-  lgfx::Panel_ST7735 _panel;
-  lgfx::Bus_SPI      _bus;
-  lgfx::Light_PWM    _light;
-public:
-  LGFX() {
-    { auto c = _bus.config();
-      c.spi_host = VSPI_HOST; c.spi_mode = 0;
-      c.freq_write = 40000000; c.freq_read = 16000000;
-      c.pin_sclk = TFT_SCK; c.pin_mosi = TFT_MOSI;
-      c.pin_miso = TFT_MISO; c.pin_dc = TFT_DC;
-      _bus.config(c); _panel.setBus(&_bus); }
-    { auto c = _panel.config();
-      c.pin_cs = TFT_CS; c.pin_rst = TFT_RST;
-      c.panel_width = 160; c.panel_height = 80;
-      _panel.config(c); }
-    { auto c = _light.config();
-      c.pin_bl = TFT_BL; c.freq = 44100; c.pwm_channel = 7;
-      _light.config(c); _panel.setLight(&_light); }
-    setPanel(&_panel);
-  }
-};
 
 static LGFX lcd;
 static LGFX_Sprite canvas(&lcd);
@@ -60,7 +30,6 @@ static float socOcv = 0.0f, socCoul = 0.0f, socBlend = 0.0f;
 static float ahOut = 0.0f, ahOutK = 0.0f;
 static uint32_t lastUiMs = 0;
 static Preferences prefs;
-static constexpr uint32_t NVS_VERSION = 2;
 
 // ============================================================
 // Helpers
@@ -102,6 +71,7 @@ static void drawBar(int x, int y, int w, int h, float soc, uint32_t fill, uint32
 
 static void saveState() {
   prefs.begin("sag_gauge", false);
+  prefs.putUInt("magic", NVS_MAGIC);
   prefs.putUInt("version", NVS_VERSION);
   prefs.putFloat("ahOut", ahOut);
   prefs.putFloat("rInt", rInt);
@@ -112,7 +82,8 @@ static void saveState() {
 static void loadState() {
   prefs.begin("sag_gauge", true);
   uint32_t v = prefs.getUInt("version", 0);
-  if (v == NVS_VERSION) {
+  uint32_t m = prefs.getUInt("magic", 0);
+  if (v == NVS_VERSION && m == NVS_MAGIC) {
     ahOut = prefs.getFloat("ahOut", 0.0f);
     rInt = prefs.getFloat("rInt", 0.060f);
     sZeroMv = prefs.getFloat("sZeroMv", 0.0f);
@@ -134,9 +105,14 @@ static void updateMeasurements() {
   vPack = (sBatMv * CFG.bat_div) / 1000.0f + BAT_V_OFFSET;
   iA = CUR_POLARITY * (sCurMv - sZeroMv) * CFG.cur_div / CFG.acs_mv_a;
 
+  // Runic simple thermal model for temp comp
+  static float tEstRunic = 25.0f;
+  float pLoss = iA * iA * rInt;
+  tEstRunic += (pLoss - 0.2f * (tEstRunic - 25.0f)) * (UI_REFRESH_MS / 120000.0f);
+
   if (vRested < 1.0f) vRested = vPack;
   if (fabsf(iA) < CFG.idle_a) vRested = lp(vRested, vPack, CFG.alpha_rest_v);
-  else vRested = lp(vRested, vPack + (iA > 0 ? 1.0f : -1.0f) * fabsf(iA) * rInt * getRintSocFactor(socBlend), CFG.alpha_load_v);
+  else vRested = lp(vRested, vPack + (iA > 0 ? 1.0f : -1.0f) * fabsf(iA) * rInt * getRintSocFactor(socBlend) * getRintTempFactor(tEstRunic), CFG.alpha_load_v);
 
   // Advanced Rint Estimation (Step + Steady-State)
   float dI = iA - lastIA_step;
@@ -154,7 +130,8 @@ static void updateMeasurements() {
   lastIA_step = iA; lastV_step = vPack;
 
   socOcv = socFromV(vRested / (float)CFG.cells_s);
-  // Simple blend for runic
+  // Simple blend for runic - ensuring smooth transitions
+  if (socBlend < 1.0f) socBlend = socOcv;
   socBlend = lp(socBlend, socOcv, 0.05f);
 
   if (iA > CFG.idle_a) {
@@ -166,6 +143,8 @@ static void updateMeasurements() {
 
 void renderUi() {
   char b[64];
+  if (!isfinite(socBlend)) socBlend = 0;
+  if (!isfinite(rInt)) rInt = 0;
   canvas.fillScreen(TFT_BLACK);
   canvas.fillRoundRect(0, 0, 160, 14, 3, lcd.color888(18, 18, 24));
   canvas.setTextSize(1); canvas.setTextColor(socCol(socBlend));

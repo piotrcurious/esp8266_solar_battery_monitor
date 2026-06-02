@@ -45,15 +45,26 @@ static constexpr MonitorConfig CFG_DEFAULT = {
 
 static float getRintSocFactor(float soc) {
   if (soc > 80.0f) return 1.0f;
-  if (soc < 10.0f) return 1.5f;
-  return 1.0f + (80.0f - soc) * (0.5f / 70.0f);
+  if (soc < 10.0f) return 1.8f; // Slightly more aggressive rise at end of life
+  return 1.0f + (80.0f - soc) * (0.8f / 70.0f);
 }
+
+// Arrhenius-like Rint temp factor (Reference: 25C = 1.0)
+// For every 10C drop, Rint increases by ~1.4x (Li-ion typical)
+static float getRintTempFactor(float t_c) {
+    float dt = 25.0f - t_c;
+    return powf(1.035f, dt); // ~1.41x at 15C, ~2x at 5C
+}
+
+static constexpr uint32_t NVS_VERSION = 2;
+static constexpr uint32_t NVS_MAGIC = 0x546B4142; // "BAtT"
 
 static float socFromV(float v) {
   static constexpr struct { float v, s; } T[] = {
-    {4.20f,100},{4.10f,95},{4.00f,88},{3.95f,84},{3.90f,78},
-    {3.85f,70},{3.80f,62},{3.75f,54},{3.70f,45},{3.65f,36},
-    {3.60f,28},{3.50f,16},{3.40f,8},{3.20f,0}
+    {4.20f,100},{4.10f,95},{4.03f,90},{3.97f,85},{3.91f,80},
+    {3.86f,75},{3.82f,70},{3.79f,65},{3.77f,60},{3.75f,55},
+    {3.73f,50},{3.71f,45},{3.69f,40},{3.67f,35},{3.65f,30},
+    {3.63f,25},{3.61f,20},{3.58f,15},{3.55f,10},{3.45f,5},{3.20f,0}
   };
   constexpr int N = sizeof(T)/sizeof(T[0]);
   if (v >= T[0].v) return 100.0f;

@@ -9,7 +9,9 @@
 void test_soc_from_v() {
     printf("Testing socFromV()...\n");
     assert(fabs(socFromV(4.20f) - 100.0f) < 0.1f);
-    assert(fabs(socFromV(3.60f) - 28.0f) < 0.1f);
+    // New curve: 3.61V=20%, 3.63V=25% -> 3.62V=22.5%
+    // 3.65V = 30.0%
+    assert(fabs(socFromV(3.65f) - 30.0f) < 0.1f);
     assert(fabs(socFromV(3.20f) - 0.0f) < 0.1f);
     assert(fabs(socFromV(4.50f) - 100.0f) < 0.1f);
     assert(fabs(socFromV(3.00f) - 0.0f) < 0.1f);
