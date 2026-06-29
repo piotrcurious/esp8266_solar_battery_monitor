@@ -302,16 +302,17 @@ static void renderPage0() {
   canvas.setTextSize(2);
   canvas.setTextColor(socCol(socBlend), TFT_BLACK);
   snprintf(b,sizeof(b),"%.2fV", vCellRest);
-  canvas.setCursor(3,14); canvas.print(b);
+  canvas.setCursor(3,13); canvas.print(b);
 
   // Load bar relative to ~20A
   float loadPct = clampf(fabsf(iA) / 20.0f, 0.0f, 1.0f);
-  canvas.drawRect(3, 27, 72, 3, lcd.color888(40,40,60));
-  canvas.fillRect(3, 27, (int)(72 * loadPct), 3, pState == PackState::CHARGING ? lcd.color888(100,255,100) : lcd.color888(255,100,50));
+  canvas.drawRect(3, 31, 72, 3, lcd.color888(40,40,60));
+  int lw = (int)(72 * loadPct + 0.5f);
+  if (lw > 0) canvas.fillRect(3, 31, lw, 3, pState == PackState::CHARGING ? lcd.color888(100,255,100) : lcd.color888(255,100,50));
 
   // Peak load ghost marker
   float peakLoadPct = clampf(fabsf(peakIA) / 20.0f, 0.0f, 1.0f);
-  canvas.fillRect(3 + (int)(72 * peakLoadPct) - 1, 27, 2, 3, lcd.color888(150,150,150));
+  canvas.fillRect(3 + (int)(72 * peakLoadPct) - 1, 31, 2, 3, lcd.color888(150,150,150));
 
   canvas.setTextSize(1);
   uint32_t loadCol = (fabsf(iA) > 15.0f) ? lcd.color888(255, 100, 50) : lcd.color888(180, 180, 200);
@@ -336,12 +337,12 @@ static void renderPage0() {
   snprintf(b,sizeof(b),"%s %s", sS, sR);
 
   if (fabsf(dvdtVps) > 0.5f) {
-      canvas.fillRect(2, 31, 64, 10, lcd.color888(60, 20, 20));
+      canvas.fillRect(2, 35, 64, 10, lcd.color888(60, 20, 20));
       canvas.setTextColor(lcd.color888(255,150,150));
   } else {
       canvas.setTextColor(lcd.color888(140,140,160), TFT_BLACK);
   }
-  canvas.setCursor(3,32); canvas.print(b);
+  canvas.setCursor(3,36); canvas.print(b);
 
   // Blended SOC bar (single clean bar replaces original double-overlay)
   drawSegBar(3,44,154,18, socBlend,
@@ -519,7 +520,8 @@ static void renderPage3() {
     canvas.setCursor(3, y); canvas.print(lbl);
     float pct = (total > 0.01f) ? (wh / total) : 0;
     canvas.drawRect(50, y, 60, 7, lcd.color888(40,40,50));
-    canvas.fillRect(50, y, (int)(60*pct), 7, c);
+    int bw = (int)(60*pct + 0.5f);
+    if (bw > 0) canvas.fillRect(50, y, bw, 7, c);
     snprintf(b, sizeof(b), "%.1fWh", wh);
     canvas.setCursor(115, y); canvas.print(b);
   };
@@ -998,10 +1000,11 @@ void loop() {
       }
   }
 
-  if (isDimmed && pState != PackState::IDLE) {
+  if (isDimmed && (pState != PackState::IDLE || !btn)) {
       lcd.setBrightness(200);
       isDimmed = false;
       lastActMs = now;
+      pageMs = now; // Reset auto-flip timer on wake
   }
 
   // Non-blocking auto page flip (only if button not used recently)

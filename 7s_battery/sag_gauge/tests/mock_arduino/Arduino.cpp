@@ -28,7 +28,19 @@ void analogReadResolution(int res) {}
 void analogSetPinAttenuation(int pin, int atten) {}
 void pinMode(int pin, int mode) {}
 void digitalWrite(int pin, int val) {}
-bool digitalRead(int pin) { return true; } // Default HIGH (pullup)
+
+static bool pin_states[128] = {true}; // Initialize with some true for pullups
+
+bool digitalRead(int pin) {
+    if (pin < 0 || pin >= 128) return true;
+    return pin_states[pin];
+}
+
+void setDigitalRead(int pin, bool val) {
+    if (pin >= 0 && pin < 128) pin_states[pin] = val;
+}
+
+extern "C" void __attribute__((weak)) audit_draw_call(const char* type, int x, int y, int w, int h) {}
 
 // These will be provided by the test runner
 uint32_t (*mock_adc_func)(int) = nullptr;
