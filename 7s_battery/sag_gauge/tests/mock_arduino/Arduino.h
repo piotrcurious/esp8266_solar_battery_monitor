@@ -28,6 +28,7 @@ void analogSetPinAttenuation(int pin, int atten);
 void pinMode(int pin, int mode);
 void digitalWrite(int pin, int val);
 bool digitalRead(int pin);
+void setDigitalRead(int pin, bool val);
 uint32_t analogReadMilliVolts(int pin);
 
 class String {
