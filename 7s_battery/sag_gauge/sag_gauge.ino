@@ -117,7 +117,6 @@ static uint32_t lastActMs  = 0;
 static uint32_t pageMs     = 0;
 static int      uiPage     = 0;
 static bool     isDimmed   = false;
-static bool     useImperial = false;
 
 static Preferences prefs;
 
@@ -369,8 +368,7 @@ static void renderPage0() {
 
   float remWh = (socBlend/100.0f) * getEffectiveCapAh() * (float)CFG.cells_s * CFG.nom_v_cell;
   float dist = remWh * CFG.km_per_wh;
-  if (useImperial) snprintf(b, sizeof(b), "%.1fmi", dist * 0.621371f);
-  else             snprintf(b, sizeof(b), "%.1fkm", dist);
+  snprintf(b, sizeof(b), "%.1fkm", dist);
   canvas.setCursor(108, 72); canvas.setTextColor(lcd.color888(150, 255, 150)); canvas.print(b);
 
   // Sag Prediction (at reference load)
@@ -536,8 +534,7 @@ static void renderPage3() {
   canvas.print(b);
 
   float distKm = ahOut * CFG.nom_v_cell * CFG.cells_s * CFG.km_per_wh;
-  if (useImperial) snprintf(b, sizeof(b), "Avg: %.1f Wh/mi", (distKm > 0.1f) ? (whOut / (distKm * 0.621371f)) : 0);
-  else             snprintf(b, sizeof(b), "Avg: %.1f Wh/km", (distKm > 0.1f) ? (whOut / distKm) : 0);
+  snprintf(b, sizeof(b), "Avg: %.1f Wh/km", (distKm > 0.1f) ? (whOut / distKm) : 0);
   canvas.setCursor(3, 65); canvas.print(b);
 
   drawPageDots(135, 75, 5, 3);
@@ -582,12 +579,14 @@ static void renderPage2() {
   snprintf(b,sizeof(b),"%.1f%%", rtEff);
   canvas.setCursor(80,65); canvas.setTextColor(lcd.color888(100,200,255), TFT_BLACK); canvas.print(b);
 
-  canvas.setCursor(3,71); canvas.setTextColor(lcd.color888(150,150,170), TFT_BLACK); canvas.print("Life Cycles:");
+  canvas.setCursor(3,71); canvas.setTextColor(lcd.color888(150,150,170), TFT_BLACK); canvas.print("Cy:");
   float cycles = ahTotal / (CFG.cap_ah * 2.0f);
-  snprintf(b,sizeof(b),"%.1f(%+.1f%%)", cycles, socBlend - sessionStartSoc);
-  canvas.setCursor(80,71); canvas.setTextColor(lcd.color888(200,150,255), TFT_BLACK); canvas.print(b);
+  snprintf(b,sizeof(b),"%.0f", cycles);
+  canvas.setCursor(21,71); canvas.setTextColor(lcd.color888(200,150,255), TFT_BLACK); canvas.print(b);
+  snprintf(b,sizeof(b),"%+.0f%%", socBlend - sessionStartSoc);
+  canvas.setCursor(41,71); canvas.setTextColor(lcd.color888(100,200,255), TFT_BLACK); canvas.print(b);
 
-  drawPageDots(135, 75, 5, 2);
+  drawPageDots(135, 74, 5, 2);
 }
 
 // ================================================================
@@ -835,10 +834,6 @@ static void integrateEnergy(float dt) {
   if (!isfinite(dAh) || !isfinite(dWh)) return;
 
   static float ahTotalK = 0.0f;
-  auto kahanAdd = [](float &sum, float &c, float input) {
-    float y = input - c; float t = sum + y;
-    c = (t - sum) - y; sum = t;
-  };
   if (pState == PackState::DISCHARGING) {
     kahanAdd(ahOut, ahOutK, dAh); kahanAdd(whOut, whOutK, dWh);
     kahanAdd(ahTotal, ahTotalK, dAh);
@@ -1022,7 +1017,6 @@ void loop() {
           if (fabsf(iA) < 1.0f) { sZeroMv = sCurMv; saveState(); Serial.println("Zero CAL OK"); }
           else Serial.println("ERR: High current");
       }
-      else if (cmd == "UNITS") { useImperial = !useImperial; Serial.printf("Units: %s\n", useImperial?"IMP":"MET"); }
       else if (cmd.startsWith("SETCAP ")) {
           float newCap = cmd.substring(7).toFloat();
           if (newCap >= 1.0f && newCap <= 500.0f) {

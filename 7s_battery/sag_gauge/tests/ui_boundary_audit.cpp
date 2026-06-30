@@ -39,10 +39,19 @@ int main() {
     printf("--- UI BOUNDARY AUDIT ---\n");
 
     for (int p=0; p<5; p++) {
-        printf("Auditing Page %d...\n", p);
+        printf("Auditing Page %d (Normal)...\n", p);
         uiPage = p;
-        // Mock a few states
         socBlend = 50.0f; vCellRest = 3.7f; iA = 5.0f;
+        canvas.fillScreen(0);
+        if      (uiPage == 0) renderPage0();
+        else if (uiPage == 1) renderPage1();
+        else if (uiPage == 2) renderPage2();
+        else if (uiPage == 3) renderPage3();
+        else                  renderPage4();
+
+        printf("Auditing Page %d (Max Values)...\n", p);
+        socBlend = 100.0f; vCellRest = 4.2f; iA = 99.9f;
+        ahOut = 999.99f; whOut = 9999.9f; ahTotal = 5000.0f; rInt = 0.5f; sessionMaxSag = 5.0f;
         canvas.fillScreen(0);
         if      (uiPage == 0) renderPage0();
         else if (uiPage == 1) renderPage1();

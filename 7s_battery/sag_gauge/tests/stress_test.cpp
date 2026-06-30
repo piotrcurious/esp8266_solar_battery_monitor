@@ -84,31 +84,30 @@ int main() {
     printf("--- Starting 24h Stress Test ---\n");
     setup();
 
-    float dt = 0.1f;
-    // 24 hours = 24 * 3600 / 0.1 = 864,000 steps
-    // Let's do 100,000 steps for speed, covering several cycles
-    for (long i = 0; i < 200000; ++i) {
+    float dt = 1.0f;
+    // 24 hours = 86,400 steps
+    for (long i = 0; i < 90000; ++i) {
         // Simple cyclical load
-        if ((i / 5000) % 2 == 0) sim.current_i = 10.0f; // Discharge
+        if ((i / 500) % 2 == 0) sim.current_i = 10.0f; // Discharge
         else sim.current_i = -5.0f; // Charge
 
         sim.step(dt);
 
         // Fast forward time
-        _mock_millis_offset += 100;
-        _mock_micros_offset += 100000;
+        _mock_millis_offset += 1000;
+        _mock_micros_offset += 1000000;
 
         loop();
 
-        if (i % 10000 == 0) {
+        if (i % 5000 == 0) {
             printf("Step %ld: V=%.2f I=%+.1fA SOC=%.1f%% Rint=%.1fmO ahOut=%.2f ahTotal=%.2f\n",
                    i, vPack, iA, socBlend, rInt*1000.0f, ahOut, ahTotal);
         }
     }
 
     printf("--- Stress Test Finished ---\n");
-    printf("Final ahOut: %.2f (expected ~280)\n", ahOut);
-    printf("Final ahTotal: %.2f (expected ~560)\n", ahTotal);
+    printf("Final ahOut: %.2f (expected ~125)\n", ahOut);
+    printf("Final ahTotal: %.2f (expected ~187)\n", ahTotal);
     printf("Final rInt: %.2f mOhm\n", rInt * 1000.0f);
 
     return 0;
