@@ -21,7 +21,6 @@ void reset_mock_state() {
     vCellRest = 3.65f;
     iA = 0.0f;
     pW = 0.0f;
-    useImperial = false;
     isDimmed = false;
 }
 
@@ -58,9 +57,8 @@ int main() {
     for(int i=0; i<HIST_N; i++) { vHist[i] = 24.0f; iHist[i] = 2.0f; }
     renderPage1();
 
-    printf("\n--- UI DEBUG: IMPERIAL UNITS ---\n");
+    printf("\n--- UI DEBUG: PAGE 0 RE-RENDER ---\n");
     reset_mock_state();
-    useImperial = true;
     renderPage0();
 
     printf("\n--- UI DEBUG: ENERGY DISTRIBUTION ---\n");

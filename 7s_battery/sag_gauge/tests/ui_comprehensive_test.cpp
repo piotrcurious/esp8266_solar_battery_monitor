@@ -25,7 +25,7 @@ void set_state(int page, PackState state, float soc, float vcell, float current,
     vSag = vRested - vPack;
     iA = current;
     pW = vPack * iA;
-    useImperial = imperial;
+    // useImperial removed from firmware
 }
 
 int main() {
@@ -54,7 +54,13 @@ int main() {
         {"P1_TRENDS", 1, PackState::DISCHARGING, 60.0f, 3.75f, 8.5f, false},
         {"P2_SUMMARY", 2, PackState::IDLE, 50.0f, 3.70f, 0.0f, false},
         {"P3_ENERGY", 3, PackState::DISCHARGING, 30.0f, 3.60f, 12.0f, false},
-        {"P4_HEALTH", 4, PackState::IDLE, 90.0f, 4.00f, 0.0f, false}
+        {"P4_HEALTH", 4, PackState::IDLE, 90.0f, 4.00f, 0.0f, false},
+
+        {"P0_MAX_VALUES", 0, PackState::DISCHARGING, 100.0f, 4.20f, 99.9f, false},
+        {"P1_MAX_VALUES", 1, PackState::DISCHARGING, 100.0f, 4.20f, 99.9f, false},
+        {"P2_MAX_VALUES", 2, PackState::IDLE, 100.0f, 4.20f, 0.0f, false},
+        {"P3_MAX_VALUES", 3, PackState::DISCHARGING, 100.0f, 4.20f, 99.9f, false},
+        {"P4_MAX_VALUES", 4, PackState::IDLE, 100.0f, 4.20f, 0.0f, false}
     };
 
     // Setup history for trends

@@ -14,6 +14,13 @@ static inline float lp(float p, float in, float a) {
   return p + a * (in - p);
 }
 
+static inline void kahanAdd(float &sum, float &c, float input) {
+  float y = input - c;
+  float t = sum + y;
+  c = (t - sum) - y;
+  sum = t;
+}
+
 struct MonitorConfig {
     int   cells_s;
     float cap_ah;

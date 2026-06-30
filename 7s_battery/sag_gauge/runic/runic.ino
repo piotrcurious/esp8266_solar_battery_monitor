@@ -44,7 +44,10 @@ static uint32_t blendCol(uint32_t a, uint32_t b, float t) {
   t = clampf(t, 0.0f, 1.0f);
   int ar=(a>>16)&0xFF, ag=(a>>8)&0xFF, ab=a&0xFF;
   int br=(b>>16)&0xFF, bg=(b>>8)&0xFF, bb=b&0xFF;
-  return lcd.color888((uint8_t)(ar+(br-ar)*t), (uint8_t)(ag+(bg-ag)*t), (uint8_t)(ab+(bb-ab)*t));
+  return lcd.color888(
+    (uint8_t)(ar * (1.0f - t) + br * t + 0.5f),
+    (uint8_t)(ag * (1.0f - t) + bg * t + 0.5f),
+    (uint8_t)(ab * (1.0f - t) + bb * t + 0.5f));
 }
 
 static uint32_t socCol(float s) {
@@ -64,7 +67,7 @@ static void drawBar(int x, int y, int w, int h, float soc, uint32_t fill, uint32
     float f = clampf((soc-i*(100.0f/S))/(100.0f/S), 0.0f, 1.0f);
     if (f > 0.0f) {
       int fh = (int)((h-2)*f + 0.5f);
-      canvas.fillRoundRect(sx+1, y+1+(h-2-fh), sw-2, fh, 2, blendCol(0xFF5032, fill, f));
+      if (fh > 0) canvas.fillRoundRect(sx+1, y+1+(h-2-fh), sw-2, fh, 2, blendCol(0xFF5032, fill, f));
     }
   }
 }
@@ -103,6 +106,7 @@ static void updateMeasurements() {
   if (fabsf(iA) < CFG.idle_a) sZeroMv = lp(sZeroMv, sCurMv, ALPHA_ZERO);
 
   vPack = (sBatMv * CFG.bat_div) / 1000.0f + BAT_V_OFFSET;
+  if (vPack < 10.0f || vPack > 35.0f) vPack = clampf(vPack, 10.0f, 35.0f);
   iA = CUR_POLARITY * (sCurMv - sZeroMv) * CFG.cur_div / CFG.acs_mv_a;
 
   // Runic simple thermal model for temp comp
@@ -118,12 +122,13 @@ static void updateMeasurements() {
   float dI = iA - lastIA_step;
   float dV = vPack - lastV_step;
   if (vPack > 10.05f && vPack < 34.95f) {
+    float norm = getRintSocFactor(socBlend) * getRintTempFactor(tEstRunic);
     if (fabsf(dI) > 1.5f) {
-      float rStep = -dV / dI;
+      float rStep = (-dV / dI) / norm;
       if (isfinite(rStep) && rStep > 0.01f && rStep < 0.8f) rInt = lp(rInt, rStep, CFG.alpha_rint * 3.0f);
     }
     if (fabsf(iA) > CFG.sag_min_a && fabsf(dI) < 0.1f) {
-      float rEst = fabsf(vRested - vPack) / fabsf(iA);
+      float rEst = (fabsf(vRested - vPack) / fabsf(iA)) / norm;
       if (isfinite(rEst) && rEst > 0.01f && rEst < 0.8f) rInt = lp(rInt, rEst, CFG.alpha_rint);
     }
   }
@@ -131,13 +136,16 @@ static void updateMeasurements() {
 
   socOcv = socFromV(vRested / (float)CFG.cells_s);
   // Simple blend for runic - ensuring smooth transitions
-  if (socBlend < 1.0f) socBlend = socOcv;
+  if (socBlend < 0.1f) socBlend = socOcv;
   socBlend = lp(socBlend, socOcv, 0.05f);
+  socBlend = clampf(socBlend, 0.0f, 100.0f);
 
-  if (iA > CFG.idle_a) {
-    float dAh = iA * (UI_REFRESH_MS / 3600000.0f);
-    float y = dAh - ahOutK; float t = ahOut + y;
-    ahOutK = (t - ahOut) - y; ahOut = t;
+  if (fabsf(iA) > CFG.idle_a) {
+    float dAh = fabsf(iA) * (UI_REFRESH_MS / 3600000.0f);
+    if (isfinite(dAh)) {
+        if (iA > 0) kahanAdd(ahOut, ahOutK, dAh);
+        // Runic is simplified, we don't track ahIn for now but we could.
+    }
   }
 }
 
