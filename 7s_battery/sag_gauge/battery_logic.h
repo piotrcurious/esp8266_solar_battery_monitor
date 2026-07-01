@@ -83,3 +83,21 @@ static float socFromV(float v) {
     }
   return 0.0f;
 }
+
+static float vFromSoc(float soc) {
+  static constexpr struct { float v, s; } T[] = {
+    {4.20f,100},{4.10f,95},{4.03f,90},{3.97f,85},{3.91f,80},
+    {3.86f,75},{3.82f,70},{3.79f,65},{3.77f,60},{3.75f,55},
+    {3.73f,50},{3.71f,45},{3.69f,40},{3.67f,35},{3.65f,30},
+    {3.63f,25},{3.61f,20},{3.58f,15},{3.55f,10},{3.45f,5},{3.20f,0}
+  };
+  constexpr int N = sizeof(T)/sizeof(T[0]);
+  if (soc >= 100.0f) return T[0].v;
+  if (soc <= 0.0f) return T[N-1].v;
+  for (int i = 0; i+1 < N; ++i)
+    if (soc <= T[i].s && soc >= T[i+1].s) {
+      float t = (soc-T[i+1].s)/(T[i].s-T[i+1].s);
+      return T[i+1].v + t*(T[i].v-T[i+1].v);
+    }
+  return T[N-1].v;
+}
