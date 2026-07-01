@@ -84,6 +84,8 @@ static float    sessionStartVoc = 0.0f;
 
 // Session energy
 static float ahOut = 0.0f, ahIn = 0.0f;
+static float ahAtMaxDod = 0.0f;
+static float vRestedAtMaxDod = 0.0f;
 static float sessionMaxDod = 0.0f;
 static float sessionMaxSag = 0.0f;
 static float whOut = 0.0f, whIn = 0.0f;
@@ -605,10 +607,15 @@ static void sampleSensors(float dt) {
 
   // ACS712 zero-point: track only while effectively idle and stable
   if (sZeroMv < 1.0f) sZeroMv = sCurMv;
-  if (fabsf(iA) < CFG.idle_a && fabsf(dvdtVps) < 0.02f) {
+  // Use a tighter deadband for BEGINNING to track zero (0.1A vs 0.2A)
+  // and ensure we don't have a feedback loop by checking raw sensor diff
+  float rawDiffMv = fabsf(sCurMv - sZeroMv);
+  float maxDriftMv = (0.1f * CFG.acs_mv_a) / CFG.cur_div;
+
+  if (rawDiffMv < maxDriftMv && fabsf(dvdtVps) < 0.01f) {
     idleMs += (uint32_t)(dt * 1000.0f);
     if (idleMs > IDLE_STABLE_MS) {
-      sZeroMv = lp(sZeroMv, sCurMv, ALPHA_ZERO);
+      sZeroMv = lp(sZeroMv, sCurMv, ALPHA_ZERO * 0.5f);
     }
   } else {
     idleMs = 0;
@@ -670,49 +677,55 @@ static void updateThermal(float dt) {
 }
 
 static void updateRintEstimator() {
-  static float lastIA_step = 0.0f;
-  static float lastV_step = 0.0f;
+  static float iPlateau = 0, vPlateau = 0;
+  static float iSum = 0, vSum = 0;
+  static uint32_t stableCount = 0;
+  static bool hasPlateau = false;
+  static float lastIA_raw = 0.0f;
 
-  float dI = iA - lastIA_step;
-  float dV = vPack - lastV_step;
+  float dI_tick = fabsf(iA - lastIA_raw);
+  lastIA_raw = iA;
 
-  // Gating: Ignore updates if voltage is hitting safety clamps (likely sensor failure)
-  if (vPack <= 10.05f || vPack >= 34.95f) {
-      lastIA_step = iA;
-      lastV_step = vPack;
-      return;
-  }
+  if (vPack <= 10.05f || vPack >= 34.95f) return;
 
-  // 1. Step-based estimation (Instantaneous dV/dI) - Breaks circular dependency with Voc
-  if (fabsf(dI) > 1.5f) { // Significant current step
-    float rStepRaw = -dV / dI; // -dV because I is positive for discharge
-    // Normalize to 25C and 100% SOC
-    float rStep = rStepRaw / (getRintSocFactor(socBlend) * getRintTempFactor(tEst));
-
-    if (isfinite(rStep) && rStep > 0.010f && rStep < 0.800f) {
-        rMedBuf[rMedHead] = rStep;
-        rMedHead = (rMedHead + 1) % RINT_MED_N;
-        if (rMedCount < RINT_MED_N) ++rMedCount;
+  // 1. Plateau-to-Plateau Estimation
+  if (dI_tick < 0.05f) {
+    stableCount++;
+    iSum += iA;
+    vSum += vPack;
+    if (stableCount == 20) { // 2.0s reached
+      float iAvg = iSum / 20.0f;
+      float vAvg = vSum / 20.0f;
+      if (hasPlateau) {
+        float dI = iAvg - iPlateau;
+        float dV = vAvg - vPlateau;
+        if (fabsf(dI) > 1.5f) {
+          float rRaw = -dV / dI;
+          float rNorm = rRaw / (getRintSocFactor(socBlend) * getRintTempFactor(tEst));
+          if (isfinite(rNorm) && rNorm > 0.005f && rNorm < 0.500f) {
+            rMedBuf[rMedHead] = rNorm;
+            rMedHead = (rMedHead + 1) % RINT_MED_N;
+            if (rMedCount < RINT_MED_N) ++rMedCount;
+          }
+        }
+      }
+      iPlateau = iAvg; vPlateau = vAvg; hasPlateau = true;
+    }
+  } else {
+    if (dI_tick > 0.15f) {
+        stableCount = 0; iSum = 0; vSum = 0;
     }
   }
-  lastIA_step = iA;
-  lastV_step = vPack;
 
-  // 2. Steady-state estimation (only if current is stable and high)
-  static float lastIA_steady = 0.0f;
-  float dI_steady = fabsf(iA - lastIA_steady);
-  lastIA_steady = iA;
-
-  if (fabsf(iA) > CFG.sag_min_a && dI_steady < 0.1f) {
-    float rEstRaw = vSag / fabsf(iA);
+  // 2. Steady-state estimation (Secondary - only if very stable and high load)
+  if (stableCount > 10 && fabsf(dvdtVps) < 0.01f && fabsf(iA) > 5.0f) {
+    float vOcv = vFromSoc(socCoul) * CFG.cells_s;
+    float rEstRaw = fabsf(vOcv - vPack) / fabsf(iA);
     float rEst = rEstRaw / (getRintSocFactor(socBlend) * getRintTempFactor(tEst));
-
-    if (isfinite(rEst) && rEst > 0.010f && rEst < 0.800f) {
-      if (fabsf(dvdtVps) < 0.1f) {
+    if (isfinite(rEst) && rEst > 0.005f && rEst < 0.400f) {
         rMedBuf[rMedHead] = rEst;
         rMedHead = (rMedHead + 1) % RINT_MED_N;
         if (rMedCount < RINT_MED_N) ++rMedCount;
-      }
     }
   }
 
@@ -721,13 +734,10 @@ static void updateRintEstimator() {
       float tmp[RINT_MED_N];
       memcpy(tmp, rMedBuf, rMedCount * sizeof(float));
       std::sort(tmp, tmp + rMedCount);
-
-      // Use higher alpha for transient steps, lower for steady state noise rejection
-      float alphaBase = (fabsf(dI) > 1.5f) ? (CFG.alpha_rint * 3.0f) : CFG.alpha_rint;
-      float aRint = alphaBase * (1.0f + clampf(fabsf(iA) / 5.0f, 0.0f, 3.0f));
-
       float rTarget = tmp[rMedCount / 2];
-      if (isfinite(rTarget) && rTarget > 0.010f) {
+      // Slow but adaptive alpha for resistance tracking
+      float aRint = CFG.alpha_rint * (1.0f + clampf(fabsf(iA) / 10.0f, 0.0f, 2.0f));
+      if (isfinite(rTarget) && rTarget > 0.005f) {
           rInt = lp(rInt, rTarget, aRint);
       }
   }
@@ -742,26 +752,33 @@ static void updateRintEstimator() {
 
 static void resetSession() {
   // Capacity learning if session was deep enough
-  if (sessionMaxDod > 50.0f && ahOut > 1.0f) {
-      float socDelta = socFromV(sessionStartVoc / CFG.cells_s) - socFromV(vRested / CFG.cells_s);
-      if (socDelta > 20.0f) {
-          float estFullCap = ahOut / (socDelta / 100.0f);
-          if (estFullCap > CFG.cap_ah * 0.5f && estFullCap < CFG.cap_ah * 1.5f) {
+  if (sessionMaxDod > 40.0f && ahAtMaxDod > 1.0f) {
+      float ocvStart = sessionStartVoc / (float)CFG.cells_s;
+      float ocvEnd   = vRestedAtMaxDod / (float)CFG.cells_s;
+      float socDelta = socFromV(ocvStart) - socFromV(ocvEnd);
+
+      if (socDelta > 30.0f) {
+          float estFullCap = ahAtMaxDod / (socDelta / 100.0f);
+          if (isfinite(estFullCap) && estFullCap > CFG.cap_ah * 0.5f && estFullCap < CFG.cap_ah * 1.5f) {
               learnedCapAh = lp(learnedCapAh, estFullCap, 0.1f);
+              Serial.printf("LEARN: New Cap=%.2fAh (from %.2fAh)\n", learnedCapAh, estFullCap);
           }
       }
   }
 
-  ahOut = ahIn = whOut = whIn = 0.0f;
+  ahOut = ahIn = ahAtMaxDod = 0.0f;
+  vRestedAtMaxDod = 0.0f;
+  whOut = whIn = 0.0f;
+  ahOutK = ahInK = whOutK = whInK = 0.0f;
   whCruise = whActive = whBurst = 0.0f;
   sessionMaxDod = 0.0f;
   sessionMaxSag = 0.0f;
-  ahOutK = ahInK = whOutK = whInK = 0.0f;
   peakIA = peakPW = 0.0f;
   sessionStartMs = millis();
   sessionStartSoc = socBlend;
   sessionStartVoc = vRested;
   saveState();
+  Serial.println("Session RESET");
 }
 
 static void updateSoc(float dt) {
@@ -776,11 +793,12 @@ static void updateSoc(float dt) {
   if (pState == PackState::IDLE && fabsf(dvdtVps) < 0.01f) {
     socCoul = lp(socCoul, socOcv, 0.001f);
   }
-  // Hard-sync to 100% when voltage is very high and charging is finished
-  if (pState == PackState::CHARGING && vCellRest > 4.15f && fabsf(iA) < 0.3f) {
-    socCoul = lp(socCoul, 100.0f, 0.01f);
-    // Auto-reset session if we are full and significant discharge occurred
-    if (socCoul > 99.5f && sessionMaxDod > 20.0f) {
+  // Hard-sync to 100% when voltage is very high and charging current is low (CV phase tail)
+  if (pState == PackState::CHARGING && vCellRest > 4.15f && fabsf(iA) < 1.0f) {
+    socCoul = lp(socCoul, 100.0f, 0.2f);
+    // Auto-reset session if we are essentially full and significant discharge occurred
+    if (socCoul > 92.0f && sessionMaxDod > 20.0f) {
+      Serial.printf("SYNC_RESET: cc=%.1f dod=%.1f v=%.2f\n", socCoul, sessionMaxDod, vCellRest);
       resetSession();
     }
   }
@@ -791,7 +809,11 @@ static void updateSoc(float dt) {
   socBlend = lp(socBlend, targetBlend, 0.1f);
 
   float currentDod = 100.0f - socBlend;
-  if (currentDod > sessionMaxDod) sessionMaxDod = currentDod;
+  if (currentDod > sessionMaxDod) {
+      sessionMaxDod = currentDod;
+      ahAtMaxDod = ahOut;
+      vRestedAtMaxDod = vRested;
+  }
 }
 
 static void saveState() {

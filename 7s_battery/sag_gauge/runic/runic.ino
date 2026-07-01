@@ -118,21 +118,40 @@ static void updateMeasurements() {
   if (fabsf(iA) < CFG.idle_a) vRested = lp(vRested, vPack, CFG.alpha_rest_v);
   else vRested = lp(vRested, vPack + (iA > 0 ? 1.0f : -1.0f) * fabsf(iA) * rInt * getRintSocFactor(socBlend) * getRintTempFactor(tEstRunic), CFG.alpha_load_v);
 
-  // Advanced Rint Estimation (Step + Steady-State)
-  float dI = iA - lastIA_step;
-  float dV = vPack - lastV_step;
+  // Integrated Step Estimation: capture resistance during transitions
+  static float lastIA = 0, lastV = 0;
+  static float sumDI = 0, sumDV = 0;
+  static uint32_t transitionTicks = 0, idleTicks = 0;
+  static bool firstTick = true;
+
   if (vPack > 10.05f && vPack < 34.95f) {
-    float norm = getRintSocFactor(socBlend) * getRintTempFactor(tEstRunic);
-    if (fabsf(dI) > 1.5f) {
-      float rStep = (-dV / dI) / norm;
-      if (isfinite(rStep) && rStep > 0.01f && rStep < 0.8f) rInt = lp(rInt, rStep, CFG.alpha_rint * 3.0f);
-    }
-    if (fabsf(iA) > CFG.sag_min_a && fabsf(dI) < 0.1f) {
-      float rEst = (fabsf(vRested - vPack) / fabsf(iA)) / norm;
-      if (isfinite(rEst) && rEst > 0.01f && rEst < 0.8f) rInt = lp(rInt, rEst, CFG.alpha_rint);
+    if (firstTick) { lastIA = iA; lastV = vPack; firstTick = false; }
+    else {
+      float dI = iA - lastIA;
+      float dV = vPack - lastV;
+      lastIA = iA; lastV = vPack;
+      float norm = getRintSocFactor(socBlend) * getRintTempFactor(tEstRunic);
+
+      if (fabsf(dI) > 0.02f) {
+        sumDI += dI; sumDV += dV;
+        transitionTicks++; idleTicks = 0;
+      } else {
+        idleTicks++;
+        if (idleTicks > 5 && transitionTicks > 2) {
+          if (fabsf(sumDI) > 1.0f) {
+            float rNorm = (-sumDV / sumDI) / norm;
+            if (isfinite(rNorm) && rNorm > 0.005f && rNorm < 0.5f) rInt = lp(rInt, rNorm, CFG.alpha_rint * 2.0f);
+          }
+          sumDI = 0; sumDV = 0; transitionTicks = 0;
+        }
+        if (idleTicks > 30 && fabsf(iA) > 5.0f) {
+          float rEst = (fabsf(vRested - vPack) / fabsf(iA)) / norm;
+          if (isfinite(rEst) && rEst > 0.005f && rEst < 0.4f) rInt = lp(rInt, rEst, CFG.alpha_rint);
+        }
+        if (idleTicks > 200) idleTicks = 200;
+      }
     }
   }
-  lastIA_step = iA; lastV_step = vPack;
 
   socOcv = socFromV(vRested / (float)CFG.cells_s);
   // Simple blend for runic - ensuring smooth transitions
