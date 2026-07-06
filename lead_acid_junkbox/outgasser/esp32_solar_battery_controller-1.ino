@@ -154,6 +154,12 @@ const int   ADC_MAX_COUNTS    = 4095;
 const int   ADC_OVERSAMPLE_N  = 16;
 const float CURRENT_SIGN      = 1.0f;
 
+// ================= Temp Comp Constants =================
+const float TEMP_COMP_V_PER_C = -0.030f; // -30mV/C relative to 25C
+const float TEMP_BASE_C       = 25.0f;
+const int   TEMP_ADC_MIN      = 100;
+const int   TEMP_ADC_MAX      = 4000;
+
 Adafruit_INA219 ina219;
 
 // Forward declarations
@@ -163,6 +169,7 @@ void beginPulse();
 void beginBisectionPulse();
 void startFloatHold();
 void handleModeBulk(float vBatt, unsigned long now);
+void handleModeParasiticWait(unsigned long now);
 void handleModeParasitic(float vBatt, float iBatt, unsigned long now);
 void handleModePulseTest(float vBatt, unsigned long now);
 void handleModeFloat(float vBatt, unsigned long now);
@@ -173,12 +180,13 @@ float getBatteryTemp() {
   long sum = 0;
   for (int i = 0; i < ADC_OVERSAMPLE_N; i++) sum += analogRead(TEMP_PIN);
   float avgCounts = (float)sum / ADC_OVERSAMPLE_N;
-  if (avgCounts < 100 || avgCounts > 4000) return 25.0f; // Default if no sensor
+
+  if (avgCounts < TEMP_ADC_MIN || avgCounts > TEMP_ADC_MAX) return TEMP_BASE_C;
 
   // Steinhart-Hart simplified for 10k NTC @ 25C, beta=3950
   float vOut = avgCounts * (ADC_VREF / ADC_MAX_COUNTS);
   float rNtc = 10000.0f * (vOut / (ADC_VREF - vOut));
-  float tempK = 1.0f / (1.0f/(25.0f+273.15f) + (1.0f/3950.0f) * log(rNtc/10000.0f));
+  float tempK = 1.0f / (1.0f / (TEMP_BASE_C + 273.15f) + (1.0f / 3950.0f) * log(rNtc / 10000.0f));
   return tempK - 273.15f;
 }
 
@@ -189,15 +197,15 @@ float readVinPanel() {
   return (avgCounts * (ADC_VREF / ADC_MAX_COUNTS)) * VIN_DIVIDER_RATIO;
 }
 
-// ================= Safety / charge parameters (12V lead-acid style -- VERIFY) =================
+// ================= Safety / charge parameters (12V lead-acid style) =================
 float BULK_TARGET_V         = 13.8f;
 float CHARGE_V_OVERVOLTAGE  = 15.5f;
-const float OVERVOLTAGE_PULSE_MARGIN = 0.10f; // force-end a pulse this far below the hard ceiling
+const float OVERVOLTAGE_PULSE_MARGIN = 0.10f;
 const float CHARGE_TERMINATION_MA = 25.0f;
 const unsigned long CHARGE_TIMEOUT_MS = (unsigned long)6 * 60UL * 60UL * 1000UL;
 
 const float OVERCURRENT_LIMIT_MA = 1500.0f;
-const float slopeThreshold = 0.0005f; // used to detect discharge plateau in formation test
+const float slopeThreshold = 0.0005f;
 
 // ================= Panel undervoltage shutdown =================
 const float VIN_SHUTDOWN_THRESHOLD = 8.0f;
@@ -205,34 +213,36 @@ const float VIN_RESUME_THRESHOLD   = 9.0f;
 const int   UVLO_DEBOUNCE_SAMPLES  = 5;
 const uint64_t SLEEP_CHECK_INTERVAL_US = 5ULL * 60ULL * 1000000ULL;
 
-// ================= Parasitic baseline (voltage-hold, not FET-off) =================
+// ================= Parasitic baseline (voltage-hold) =================
 const float PARASITIC_PROBE_OFFSET_V = 0.10f;
 const float PARASITIC_HOLD_KP = 25.0f;
 const float PARASITIC_SETTLE_S = 20.0f;
 const float PARASITIC_SAMPLE_S = 10.0f;
+const unsigned long PARASITIC_TRANSIENT_WAIT_MS = 1000; // Time to wait before sampling starts
 
 // ================= Outgassing bisection search =================
-const float MIN_PULSE_START_MA = 20.0f;         // absolute floor for the search's lower bound
-const float PARASITIC_START_MULTIPLIER = 1.5f;  // lower bound = max(floor, parasitic*this)
+const float MIN_PULSE_START_MA = 20.0f;
+const float PARASITIC_START_MULTIPLIER = 1.5f;
 const int   MAX_BISECTION_ITERS = 8;
 const float BISECTION_RESOLUTION_MA = 15.0f;
 
-// ================= Per-pulse timing/physics (all tau-derived, no fixed durations) =================
-const unsigned long IR_SETTLE_MS = 200;          // let the instantaneous IR step settle (ADC/noise)
-const unsigned long SLOPE_FIT_WINDOW_MS = 2000;  // fixed short window for the initial R,C,tau estimate
-const float TAU_MULTIPLE_FOR_PULSE = 3.0f;       // "no knee yet" pulse timeout, in units of tau
-const float TAU_MULTIPLE_POST_KNEE = 1.5f;       // extra run-on after a knee, to nail slope2
+// ================= Per-pulse timing/physics =================
+const unsigned long IR_SETTLE_MS = 200;
+const unsigned long SLOPE_FIT_WINDOW_MS = 2000;
+const float TAU_MULTIPLE_FOR_PULSE = 3.0f;
+const float TAU_MULTIPLE_POST_KNEE = 1.5f;
 const unsigned long MIN_PULSE_MS = 2000, MAX_PULSE_MS = 60000;
 const unsigned long MIN_REST_MS  = 3000, MAX_REST_MS  = 120000;
 
-const float OUTGAS_EFFICIENCY_THRESHOLD = 0.7f;  // observedSlope/expectedSlope below this = outgassing
-const int   KNEE_CONFIRM_TICKS = 15;             // ~1.5s sustained below threshold, at 100ms ticks
-const float EMA_ALPHA = 0.1f;                    // slope smoothing, ~1s time constant at 100ms ticks
+const float OUTGAS_EFFICIENCY_THRESHOLD = 0.7f;
+const int   KNEE_CONFIRM_TICKS = 15;
+const float EMA_ALPHA = 0.1f;
 
-// ================= Persisted state (survives deep sleep & power loss) =================
+// ================= Persisted state =================
 enum Mode {
   MODE_BOOT,
   MODE_IDLE,
+  MODE_CHAR_PARASITIC_WAIT,
   MODE_CHAR_PARASITIC,
   MODE_PASSIVE_FORMATION_TEST,
   MODE_WAIT_AFTER_OUTGASSING,
@@ -276,12 +286,16 @@ const uint32_t STATE_MAGIC = 0xB19E5014;
 
 Preferences prefs;
 PersistedState state;
+unsigned long lastNvsWriteMs = 0;
+const unsigned long NVS_WRITE_COOLDOWN_MS = 5000; // Prevent flash wear
 
 void saveState() {
+  if (millis() - lastNvsWriteMs < NVS_WRITE_COOLDOWN_MS) return; // Throttle NVS writes
   state.magic = STATE_MAGIC;
   prefs.begin("solarchg", false);
   prefs.putBytes("state", &state, sizeof(state));
   prefs.end();
+  lastNvsWriteMs = millis();
 }
 
 bool loadState() {
@@ -320,7 +334,7 @@ const float PARASITIC_HOLD_KI = 2.0f;
 // ---- Safety / stall detection ----
 unsigned long lastVoltageRiseAt = 0;
 float maxVoltageSeenInBulk = 0;
-const unsigned long BULK_STALL_TIMEOUT_MS = 6UL * 60UL * 60UL * 1000UL; // 6 hours
+const unsigned long BULK_STALL_TIMEOUT_MS = 6UL * 60UL * 1000UL;
 const float RECHARGE_THRESHOLD_V = 12.7f;
 
 // ---- Bisection search state ----
@@ -351,13 +365,13 @@ float decaySamples[5];
 unsigned long decaySampleTimesMs[5];
 int decaySampleIdx = 0;
 int decaySampleCount = 0;
-float tau_decay = -1;         // single-exponential case (no knee)
-float tau_fast_decay = -1, tau_slow_decay = -1; // bi-exponential case (knee)
+float tau_decay = -1;
+float tau_fast_decay = -1, tau_slow_decay = -1;
 unsigned long restRemainingMs = 0;
 
 float cvTargetVoltage = 0;
 
-// ================= Kalman filter (legacy discharge/formation test only) =================
+// ================= Kalman filter =================
 float voltage_est = 0.0f;
 float slope_est   = 0.0f;
 float internalResistance = 0.05f;
@@ -379,7 +393,6 @@ void kalmanSetTimestep(float dt) {
 void kalmanUpdate(float current_input_ma, float measured_voltage) {
   float current_input = current_input_ma / 1000.0f;
 
-  // Adaptive noise parameters: higher current = higher noise allowed (turbulence/bubbles)
   float q_v = 0.0005f;
   float q_s = 0.0005f;
   if (fabs(current_input) > 0.5f) {
@@ -425,7 +438,11 @@ void kalmanUpdate(float current_input_ma, float measured_voltage) {
 double pidIn_charge, pidOut_charge, pidSet_charge;
 PID pidCharge(&pidIn_charge, &pidOut_charge, &pidSet_charge, 2.0, 5.0, 0.5, DIRECT);
 
-// ================= Fractional-Voc MPPT (no Iin needed) =================
+// Dedicated PID for Float (Voltage holding)
+double pidIn_voltage, pidOut_voltage, pidSet_voltage;
+PID pidFloatVoltage(&pidIn_voltage, &pidOut_voltage, &pidSet_voltage, 10.0, 2.0, 0.0, DIRECT);
+
+// ================= Fractional-Voc MPPT =================
 const float VOC_FRACTION = 0.80f;
 const unsigned long VOC_RESAMPLE_INTERVAL_MS = 10000;
 const unsigned long VOC_SETTLE_MS = 40;
@@ -439,7 +456,7 @@ uint32_t currentChargeDuty = 0;
 void sampleVocAndUpdateTarget() {
   uint32_t dutyBeforeSample = currentChargeDuty;
   ledcWrite(CHARGE_CH, 0);
-  delay(VOC_SETTLE_MS);
+  delay(VOC_SETTLE_MS); // Note: Still blocks, but isolated to once per 10s. For true RT, rewrite as FSM.
   float voc = readVinPanel();
   vinTarget = VOC_FRACTION * voc;
   ledcWrite(CHARGE_CH, dutyBeforeSample);
@@ -479,22 +496,27 @@ void tripFault(const char* reason) {
 
 void startParasiticCharacterization() {
   ledcWrite(CHARGE_CH, 0);
-  delay(1000); // Wait for transients to settle
-  float idleV = ina219.getBusVoltage_V();
-  parasiticTargetVoltage = min(idleV + PARASITIC_PROBE_OFFSET_V, BULK_TARGET_V + 0.2f);
-  parasiticHoldDuty = 0;
-  parasiticAccum = 0;
-  parasiticSamples = 0;
-  parasiticErrorIntegral = 0;
-  enterMode(MODE_CHAR_PARASITIC);
-  Serial.print("PARA: baseline start. Idle V="); Serial.print(idleV,3);
-  Serial.print(", target V="); Serial.println(parasiticTargetVoltage,3);
+  enterMode(MODE_CHAR_PARASITIC_WAIT); // Use non-blocking wait
+  Serial.println("PARA: transient wait started...");
+}
+
+void handleModeParasiticWait(unsigned long now) {
+  if (now - stateEnteredAt >= PARASITIC_TRANSIENT_WAIT_MS) {
+    float idleV = ina219.getBusVoltage_V();
+    parasiticTargetVoltage = min(idleV + PARASITIC_PROBE_OFFSET_V, BULK_TARGET_V + 0.2f);
+    parasiticHoldDuty = 0;
+    parasiticAccum = 0;
+    parasiticSamples = 0;
+    parasiticErrorIntegral = 0;
+    enterMode(MODE_CHAR_PARASITIC);
+    Serial.print("PARA: baseline start. Idle V="); Serial.print(idleV,3);
+    Serial.print(", target V="); Serial.println(parasiticTargetVoltage,3);
+  }
 }
 
 void handleModeParasitic(float vBatt, float iBatt, unsigned long now) {
   float vError = parasiticTargetVoltage - vBatt;
 
-  // PI control
   parasiticErrorIntegral += vError * (CONTROL_INTERVAL_MS/1000.0f);
   parasiticErrorIntegral = constrain(parasiticErrorIntegral, -5.0f, 5.0f);
 
@@ -531,7 +553,7 @@ void handleModeParasitic(float vBatt, float iBatt, unsigned long now) {
 void startPassiveFormationTest() {
   ledcWrite(CHARGE_CH, 0);
   enterMode(MODE_PASSIVE_FORMATION_TEST);
-  Serial.println("FORM: passive test start (observing discharge via parasitic load).");
+  Serial.println("FORM: passive test start.");
 }
 
 void handleModePassiveFormation(float vBatt, unsigned long now) {
@@ -560,7 +582,6 @@ void handleModePulseTest(float vBatt, unsigned long now) {
   float vIn = readVinPanel();
 
   switch (pulseSubPhase) {
-
     case PULSE_PRE: {
       ledcWrite(CHARGE_CH, 0);
       mpptVoltageLoop(vIn);
@@ -590,6 +611,7 @@ void handleModePulseTest(float vBatt, unsigned long now) {
         float iAmps = iBatt/1000.0f;
         C_est = (probeSlope > 1e-6f) ? (iAmps/probeSlope) : -1;
         tau_est = (C_est > 0) ? R_est*C_est : -1;
+
         if (C_baseline < 0 && C_est > 0) {
           C_baseline = C_est;
           Serial.print("Baseline capacitance established: "); Serial.print(C_baseline,2); Serial.println(" F");
@@ -658,9 +680,11 @@ void handleModePulseTest(float vBatt, unsigned long now) {
         } else {
           kneeConfirmTicks = 0;
         }
+
         unsigned long noKneeTimeout = constrain(
           (tau_est>0) ? (unsigned long)(TAU_MULTIPLE_FOR_PULSE*tau_est*1000.0f) : MIN_PULSE_MS,
           MIN_PULSE_MS, MAX_PULSE_MS);
+
         if (!kneeDetected && elapsed >= noKneeTimeout) {
           slope2 = emaSlope;
           lastPulseResult = PULSE_NO_KNEE;
@@ -747,7 +771,6 @@ void handleModePulseTest(float vBatt, unsigned long now) {
     case PULSE_REST_LATE: {
       ledcWrite(CHARGE_CH, 0);
       if (now - pulsePhaseStartedAt >= restRemainingMs) {
-
         if (pulseOpenLoopMaxDuty) {
           if (lastPulseResult == PULSE_KNEE_FOUND) {
             bisectHigh = kneeCurrentMa;
@@ -785,6 +808,7 @@ void handleModePulseTest(float vBatt, unsigned long now) {
           } else {
             bisectLow = pulseTestCurrent;
           }
+
           if ((bisectHigh-bisectLow) <= BISECTION_RESOLUTION_MA || bisectionIterations >= MAX_BISECTION_ITERS) {
             doingFinalConfirm = true;
             pulseTestCurrent = bisectHigh;
@@ -810,11 +834,11 @@ void handleModeFloat(float vBatt, unsigned long now) {
   float vIn = readVinPanel();
   mpptVoltageLoop(vIn);
 
-  float vError = cvTargetVoltage - vBatt;
-  // Manual PI scaled by dt
-  float duty = pidOut_charge + vError * 40.0f * (CONTROL_INTERVAL_MS / 1000.0f);
-  duty = constrain(duty, 0.0f, mpptDutyCeiling);
-  pidOut_charge = duty;
+  // Dedicated PID object handling CV mode properly
+  pidIn_voltage = vBatt;
+  pidFloatVoltage.Compute();
+
+  float duty = constrain((float)pidOut_voltage, 0.0f, mpptDutyCeiling);
   currentChargeDuty = (uint32_t)duty;
   ledcWrite(CHARGE_CH, currentChargeDuty);
 
@@ -831,7 +855,6 @@ void handleModeBulk(float vBatt, unsigned long now) {
   float iBatt = ina219.getCurrent_mA() * CURRENT_SIGN;
   float vIn = readVinPanel();
 
-  // Stall detection
   if (vBatt > maxVoltageSeenInBulk + 0.01f) {
     maxVoltageSeenInBulk = vBatt;
     lastVoltageRiseAt = now;
@@ -861,7 +884,6 @@ void handleModeBulk(float vBatt, unsigned long now) {
   }
 }
 
-// Applies the pulse's charge current, using whichever mode this pulse is in.
 void applyPulseDuty(float iBatt) {
   if (pulseOpenLoopMaxDuty) {
     currentChargeDuty = (uint32_t)mpptDutyCeiling;
@@ -907,7 +929,8 @@ void startOutgasPulseTest() {
 
 void startFloatHold() {
   cvTargetVoltage = state.outgassingVoltage_V;
-  pidOut_charge = 0;
+  pidSet_voltage = cvTargetVoltage;
+  pidFloatVoltage.SetMode(AUTOMATIC);
   enterMode(MODE_CHARGE_FLOAT);
 }
 
@@ -921,11 +944,6 @@ void goToLowInputSleep() {
   esp_deep_sleep_start();
 }
 
-// Two-exponential "peeling" decay fit, used only after a confirmed knee.
-// samples[0..4] at timesMs[0..4]; [2],[3],[4] equally spaced, used first to
-// fit the slow tail; that prediction is then subtracted from the early
-// points [0],[1] to isolate and fit the fast component. Requires
-// tau_slow >> tau_fast for a clean separation -- see file header caveats.
 void fitBiExponentialDecay(float* samples, unsigned long* timesMs, float &tauFastOut, float &tauSlowOut) {
   tauFastOut = -1; tauSlowOut = -1;
   float dtLate = (timesMs[3]-timesMs[2]) / 1000.0f;
@@ -1009,8 +1027,12 @@ void setup() {
     startParasiticCharacterization();
   }
 
+  // PID Configurations
   pidCharge.SetOutputLimits(0, PWM_MAX);
   pidCharge.SetSampleTime(CONTROL_INTERVAL_MS);
+
+  pidFloatVoltage.SetOutputLimits(0, PWM_MAX);
+  pidFloatVoltage.SetSampleTime(CONTROL_INTERVAL_MS);
 
   Serial.println("Ready. Serial: 'D'=passive formation test, "
                   "'C'=start charge (bulk -> parasitic -> pulse test -> float), "
@@ -1023,14 +1045,12 @@ void setup() {
 // ================= Main loop =================
 void applyTemperatureCompensation() {
   float temp = getBatteryTemp();
-  // Typical lead-acid: -30mV/C relative to 25C for 12V pack
-  float offset = (temp - 25.0f) * -0.030f;
+  float offset = (temp - TEMP_BASE_C) * TEMP_COMP_V_PER_C;
   BULK_TARGET_V = 13.8f + offset;
   CHARGE_V_OVERVOLTAGE = 15.5f + offset;
 }
 
 void logTelemetry() {
-  // Structured logging: TELE: time_ms, mode, v_bat, i_bat, v_in, duty, temp
   Serial.print("TELE: ");
   Serial.print(millis()); Serial.print(",");
   Serial.print(mode); Serial.print(",");
@@ -1064,7 +1084,7 @@ void loop() {
   previousMillis = currentMillis;
   kalmanSetTimestep(dt);
 
-  logTelemetry(); // Centralized logging every tick
+  logTelemetry();
 
   float vBatt = ina219.getBusVoltage_V();
   float vIn   = readVinPanel();
@@ -1073,6 +1093,7 @@ void loop() {
                                || mode == MODE_CHARGE_FLOAT || mode == MODE_CHAR_PARASITIC
                                || mode == MODE_PASSIVE_FORMATION_TEST || mode == MODE_WAIT_AFTER_OUTGASSING
                                || mode == MODE_IDLE || mode == MODE_FAULT || mode == MODE_CHARGE_DONE);
+
   if (activeModeUsesInput) {
     if (vIn < VIN_SHUTDOWN_THRESHOLD) uvloLowCount++; else uvloLowCount = 0;
     if (uvloLowCount >= UVLO_DEBOUNCE_SAMPLES) {
@@ -1082,15 +1103,18 @@ void loop() {
   }
 
   switch (mode) {
-
     case MODE_IDLE:
     case MODE_FAULT:
       break;
 
+    case MODE_CHAR_PARASITIC_WAIT: {
+      handleModeParasiticWait(currentMillis);
+      break;
+    }
+
     case MODE_CHAR_PARASITIC: {
       float iBatt = ina219.getCurrent_mA() * CURRENT_SIGN;
       if (iBatt > OVERCURRENT_LIMIT_MA) { tripFault("parasitic-probe overcurrent"); break; }
-
       handleModeParasitic(vBatt, iBatt, currentMillis);
       break;
     }
