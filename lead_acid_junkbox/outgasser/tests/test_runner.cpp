@@ -66,10 +66,12 @@ bool run_test(const std::string& scenario) {
         if (n > 0) {
             resp[n] = 0;
             float v, i_net, v_pnl;
-            if (sscanf(resp, "%f %f %f", &v, &i_net, &v_pnl) == 3) {
+            int ntc;
+            if (sscanf(resp, "%f %f %f %d", &v, &i_net, &v_pnl, &ntc) == 4) {
                 ina219._v = v;
                 ina219._i_ma = i_net;
                 mock_v_pnl = v_pnl;
+                _mock_ntc_counts = ntc;
             }
         }
 
@@ -97,7 +99,7 @@ bool run_test(const std::string& scenario) {
 }
 
 int main() {
-    std::vector<std::string> scenarios = {"healthy", "high_r", "aged", "hot", "cold", "cloudy"};
+    std::vector<std::string> scenarios = {"healthy", "high_r", "aged", "hot", "cold", "cloudy", "stalled"};
     int passed = 0;
 
     for (const auto& s : scenarios) {

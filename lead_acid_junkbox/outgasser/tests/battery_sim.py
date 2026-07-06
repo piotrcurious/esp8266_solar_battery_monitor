@@ -20,6 +20,7 @@ class BatterySim:
         self.outgas_slope = 1.0
         self.i_parasitic = i_parasitic
         self.temp = temp # Celsius
+        self.is_stalled = False
 
     def get_outgas_v(self):
         # Lead acid outgassing voltage drops ~30mV per degree C above 25C
@@ -49,7 +50,8 @@ class BatterySim:
             else:
                 self.v_gas *= math.exp(-sub_dt / 50.0)
 
-            self.v_oc += (i_charging * 0.95 * sub_dt) / self.c_main
+            if not self.is_stalled:
+                self.v_oc += (i_charging * 0.95 * sub_dt) / self.c_main
 
         v_final = self.v_oc + self.v_dl + self.v_gas + i_applied * self.r_int
         v_final += (random.random() - 0.5) * 0.001
@@ -96,8 +98,12 @@ def main():
             temp = 45.0
         elif scenario == "cold":
             temp = 0.0
+        elif scenario == "stalled":
+            v_outgas = 13.5
 
     bat = BatterySim(c=c, r_int=r, outgas_v=v_outgas, temp=temp)
+    if scenario == "stalled":
+        bat.is_stalled = True
     solar = SolarSim()
 
     while True:

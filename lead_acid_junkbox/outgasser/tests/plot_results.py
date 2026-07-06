@@ -11,19 +11,18 @@ def generate_svg(data, output_svg, title, zoom_mode=None):
     if not data:
         return
 
-    times = [d['t'] for d in data]
-    modes = [d['m'] for d in data]
-    v_bats = [d['v'] for d in data]
-    i_bats = [d['i'] for d in data]
-
     if zoom_mode:
         # Filter for a specific mode range if requested
-        filtered = [d for d in data if d['m'] == zoom_mode]
-        if not filtered:
-            return
-        times = [d['t'] for d in filtered]
-        v_bats = [d['v'] for d in filtered]
-        i_bats = [d['i'] for d in filtered]
+        times = [d['t'] for d in data if d['m'] == zoom_mode]
+        v_bats = [d['v'] for d in data if d['m'] == zoom_mode]
+        i_bats = [d['i'] for d in data if d['m'] == zoom_mode]
+    else:
+        times = [d['t'] for d in data]
+        v_bats = [d['v'] for d in data]
+        i_bats = [d['i'] for d in data]
+
+    if not times:
+        return
 
     # Downsample
     step = max(1, len(times) // 1000)
