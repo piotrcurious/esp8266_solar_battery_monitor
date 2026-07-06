@@ -125,7 +125,7 @@
  *   - VIN_PIN is a panel voltage divider on an ADC1 input-only pin.
  *   - CHARGE_V_OVERVOLTAGE (15.0V) and BULK_TARGET_V (13.8V) assume a
  *     12V lead-acid-style pack -- VERIFY for your actual chemistry.
- *   - No temperature sensing -- a real gap beyond a bench test.
+ *   - Temperature sensing supported via 10k NTC on TEMP_PIN.
  */
 
 #include <Wire.h>
@@ -194,7 +194,7 @@ const uint64_t SLEEP_CHECK_INTERVAL_US = 5ULL * 60ULL * 1000000ULL;
 
 // ================= Parasitic baseline (voltage-hold, not FET-off) =================
 const float PARASITIC_PROBE_OFFSET_V = 0.10f;
-const float PARASITIC_HOLD_KP = 5.0f;
+const float PARASITIC_HOLD_KP = 25.0f;
 const float PARASITIC_SETTLE_S = 20.0f;
 const float PARASITIC_SAMPLE_S = 10.0f;
 
@@ -287,6 +287,7 @@ unsigned long lastTempCompAt = 0;
 const unsigned long CONTROL_INTERVAL_MS = 100;
 unsigned long stateEnteredAt = 0;
 unsigned long chargeStartedAt = 0;
+unsigned long pulsePausedMs = 0;
 int uvloLowCount = 0;
 
 // ---- Parasitic-baseline hold-loop state ----
@@ -299,6 +300,7 @@ int parasiticSamples = 0;
 unsigned long lastVoltageRiseAt = 0;
 float maxVoltageSeenInBulk = 0;
 const unsigned long BULK_STALL_TIMEOUT_MS = 6UL * 60UL * 60UL * 1000UL; // 6 hours
+const float RECHARGE_THRESHOLD_V = 12.7f;
 
 // ---- Bisection search state ----
 float bisectLow = 0, bisectHigh = 0;
@@ -476,18 +478,20 @@ void startCharge() {
 // Applies the pulse's charge current, using whichever mode this pulse is in.
 void applyPulseDuty(float iBatt) {
   if (pulseOpenLoopMaxDuty) {
-    ledcWrite(CHARGE_CH, (int)mpptDutyCeiling);
+    currentChargeDuty = (uint32_t)mpptDutyCeiling;
   } else {
     pidIn_charge = iBatt;
     pidCharge.Compute();
     float duty = min((float)pidOut_charge, mpptDutyCeiling);
-    ledcWrite(CHARGE_CH, (int)duty);
+    currentChargeDuty = (uint32_t)duty;
   }
+  ledcWrite(CHARGE_CH, (int)currentChargeDuty);
 }
 
 void beginPulse() {
   pulseSubPhase = PULSE_PRE;
   pulsePhaseStartedAt = millis();
+  pulsePausedMs = 0;
   kneeDetected = false;
   kneeConfirmTicks = 0;
   slope1 = 0;
@@ -682,7 +686,7 @@ void loop() {
   bool activeModeUsesInput = (mode == MODE_CHARGE_BULK || mode == MODE_OUTGAS_PULSE_TEST
                                || mode == MODE_CHARGE_FLOAT || mode == MODE_CHAR_PARASITIC
                                || mode == MODE_PASSIVE_FORMATION_TEST || mode == MODE_WAIT_AFTER_OUTGASSING
-                               || mode == MODE_IDLE);
+                               || mode == MODE_IDLE || mode == MODE_FAULT || mode == MODE_CHARGE_DONE);
   if (activeModeUsesInput) {
     if (vIn < VIN_SHUTDOWN_THRESHOLD) uvloLowCount++; else uvloLowCount = 0;
     if (uvloLowCount >= UVLO_DEBOUNCE_SAMPLES) {
@@ -703,7 +707,7 @@ void loop() {
 
       float vError = parasiticTargetVoltage - vBatt;
       // Proportional control for faster settling in high-slope cases
-      parasiticHoldDuty = vError * PARASITIC_HOLD_KP * 5.0f;
+      parasiticHoldDuty = vError * PARASITIC_HOLD_KP;
       parasiticHoldDuty = constrain(parasiticHoldDuty, 0.0f, (float)PWM_MAX);
       ledcWrite(CHARGE_CH, (int)parasiticHoldDuty);
 
@@ -853,6 +857,7 @@ void loop() {
           if (currentChargeDuty >= PWM_MAX - 5 && vIn < (vinTarget - 1.0f)) {
             Serial.println("Pulse paused: solar dropout detected.");
             ledcWrite(CHARGE_CH, 0);
+            pulsePausedMs += CONTROL_INTERVAL_MS;
             return; // Exit loop for this tick, don't advance timers or integrate
           }
 
@@ -866,16 +871,25 @@ void loop() {
           V_prevTick = vBatt;
 
           float iAmps = iBatt/1000.0f;
-          float I_cap = (C_baseline > 0) ? constrain(C_baseline*instSlope, 0.0f, iAmps) : iAmps;
+          // Use EMA slope for energy split to reduce noise bias
+          float I_cap = (C_baseline > 0) ? constrain(C_baseline*emaSlope, 0.0f, iAmps) : iAmps;
           float I_gas = max(0.0f, iAmps - I_cap);
           E_cap_J += vBatt * I_cap * (CONTROL_INTERVAL_MS/1000.0);
           E_gas_J += vBatt * I_gas * (CONTROL_INTERVAL_MS/1000.0);
 
-          unsigned long elapsed = currentMillis - pulsePhaseStartedAt;
+          unsigned long elapsed = (currentMillis - pulsePhaseStartedAt) - pulsePausedMs;
 
           if (!kneeDetected) {
             float ratio = (slope1 > 1e-9f) ? emaSlope/slope1 : 1.0f;
-            if (ratio < OUTGAS_EFFICIENCY_THRESHOLD || vBatt >= CHARGE_V_OVERVOLTAGE - OVERVOLTAGE_PULSE_MARGIN) {
+
+            // Safety margin check: separate from knee detection
+            if (vBatt >= CHARGE_V_OVERVOLTAGE - OVERVOLTAGE_PULSE_MARGIN) {
+              Serial.println("Pulse ended: reached voltage ceiling before knee.");
+              pulseFoundKnee = false;
+              goto pulseMainDone;
+            }
+
+            if (ratio < OUTGAS_EFFICIENCY_THRESHOLD) {
               kneeConfirmTicks++;
               if (kneeConfirmTicks >= KNEE_CONFIRM_TICKS) {
                 kneeDetected = true;
@@ -1048,7 +1062,8 @@ void loop() {
       mpptVoltageLoop(vIn);
 
       float vError = cvTargetVoltage - vBatt;
-      float duty = pidOut_charge + vError * 40.0f;
+      // Manual PI scaled by dt
+      float duty = pidOut_charge + vError * 40.0f * (CONTROL_INTERVAL_MS / 1000.0f);
       duty = constrain(duty, 0.0f, mpptDutyCeiling);
       pidOut_charge = duty;
       currentChargeDuty = (uint32_t)duty;
@@ -1064,6 +1079,10 @@ void loop() {
     }
 
     case MODE_CHARGE_DONE:
+      if (vBatt < RECHARGE_THRESHOLD_V) {
+        Serial.println("Battery voltage below recharge threshold -- restarting bulk charge.");
+        startCharge();
+      }
       break;
 
     case MODE_BOOT:
