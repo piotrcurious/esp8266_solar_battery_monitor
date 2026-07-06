@@ -120,8 +120,8 @@
  *     voltage, getCurrent_mA() > 0 when current flows INTO the battery.
  *     Flip CURRENT_SIGN if your wiring gives the opposite sign.
  *   - PWM_CHARGE_PIN drives a buck converter, panel -> battery.
- *   - PWM_DISCHARGE_PIN drives a sink FET for the legacy manual
- *     formation/discharge test only.
+ *   - PWM_CHARGE_PIN drives a buck converter, panel -> battery. No discharge FET is used;
+ *     the system relies on opportunistic parasitic load for passive characterization.
  *   - VIN_PIN is a panel voltage divider on an ADC1 input-only pin.
  *   - CHARGE_V_OVERVOLTAGE (15.0V) and BULK_TARGET_V (13.8V) assume a
  *     12V lead-acid-style pack -- VERIFY for your actual chemistry.
@@ -164,13 +164,13 @@ float readVinPanel() {
 
 // ================= Safety / charge parameters (12V lead-acid style -- VERIFY) =================
 const float BULK_TARGET_V         = 13.8f;
-const float CHARGE_V_OVERVOLTAGE  = 15.0f;
+const float CHARGE_V_OVERVOLTAGE  = 15.5f;
 const float OVERVOLTAGE_PULSE_MARGIN = 0.10f; // force-end a pulse this far below the hard ceiling
 const float CHARGE_TERMINATION_MA = 25.0f;
 const unsigned long CHARGE_TIMEOUT_MS = (unsigned long)6 * 60UL * 60UL * 1000UL;
 
 const float OVERCURRENT_LIMIT_MA = 1500.0f;
-const float slopeThreshold = 0.0005f; // used only by the legacy discharge/formation test
+const float slopeThreshold = 0.0005f; // used to detect discharge plateau in formation test
 
 // ================= Panel undervoltage shutdown =================
 const float VIN_SHUTDOWN_THRESHOLD = 8.0f;
@@ -180,7 +180,7 @@ const uint64_t SLEEP_CHECK_INTERVAL_US = 5ULL * 60ULL * 1000000ULL;
 
 // ================= Parasitic baseline (voltage-hold, not FET-off) =================
 const float PARASITIC_PROBE_OFFSET_V = 0.10f;
-const float PARASITIC_HOLD_KP = 40.0f;
+const float PARASITIC_HOLD_KP = 5.0f;
 const float PARASITIC_SETTLE_S = 20.0f;
 const float PARASITIC_SAMPLE_S = 10.0f;
 
@@ -429,8 +429,9 @@ void tripFault(const char* reason) {
 
 void startParasiticCharacterization() {
   ledcWrite(CHARGE_CH, 0);
+  delay(1000); // Wait for transients to settle
   float idleV = ina219.getBusVoltage_V();
-  parasiticTargetVoltage = idleV + PARASITIC_PROBE_OFFSET_V;
+  parasiticTargetVoltage = min(idleV + PARASITIC_PROBE_OFFSET_V, BULK_TARGET_V + 0.2f);
   parasiticHoldDuty = 0;
   parasiticAccum = 0;
   parasiticSamples = 0;
@@ -600,7 +601,7 @@ void setup() {
   pidCharge.SetOutputLimits(0, PWM_MAX);
   pidCharge.SetSampleTime(CONTROL_INTERVAL_MS);
 
-  Serial.println("Ready. Serial: 'D'=legacy formation test, "
+  Serial.println("Ready. Serial: 'D'=passive formation test, "
                   "'C'=start charge (bulk -> parasitic -> pulse test -> float), "
                   "'A'=re-run parasitic characterization only.");
 }
@@ -636,9 +637,8 @@ void loop() {
     if (uvloLowCount >= UVLO_DEBOUNCE_SAMPLES) {
       goToLowInputSleep();
     }
+    if (vBatt > CHARGE_V_OVERVOLTAGE) { tripFault("battery overvoltage"); return; }
   }
-
-  if (vBatt > CHARGE_V_OVERVOLTAGE) { tripFault("battery overvoltage"); return; }
 
   switch (mode) {
 
@@ -651,7 +651,8 @@ void loop() {
       if (iBatt > OVERCURRENT_LIMIT_MA) { tripFault("parasitic-probe overcurrent"); break; }
 
       float vError = parasiticTargetVoltage - vBatt;
-      parasiticHoldDuty += vError * PARASITIC_HOLD_KP * (CONTROL_INTERVAL_MS/1000.0f);
+      // Proportional control for faster settling in high-slope cases
+      parasiticHoldDuty = vError * PARASITIC_HOLD_KP * 5.0f;
       parasiticHoldDuty = constrain(parasiticHoldDuty, 0.0f, (float)PWM_MAX);
       ledcWrite(CHARGE_CH, (int)parasiticHoldDuty);
 
