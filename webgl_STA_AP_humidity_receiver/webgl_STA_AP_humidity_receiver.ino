@@ -7,7 +7,8 @@
 #define MINUTES_GRAPH_BUFFER_MAX 1440
 
 // Buffers to store 24 hours of data (1 minute resolution)
-float minutes_buffer[NUMBER_OF_BUFFERS][MINUTES_GRAPH_BUFFER_MAX];
+// Changed to pointers to avoid large contiguous memory requirements
+float* minutes_buffer[NUMBER_OF_BUFFERS];
 uint32_t total_packets = 0;
 telemetry_frame last_frame;
 bool new_packet_received = false;
@@ -184,7 +185,6 @@ const char index_html[] PROGMEM = R"rawliteral(
             if (currentMode === -1) {
                 if (isStacked) {
                     for (let i = 0; i < 5; i++) {
-                        // Stacked view: each gets 1/5th of the height
                         drawChannel(i, colors[i], [0.95, 0.18], [0, 0.8 - i * 0.4]);
                     }
                 } else {
@@ -207,7 +207,9 @@ const char index_html[] PROGMEM = R"rawliteral(
 
 void shift_buffers() {
     for (int j = 0; j < NUMBER_OF_BUFFERS; j++) {
-        memmove(&minutes_buffer[j][0], &minutes_buffer[j][1], (MINUTES_GRAPH_BUFFER_MAX - 1) * sizeof(float));
+        if (minutes_buffer[j]) {
+            memmove(&minutes_buffer[j][0], &minutes_buffer[j][1], (MINUTES_GRAPH_BUFFER_MAX - 1) * sizeof(float));
+        }
     }
 }
 
@@ -222,7 +224,9 @@ void update_minute_tick() {
         new_packet_received = false;
     } else {
         for (int j = 0; j < NUMBER_OF_BUFFERS; j++) {
-            minutes_buffer[j][MINUTES_GRAPH_BUFFER_MAX - 1] = NAN;
+            if (minutes_buffer[j]) {
+                minutes_buffer[j][MINUTES_GRAPH_BUFFER_MAX - 1] = NAN;
+            }
         }
     }
 }
@@ -230,9 +234,13 @@ void update_minute_tick() {
 void setup() {
     Serial.begin(115200);
 
+    // Dynamic allocation of individual buffers
     for (int j = 0; j < NUMBER_OF_BUFFERS; j++) {
-        for (int i = 0; i < MINUTES_GRAPH_BUFFER_MAX; i++) {
-            minutes_buffer[j][i] = NAN;
+        minutes_buffer[j] = (float*)malloc(MINUTES_GRAPH_BUFFER_MAX * sizeof(float));
+        if (minutes_buffer[j]) {
+            for (int i = 0; i < MINUTES_GRAPH_BUFFER_MAX; i++) {
+                minutes_buffer[j][i] = NAN;
+            }
         }
     }
 
@@ -255,7 +263,24 @@ void setup() {
     });
 
     server.on("/data", HTTP_GET, [](AsyncWebServerRequest *request){
-        request->send(200, "application/octet-stream", (uint8_t*)minutes_buffer, sizeof(minutes_buffer));
+        // Chunked response to avoid large memory peak
+        AsyncWebServerResponse *response = request->beginChunkedResponse("application/octet-stream", [](uint8_t *buffer, size_t maxLen, size_t index) -> size_t {
+            size_t total_size = NUMBER_OF_BUFFERS * MINUTES_GRAPH_BUFFER_MAX * sizeof(float);
+            if (index >= total_size) return 0;
+
+            size_t channel = index / (MINUTES_GRAPH_BUFFER_MAX * sizeof(float));
+            size_t offset_in_channel = index % (MINUTES_GRAPH_BUFFER_MAX * sizeof(float));
+            size_t remaining_in_channel = (MINUTES_GRAPH_BUFFER_MAX * sizeof(float)) - offset_in_channel;
+
+            size_t to_copy = (maxLen < remaining_in_channel) ? maxLen : remaining_in_channel;
+            if (minutes_buffer[channel]) {
+                memcpy(buffer, (uint8_t*)minutes_buffer[channel] + offset_in_channel, to_copy);
+            } else {
+                memset(buffer, 0, to_copy); // Should not happen
+            }
+            return to_copy;
+        });
+        request->send(response);
     });
 
     server.on("/status", HTTP_GET, [](AsyncWebServerRequest *request){
