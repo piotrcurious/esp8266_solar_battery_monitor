@@ -343,6 +343,12 @@ bool haveUpperBound = false;
 int bisectionIterations = 0;
 bool doingFinalConfirm = false;
 
+// ---- Multi-pass state ----
+int currentPass = 0;
+const int MAX_PASSES = 3;
+float passResultsI[MAX_PASSES];
+float passResultsV[MAX_PASSES];
+
 // ---- Per-pulse state ----
 bool pulseOpenLoopMaxDuty = false;
 float pulseTestCurrent = 0;
@@ -542,7 +548,9 @@ void handleModeParasitic(float vBatt, float iBatt, unsigned long now) {
       Serial.print(state.parasiticCurrent_mA, 2);
       Serial.println(" mA");
       if (postParasiticAction == POST_PARASITIC_START_PULSE_TEST) {
-        startOutgasPulseTest();
+        enterMode(MODE_OUTGAS_PULSE_TEST);
+        beginPulse();
+        Serial.print("PARA: pass "); Serial.print(currentPass + 1); Serial.println(" parasitic complete.");
       } else {
         enterMode(MODE_IDLE);
       }
@@ -791,11 +799,31 @@ void handleModePulseTest(float vBatt, unsigned long now) {
           if (lastPulseResult != PULSE_KNEE_FOUND) {
             Serial.println("BISE: final confirm failed to reproduce knee. Result may be noisy.");
           }
-          state.calibrated = true;
-          saveState();
-          Serial.print("BISE: complete. I="); Serial.print(state.outgassingCurrent_mA);
-          Serial.print("mA at V="); Serial.println(state.outgassingVoltage_V,4);
-          startFloatHold();
+
+          passResultsI[currentPass] = state.outgassingCurrent_mA;
+          passResultsV[currentPass] = state.outgassingVoltage_V;
+          currentPass++;
+
+          if (currentPass < MAX_PASSES) {
+            Serial.print("PASS: "); Serial.print(currentPass); Serial.println(" complete. Re-evaluating parasitic for next pass.");
+            bisectLow = max(MIN_PULSE_START_MA, state.parasiticCurrent_mA * (PARASITIC_START_MULTIPLIER + currentPass * 0.1f));
+            haveUpperBound = false;
+            bisectionIterations = 0;
+            doingFinalConfirm = false;
+            pulseOpenLoopMaxDuty = true;
+            postParasiticAction = POST_PARASITIC_START_PULSE_TEST;
+            startParasiticCharacterization();
+          } else {
+            float avgI = 0, avgV = 0;
+            for (int i=0; i<MAX_PASSES; i++) { avgI += passResultsI[i]; avgV += passResultsV[i]; }
+            state.outgassingCurrent_mA = avgI / MAX_PASSES;
+            state.outgassingVoltage_V = avgV / MAX_PASSES;
+            state.calibrated = true;
+            saveState();
+            Serial.print("BISE: multi-pass complete. Final I="); Serial.print(state.outgassingCurrent_mA);
+            Serial.print("mA at V="); Serial.println(state.outgassingVoltage_V,4);
+            startFloatHold();
+          }
         } else {
           bisectionIterations++;
           if (lastPulseResult == PULSE_KNEE_FOUND) {
@@ -915,6 +943,7 @@ void beginBisectionPulse() {
 }
 
 void startOutgasPulseTest() {
+  currentPass = 0;
   bisectLow = max(MIN_PULSE_START_MA, state.parasiticCurrent_mA * PARASITIC_START_MULTIPLIER);
   bisectHigh = 0;
   haveUpperBound = false;
@@ -924,7 +953,7 @@ void startOutgasPulseTest() {
   pulseOpenLoopMaxDuty = true;
   beginPulse();
   enterMode(MODE_OUTGAS_PULSE_TEST);
-  Serial.println("Starting outgassing characterization: maximum-available-current pulse.");
+  Serial.println("Starting multi-pass outgassing characterization.");
 }
 
 void startFloatHold() {
@@ -1058,7 +1087,17 @@ void logTelemetry() {
   Serial.print(ina219.getCurrent_mA() * CURRENT_SIGN, 1); Serial.print(",");
   Serial.print(readVinPanel(), 2); Serial.print(",");
   Serial.print(currentChargeDuty); Serial.print(",");
-  Serial.println(getBatteryTemp(), 1);
+  Serial.print(getBatteryTemp(), 1); Serial.print(",");
+
+  // Extra diagnostics for pulses
+  float ratio = 1.0f;
+  if (C_baseline > 0 && mode == MODE_OUTGAS_PULSE_TEST) {
+    float iAmps = (ina219.getCurrent_mA() * CURRENT_SIGN) / 1000.0f;
+    float expectedSlope = (C_baseline > 1e-3f) ? (iAmps / C_baseline) : 0;
+    ratio = (fabs(expectedSlope) > 1e-6) ? emaSlope / expectedSlope : 1.0f;
+  }
+  Serial.print(ratio, 3); Serial.print(",");
+  Serial.println(C_baseline, 3);
 }
 
 void loop() {

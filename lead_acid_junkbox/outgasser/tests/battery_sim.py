@@ -38,7 +38,8 @@ class BatterySim:
 
             i_gas_reaction = 0
             if v_term_act > outgas_v_now:
-                i_gas_reaction = (v_term_act - outgas_v_now) * self.outgas_slope
+                # Sharper knee for better detection
+                i_gas_reaction = (v_term_act - outgas_v_now)**1.5 * self.outgas_slope
                 i_gas_reaction = min(i_gas_reaction, max(0.0, i_applied))
 
             i_charging = i_applied - i_gas_reaction

@@ -4,23 +4,22 @@ This document explains the charging algorithm and characterization process imple
 
 ## Charging Algorithm Flow
 
-The firmware follows a multi-stage state machine to safely charge lead-acid batteries while identifying their specific electrochemical outgassing point.
+The firmware follows a multi-pass state machine to precisely identify the battery's specific electrochemical outgassing point.
 
 ### 1. BULK Stage (MODE 5)
-- **Goal:** Charge the battery as fast as the solar conditions allow.
-- **Process:** Utilizes a fractional-Voc MPPT loop. Charging continues until `BULK_TARGET_V` (default 13.8V).
-- **Safety:** Includes "Stall Detection" which trips if the voltage fails to rise or drops significantly during active charging (possible shorted cell).
+- **Goal:** Charge as fast as solar conditions allow using fractional-Voc MPPT.
+- **Safety:** "Stall Detection" monitors voltage rise to prevent overcharging failed cells.
 
-### 2. PARASITIC BASELINE Stage (MODE 2)
-- **Goal:** Measure self-discharge and system load.
-- **Process:** Holds the battery voltage slightly above idle; the current needed is recorded as the search's lower bound.
+### 2. MULTI-PASS CHARACTERIZATION (MODE 2 & 6)
+- **Goal:** Statistically robust identification of the outgassing knee.
+- **Process:** The firmware performs 3 consecutive passes of the following:
+    - **Parasitic measurement:** Holds voltage above idle to establish a current baseline (lower search bound).
+    - **Bisection search:** Rapidly narrow down the minimum current that triggers the knee.
+    - **Physical verification:** Uses a combination of dV/dt slope analysis (via Kalman filter) and bi-exponential decay fits (after pulses) to confirm the Faradaic reaction.
+- **Visualization:** The "Characterization Detail" graphs show the iterative pulses and the calculated "Efficiency Ratio". A drop in efficiency marks the outgassing knee.
 
-### 3. OUTGASSING CHARACTERIZATION (MODE 6)
-- **Goal:** Find the minimum current triggering the "knee" of the outgassing reaction.
-- **Process:** Uses a bisection search between the parasitic floor and maximum solar current. Analyzes dV/dt (via Kalman filter) and post-pulse relaxation (bi-exponential decay) to confirm the Faradaic reaction.
-
-### 4. FLOAT Stage (MODE 7)
-- **Goal:** Maintain full charge at the discovered outgassing voltage.
+### 3. FLOAT Stage (MODE 7)
+- **Goal:** Maintain charge at the average outgassing voltage discovered across all passes.
 
 ---
 
@@ -38,10 +37,7 @@ The firmware follows a multi-stage state machine to safely charge lead-acid batt
 - **Full Overview:** ![Aged Full](tests/aged_full.svg)
 - **Characterization Zoom:** ![Aged Pulses](tests/aged_pulses.svg)
 
-### Cloudy Day (Variable Solar)
+### Variable Solar (Cloudy / Stormy)
 - **Full Overview:** ![Cloudy Full](tests/cloudy_full.svg)
-- **Characterization Zoom:** ![Cloudy Pulses](tests/cloudy_pulses.svg)
-
-### Stalled / Faulty Battery
-- **Full Overview:** ![Stalled Full](tests/stalled_full.svg)
-- **Result:** Bulk Stall detection correctly identified the failure and tripped a fault.
+- **Characterization Detail:** ![Cloudy Pulses](tests/cloudy_pulses.svg)
+- **Result:** The system correctly pauses pulsing and characterization timers during deep solar dropouts, ensuring no spurious data corrupts the bisection search.
