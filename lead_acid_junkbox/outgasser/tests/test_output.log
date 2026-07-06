@@ -1,0 +1,2400 @@
+
+--- STARTING TEST SCENARIO: healthy ---
+No prior calibration found.
+-> Mode: 2
+Parasitic baseline: idle V=12, holding at 12.1
+Ready. Serial: 'D'=passive formation test, 'C'=start charge (bulk -> parasitic -> pulse test -> float), 'A'=re-run parasitic characterization only.
+-> Mode: 5
+TELE: 1200,5,12,0,18,50,26.048
+[healthy] Step 0: Mode=5 Vbatt=13.496 Ibatt=-50.7
+TELE: 1300,5,13.4962,-50.7482,19.9992,62,26.048
+TELE: 1400,5,13.4953,-50.2278,19.9985,74,26.048
+TELE: 1500,5,13.4957,-50.0629,19.9975,86,26.048
+TELE: 1600,5,13.4953,-50.5943,19.9969,98,26.048
+TELE: 1700,5,13.4945,-50.7965,20.002,110,26.048
+TELE: 1800,5,13.4947,-50.5122,20.0023,122,26.048
+TELE: 1900,5,13.4941,-49.5084,19.9995,134,26.048
+TELE: 2000,5,13.4939,-50.6227,20,146,26.048
+TELE: 2100,5,13.4943,-49.1704,20.0045,158,26.048
+TELE: 2200,5,13.4936,-50.7801,19.9965,170,26.048
+TELE: 2300,5,13.4941,-49.7121,19.9985,182,26.048
+TELE: 2400,5,13.5095,136.472,18.9388,194,26.048
+TELE: 2500,5,13.5254,314.429,17.7846,204,26.048
+TELE: 2600,5,13.5369,428.99,16.9288,214,26.048
+TELE: 2700,5,13.5462,523.002,16.1508,224,26.048
+TELE: 2800,5,13.5549,598.693,15.4327,233,26.048
+TELE: 2900,5,13.5628,654.078,14.8519,242,26.048
+TELE: 3000,5,13.5692,700.677,14.3085,251,26.048
+TELE: 3100,5,13.5758,736.982,13.7975,255,26.048
+TELE: 3200,5,13.5794,752.714,13.5886,255,26.048
+TELE: 3300,5,13.5826,752.28,13.583,255,26.048
+TELE: 3400,5,13.5849,750.889,13.5882,255,26.048
+TELE: 3500,5,13.5879,751.851,13.5953,255,26.048
+TELE: 3600,5,13.5907,749.663,13.5916,255,26.048
+TELE: 3700,5,13.5932,750.462,13.6031,255,26.048
+TELE: 3800,5,13.5955,749.99,13.5975,255,26.048
+TELE: 3900,5,13.598,750.453,13.6033,255,26.048
+TELE: 4000,5,13.5993,748.944,13.6085,255,26.048
+TELE: 4100,5,13.6014,749.186,13.6089,255,26.048
+TELE: 4200,5,13.6044,748.564,13.6101,255,26.048
+TELE: 4300,5,13.6061,748.445,13.6088,255,26.048
+TELE: 4400,5,13.6081,748.683,13.613,255,26.048
+TELE: 4500,5,13.6099,748.693,13.6188,255,26.048
+TELE: 4600,5,13.6119,747.719,13.6211,255,26.048
+TELE: 4700,5,13.613,747.754,13.6166,255,26.048
+TELE: 4800,5,13.6147,747.101,13.6234,255,26.048
+TELE: 4900,5,13.617,746.779,13.6219,255,26.048
+TELE: 5000,5,13.6185,746.337,13.6275,255,26.048
+TELE: 5100,5,13.6197,746.859,13.6224,255,26.048
+TELE: 5200,5,13.6214,746.164,13.6284,255,26.048
+TELE: 5300,5,13.6231,746.649,13.6271,255,26.048
+TELE: 5400,5,13.6241,745.205,13.6339,255,26.048
+TELE: 5500,5,13.6262,746.076,13.6324,255,26.048
+TELE: 5600,5,13.6273,745.908,13.6372,255,26.048
+TELE: 5700,5,13.6285,746.508,13.6396,255,26.048
+TELE: 5800,5,13.6302,745.467,13.633,255,26.048
+TELE: 5900,5,13.6311,744.508,13.6348,255,26.048
+TELE: 6000,5,13.6329,745.025,13.6394,255,26.048
+TELE: 6100,5,13.6339,745.838,13.6366,255,26.048
+TELE: 6200,5,13.6348,745.655,13.6454,255,26.048
+TELE: 6300,5,13.6363,744.637,13.6403,255,26.048
+TELE: 6400,5,13.6371,743.861,13.6416,255,26.048
+TELE: 6500,5,13.6378,743.844,13.6449,255,26.048
+TELE: 6600,5,13.639,744.394,13.6482,255,26.048
+TELE: 6700,5,13.6408,743.272,13.6425,255,26.048
+TELE: 6800,5,13.6413,742.966,13.6461,255,26.048
+TELE: 6900,5,13.6427,744.598,13.6468,255,26.048
+TELE: 7000,5,13.6438,743.88,13.6542,255,26.048
+TELE: 7100,5,13.645,744.079,13.6559,255,26.048
+TELE: 7200,5,13.646,742.457,13.6549,255,26.048
+TELE: 7300,5,13.6468,744.244,13.6563,255,26.048
+TELE: 7400,5,13.648,743.999,13.6571,255,26.048
+TELE: 7500,5,13.6483,742.771,13.6537,255,26.048
+TELE: 7600,5,13.649,743.219,13.6598,255,26.048
+TELE: 7700,5,13.6508,743.591,13.6546,255,26.048
+TELE: 7800,5,13.6512,741.853,13.6631,255,26.048
+TELE: 7900,5,13.6522,741.767,13.6642,255,26.048
+TELE: 8000,5,13.6529,743.303,13.6575,255,26.048
+TELE: 8100,5,13.6541,742.817,13.657,255,26.048
+TELE: 8200,5,13.6553,742.96,13.6633,255,26.048
+TELE: 8300,5,13.6555,742.537,13.6669,255,26.048
+TELE: 8400,5,13.6567,741.34,13.662,255,26.048
+TELE: 8500,5,13.657,741.937,13.6605,255,26.048
+TELE: 8600,5,13.6586,740.866,13.6651,255,26.048
+TELE: 8700,5,13.6591,742.346,13.6712,255,26.048
+TELE: 8800,5,13.6598,741.019,13.6696,255,26.048
+TELE: 8900,5,13.6607,741.223,13.6643,255,26.048
+TELE: 9000,5,13.662,742.208,13.6707,255,26.048
+TELE: 9100,5,13.6621,741.475,13.6698,255,26.048
+TELE: 9200,5,13.6632,740.348,13.6659,255,26.048
+TELE: 9300,5,13.6636,742.028,13.6738,255,26.048
+TELE: 9400,5,13.6651,741.36,13.6766,255,26.048
+TELE: 9500,5,13.6658,740.165,13.6703,255,26.048
+TELE: 9600,5,13.6661,741.466,13.6697,255,26.048
+TELE: 9700,5,13.6675,740.537,13.6724,255,26.048
+TELE: 9800,5,13.6676,740.006,13.6744,255,26.048
+TELE: 9900,5,13.6688,740.729,13.6743,255,26.048
+MPPT: sampled Voc=13.6795V, target Vmp=10.9436
+TELE: 10000,5,13.6692,740.773,13.6795,255,26.048
+TELE: 10140,5,13.6705,741.169,13.6806,255,26.048
+TELE: 10240,5,13.6707,739.592,13.6794,255,26.048
+TELE: 10340,5,13.6721,739.648,13.6771,255,26.048
+TELE: 10440,5,13.6722,740.673,13.6748,255,26.048
+TELE: 10540,5,13.6733,739.88,13.6849,255,26.048
+TELE: 10640,5,13.6741,740.466,13.685,255,26.048
+TELE: 10740,5,13.6742,740.765,13.6786,255,26.048
+TELE: 10840,5,13.675,740.474,13.6806,255,26.048
+TELE: 10940,5,13.6763,739.949,13.6854,255,26.048
+TELE: 11040,5,13.6766,739.595,13.6795,255,26.048
+TELE: 11140,5,13.678,739.031,13.6836,255,26.048
+TELE: 11240,5,13.6778,739.808,13.6842,255,26.048
+TELE: 11340,5,13.679,738.371,13.6828,255,26.048
+TELE: 11440,5,13.6799,738.192,13.6877,255,26.048
+TELE: 11540,5,13.68,738.909,13.6889,255,26.048
+TELE: 11640,5,13.6807,739.122,13.6932,255,26.048
+TELE: 11740,5,13.682,737.953,13.6902,255,26.048
+TELE: 11840,5,13.6827,739.449,13.6898,255,26.048
+TELE: 11940,5,13.6837,738.991,13.686,255,26.048
+TELE: 12040,5,13.6844,738.161,13.6899,255,26.048
+TELE: 12140,5,13.6848,738.975,13.6905,255,26.048
+TELE: 12240,5,13.6852,739.353,13.6957,255,26.048
+TELE: 12340,5,13.6861,738.585,13.6902,255,26.048
+TELE: 12440,5,13.6869,737.288,13.6947,255,26.048
+TELE: 12540,5,13.6871,738.105,13.6972,255,26.048
+TELE: 12640,5,13.6886,737.055,13.6992,255,26.048
+TELE: 12740,5,13.689,738.756,13.6987,255,26.048
+TELE: 12840,5,13.6899,737.287,13.6999,255,26.048
+TELE: 12940,5,13.6908,737.128,13.7023,255,26.048
+TELE: 13040,5,13.6914,737.106,13.6994,255,26.048
+TELE: 13140,5,13.6916,737.458,13.6943,255,26.048
+TELE: 13240,5,13.6927,737.118,13.7015,255,26.048
+TELE: 13340,5,13.6932,738.017,13.7018,255,26.048
+TELE: 13440,5,13.6942,737.761,13.7049,255,26.048
+TELE: 13540,5,13.6948,736.56,13.7005,255,26.048
+TELE: 13640,5,13.6957,737.165,13.6992,255,26.048
+TELE: 13740,5,13.6961,736.834,13.7067,255,26.048
+TELE: 13840,5,13.6971,736.616,13.7068,255,26.048
+TELE: 13940,5,13.6975,737.52,13.7046,255,26.048
+TELE: 14040,5,13.6979,736.69,13.7021,255,26.048
+TELE: 14140,5,13.6987,736.416,13.7095,255,26.048
+TELE: 14240,5,13.6998,736.393,13.7084,255,26.048
+TELE: 14340,5,13.7006,737.095,13.7081,255,26.048
+TELE: 14440,5,13.7007,735.855,13.7084,255,26.048
+TELE: 14540,5,13.7012,735.822,13.7094,255,26.048
+TELE: 14640,5,13.7018,736.189,13.7077,255,26.048
+TELE: 14740,5,13.7027,736.352,13.7148,255,26.048
+TELE: 14840,5,13.7041,735.978,13.7127,255,26.048
+TELE: 14940,5,13.7044,736.784,13.7134,255,26.048
+TELE: 15040,5,13.7046,736.837,13.7129,255,26.048
+TELE: 15140,5,13.7062,734.984,13.7108,255,26.048
+TELE: 15240,5,13.7066,734.846,13.7148,255,26.048
+TELE: 15340,5,13.7066,736.129,13.714,255,26.048
+TELE: 15440,5,13.708,735.705,13.7169,255,26.048
+TELE: 15540,5,13.7087,736.233,13.7173,255,26.048
+TELE: 15640,5,13.7091,736.345,13.7187,255,26.048
+TELE: 15740,5,13.7098,734.413,13.718,255,26.048
+TELE: 15840,5,13.7101,734.886,13.7192,255,26.048
+TELE: 15940,5,13.7111,735.424,13.7157,255,26.048
+TELE: 16040,5,13.7124,734.832,13.7189,255,26.048
+TELE: 16140,5,13.7129,734.79,13.7167,255,26.048
+TELE: 16240,5,13.7129,735.242,13.7158,255,26.048
+TELE: 16340,5,13.7137,735.643,13.7189,255,26.048
+TELE: 16440,5,13.715,734.476,13.7208,255,26.048
+TELE: 16540,5,13.7155,734.154,13.7263,255,26.048
+TELE: 16640,5,13.7163,734.032,13.7186,255,26.048
+TELE: 16740,5,13.7164,733.53,13.7272,255,26.048
+TELE: 16840,5,13.7176,735.313,13.7238,255,26.048
+TELE: 16940,5,13.7176,733.705,13.722,255,26.048
+TELE: 17040,5,13.7191,734.161,13.722,255,26.048
+TELE: 17140,5,13.7194,733.556,13.7297,255,26.048
+TELE: 17240,5,13.7205,734.245,13.726,255,26.048
+TELE: 17340,5,13.7207,733.946,13.7241,255,26.048
+TELE: 17440,5,13.7212,734.425,13.7264,255,26.048
+TELE: 17540,5,13.7227,734.749,13.7326,255,26.048
+TELE: 17640,5,13.7226,734.195,13.7264,255,26.048
+TELE: 17740,5,13.7236,732.856,13.7325,255,26.048
+TELE: 17840,5,13.724,732.685,13.7349,255,26.048
+TELE: 17940,5,13.7247,733.521,13.7282,255,26.048
+TELE: 18040,5,13.7252,733.04,13.7318,255,26.048
+TELE: 18140,5,13.7262,732.616,13.7345,255,26.048
+TELE: 18240,5,13.727,732.918,13.7392,255,26.048
+TELE: 18340,5,13.7273,733.117,13.7345,255,26.048
+TELE: 18440,5,13.7288,732.043,13.7368,255,26.048
+TELE: 18540,5,13.7288,733.663,13.7399,255,26.048
+TELE: 18640,5,13.7302,732.61,13.7368,255,26.048
+TELE: 18740,5,13.7306,732.13,13.7414,255,26.048
+TELE: 18840,5,13.7311,733.114,13.7424,255,26.048
+TELE: 18940,5,13.7319,732.373,13.7427,255,26.048
+TELE: 19040,5,13.7323,732.36,13.7398,255,26.048
+TELE: 19140,5,13.733,732.52,13.7384,255,26.048
+TELE: 19240,5,13.7335,733.097,13.7448,255,26.048
+TELE: 19340,5,13.7344,732.567,13.7381,255,26.048
+TELE: 19440,5,13.7356,732.738,13.7446,255,26.048
+TELE: 19540,5,13.7354,731.8,13.7428,255,26.048
+TELE: 19640,5,13.7368,731.145,13.7447,255,26.048
+TELE: 19740,5,13.7372,731.535,13.7447,255,26.048
+TELE: 19840,5,13.7381,732.711,13.7464,255,26.048
+TELE: 19940,5,13.7385,730.857,13.747,255,26.048
+MPPT: sampled Voc=13.7428V, target Vmp=10.9943
+TELE: 20040,5,13.7391,732.459,13.7428,255,26.048
+TELE: 20180,5,13.7398,731.598,13.7489,255,26.048
+TELE: 20280,5,13.7404,732.283,13.7431,255,26.048
+TELE: 20380,5,13.7417,731.596,13.7448,255,26.048
+TELE: 20480,5,13.7424,731.222,13.7491,255,26.048
+TELE: 20580,5,13.7424,730.696,13.7544,255,26.048
+TELE: 20680,5,13.743,731.399,13.7552,255,26.048
+TELE: 20780,5,13.744,731.987,13.7518,255,26.048
+TELE: 20880,5,13.7448,731.562,13.7521,255,26.048
+TELE: 20980,5,13.7455,730.132,13.7493,255,26.048
+TELE: 21080,5,13.7461,730.428,13.7519,255,26.048
+TELE: 21180,5,13.7468,730.239,13.7534,255,26.048
+TELE: 21280,5,13.7475,730.842,13.7556,255,26.048
+TELE: 21380,5,13.7484,730.447,13.753,255,26.048
+TELE: 21480,5,13.7491,730.221,13.7594,255,26.048
+TELE: 21580,5,13.7492,729.926,13.758,255,26.048
+TELE: 21680,5,13.7497,730.86,13.7609,255,26.048
+TELE: 21780,5,13.751,730.356,13.7566,255,26.048
+TELE: 21880,5,13.7518,730.444,13.7622,255,26.048
+TELE: 21980,5,13.7521,730.124,13.7556,255,26.048
+TELE: 22080,5,13.7528,729.748,13.762,255,26.048
+TELE: 22180,5,13.7535,730.592,13.7639,255,26.048
+TELE: 22280,5,13.7539,729.45,13.7626,255,26.048
+TELE: 22380,5,13.755,730.022,13.761,255,26.048
+TELE: 22480,5,13.7553,729.374,13.7625,255,26.048
+TELE: 22580,5,13.7562,729.971,13.7654,255,26.048
+TELE: 22680,5,13.7568,729.309,13.7611,255,26.048
+TELE: 22780,5,13.7578,729.18,13.7699,255,26.048
+TELE: 22880,5,13.7581,729.231,13.7662,255,26.048
+TELE: 22980,5,13.7587,729.626,13.7645,255,26.048
+TELE: 23080,5,13.7602,730.113,13.7718,255,26.048
+TELE: 23180,5,13.7602,728.712,13.7664,255,26.048
+TELE: 23280,5,13.7607,729.555,13.7661,255,26.048
+TELE: 23380,5,13.762,729.033,13.77,255,26.048
+TELE: 23480,5,13.7619,727.791,13.7693,255,26.048
+TELE: 23580,5,13.7629,729.197,13.7729,255,26.048
+TELE: 23680,5,13.7635,728.238,13.7672,255,26.048
+TELE: 23780,5,13.7649,728.974,13.7735,255,26.048
+TELE: 23880,5,13.7648,728.053,13.775,255,26.048
+TELE: 23980,5,13.7656,728.154,13.7734,255,26.048
+TELE: 24080,5,13.7666,728.722,13.7781,255,26.048
+TELE: 24180,5,13.7672,727.317,13.7695,255,26.048
+TELE: 24280,5,13.7674,727.27,13.7749,255,26.048
+TELE: 24380,5,13.7682,727.086,13.7804,255,26.048
+Bulk charge plateau reached -- measuring parasitic baseline, then pulse-testing for outgassing.
+-> Mode: 2
+Parasitic baseline: idle V=13.7687, holding at 13.8687
+Parasitic/self-discharge-compensation current: -49.9242 mA
+-> Mode: 6
+Starting outgassing characterization: maximum-available-current pulse.
+MPPT: sampled Voc=20.0001V, target Vmp=16.0001
+Baseline capacitance established: 29.7099 F
+Pulse probe: I=730.907mA R=0.0951574 ohm tau=2.82712 s
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Knee detected: V=13.7039 I=-49.2999 efficiency=0.410932
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse energy: E_cap=-3.75536J E_gas=0J (gas fraction=0%)
+Decay fit (post-knee): tau_fast=1.26016s tau_slow=11.3801s
+Charge/decay capacitance asymmetry ratio: 0.445741
+  note: charge-side and decay-side time constants disagree substantially -- consistent with a genuine Faradaic (gassing) process, not just noise.
+Initial high-current pulse found outgassing -- starting bisection search for the minimum current.
+MPPT: sampled Voc=19.9986V, target Vmp=15.9988
+Pulse probe: I=-49.0067mA R=0 ohm tau=-1 s
+Pulse energy: E_cap=0.0845561J E_gas=0J (gas fraction=0%)
+Bisection converged -- running one confirmation pulse before finalizing.
+Pulse probe: I=-50.8301mA R=1.47523 ohm tau=-1 s
+Pulse energy: E_cap=-0.685379J E_gas=0J (gas fraction=0%)
+Final confirmation pulse did not reproduce the knee -- borderline/noisy result, keeping the last confirmed value but treat it with some caution.
+Outgassing result: minimum current~-49.2999 mA at V=13.7039
+-> Mode: 7
+MPPT: sampled Voc=19.9997V, target Vmp=15.9998
+Charge complete (float current tapered to termination threshold).
+-> Mode: 8
+TELE: 119960,8,13.6653,-50.06,19.9997,1,26.048
+[healthy] TEST PASSED: MODE_CHARGE_DONE reached.
+
+--- STARTING TEST SCENARIO: high_r ---
+-> Mode: 1
+Loaded prior calibration:
+  parasitic=-49.9242 mA
+  outgas I=-49.2999 mA at V=13.7039
+Ready. Serial: 'D'=passive formation test, 'C'=start charge (bulk -> parasitic -> pulse test -> float), 'A'=re-run parasitic characterization only.
+-> Mode: 5
+TELE: 200,5,13.6651,-50.5768,20.0006,42,26.048
+[high_r] Step 0: Mode=5 Vbatt=13.480 Ibatt=-50.0
+TELE: 300,5,13.48,-50.015,20.0005,44,26.048
+TELE: 400,5,13.4796,-49.1953,19.9988,47,26.048
+TELE: 500,5,13.4796,-50.7502,20.0016,49,26.048
+TELE: 600,5,13.4794,-49.9257,20.0019,52,26.048
+TELE: 700,5,13.4788,-50.2226,20.0019,54,26.048
+TELE: 800,5,13.4784,-49.6309,19.9953,56,26.048
+TELE: 900,5,13.4787,-50.9313,20.0041,59,26.048
+TELE: 1000,5,13.478,-50.0894,20.0023,61,26.048
+TELE: 1100,5,13.4777,-50.3994,20.0009,64,26.048
+TELE: 1200,5,13.4778,-50.3002,19.9966,66,26.048
+TELE: 1300,5,13.4776,-49.1186,19.9981,68,26.048
+TELE: 1400,5,13.4775,-49.5073,19.996,71,26.048
+TELE: 1500,5,13.4771,-50.948,19.9996,73,26.048
+TELE: 1600,5,13.4766,-49.3234,20.001,76,26.048
+TELE: 1700,5,13.4769,-50.5312,19.998,78,26.048
+TELE: 1800,5,13.4763,-50.596,20.0014,80,26.048
+TELE: 1900,5,13.4758,-50.9826,20.0033,83,26.048
+TELE: 2000,5,13.4758,-50.6565,20.0012,85,26.048
+TELE: 2100,5,13.4752,-49.1968,19.9963,88,26.048
+TELE: 2200,5,13.4751,-50.5353,19.9996,90,26.048
+TELE: 2300,5,13.4749,-49.2774,20.0006,92,26.048
+TELE: 2400,5,13.4754,-49.346,20.0023,95,26.048
+TELE: 2500,5,13.4751,-50.4819,19.9987,97,26.048
+TELE: 2600,5,13.4744,-50.5735,19.9974,100,26.048
+TELE: 2700,5,13.4744,-49.6415,20.0007,102,26.048
+TELE: 2800,5,13.4742,-49.4252,19.9979,104,26.048
+TELE: 2900,5,13.4743,-50.2474,20.0045,107,26.048
+TELE: 3000,5,13.4739,-49.3306,20.0014,109,26.048
+TELE: 3100,5,13.4732,-49.7958,20.0008,112,26.048
+TELE: 3200,5,13.4738,-50.5765,19.9955,114,26.048
+TELE: 3300,5,13.4735,-50.235,19.996,116,26.048
+TELE: 3400,5,13.4731,-49.0704,20.004,119,26.048
+TELE: 3500,5,13.4732,-49.4566,19.9954,121,26.048
+TELE: 3600,5,13.4723,-50.2417,19.9995,124,26.048
+TELE: 3700,5,13.4725,-50.5129,19.9976,126,26.048
+TELE: 3800,5,13.4719,-49.4254,19.9961,128,26.048
+TELE: 3900,5,13.4722,-50.3793,20.0035,131,26.048
+TELE: 4000,5,13.4715,-49.7985,20,133,26.048
+TELE: 4100,5,13.4718,-49.3944,19.9985,135,26.048
+TELE: 4200,5,13.4719,-49.7804,20.0012,138,26.048
+TELE: 4300,5,13.4709,-49.3039,20.0026,140,26.048
+TELE: 4400,5,13.4708,-49.0028,20.0012,143,26.048
+TELE: 4500,5,13.4714,-50.8779,20.0041,145,26.048
+TELE: 4600,5,13.4712,-50.2092,20.0006,148,26.048
+TELE: 4700,5,13.4711,-50.8756,19.9957,150,26.048
+TELE: 4800,5,13.4704,-50.0892,19.9991,152,26.048
+TELE: 4900,5,13.4699,-50.9709,20.0033,155,26.048
+TELE: 5000,5,13.4696,-49.9655,20.0022,157,26.048
+TELE: 5100,5,13.4699,-49.101,20.0006,160,26.048
+TELE: 5200,5,13.4698,-50.1465,19.9999,162,26.048
+TELE: 5300,5,13.4694,-49.1558,20.0003,164,26.048
+TELE: 5400,5,13.4695,-49.5318,20.0045,167,26.048
+TELE: 5500,5,13.4696,-49.8164,19.9989,169,26.048
+TELE: 5600,5,13.4695,-50.9829,19.9996,172,26.048
+TELE: 5700,5,13.4694,-49.7844,20.0031,174,26.048
+TELE: 5800,5,13.482,-17.429,19.8217,176,26.048
+TELE: 5900,5,13.4969,20.3615,19.61,178,26.048
+TELE: 6000,5,13.5113,54.4655,19.4097,180,26.048
+TELE: 6100,5,13.5253,89.0484,19.2145,182,26.048
+TELE: 6200,5,13.5386,120.41,19.0234,184,26.048
+TELE: 6300,5,13.5522,152.412,18.8382,186,26.048
+TELE: 6400,5,13.5653,180.3,18.6532,187,26.048
+TELE: 6500,5,13.5712,196.121,18.5572,189,26.048
+TELE: 6600,5,13.5836,223.184,18.3804,190,26.048
+TELE: 6700,5,13.5909,237.262,18.2912,192,26.048
+TELE: 6800,5,13.602,261.736,18.1158,193,26.048
+TELE: 6900,5,13.6087,274.928,18.034,194,26.048
+TELE: 7000,5,13.6148,287.957,17.948,195,26.048
+TELE: 7100,5,13.6208,298.471,17.8611,197,26.048
+TELE: 7200,5,13.6323,323.792,17.6953,198,26.048
+TELE: 7300,5,13.6382,333.641,17.6171,199,26.048
+TELE: 7400,5,13.6442,344.816,17.5341,199,26.048
+TELE: 7500,5,13.6463,344.37,17.5376,200,26.048
+TELE: 7600,5,13.6522,355.214,17.452,201,26.048
+TELE: 7700,5,13.6576,365.709,17.3752,202,26.048
+TELE: 7800,5,13.6636,375.92,17.2981,203,26.048
+TELE: 7900,5,13.6699,386.871,17.2194,204,26.048
+TELE: 8000,5,13.6758,397.325,17.1456,204,26.048
+TELE: 8100,5,13.6768,396.572,17.1478,205,26.048
+TELE: 8200,5,13.6824,405.61,17.0672,206,26.048
+TELE: 8300,5,13.6883,414.597,16.9921,206,26.048
+TELE: 8400,5,13.69,414.721,16.9935,207,26.048
+TELE: 8500,5,13.696,424.078,16.9226,207,26.048
+TELE: 8600,5,13.6973,424.309,16.9208,208,26.048
+TELE: 8700,5,13.7029,433.183,16.8473,208,26.048
+TELE: 8800,5,13.7048,433.599,16.844,209,26.048
+TELE: 8900,5,13.7106,442.486,16.7779,209,26.048
+TELE: 9000,5,13.7118,441.096,16.7745,210,26.048
+TELE: 9100,5,13.7178,449.723,16.7051,210,26.048
+TELE: 9200,5,13.719,449.992,16.7062,211,26.048
+TELE: 9300,5,13.725,458.65,16.6291,211,26.048
+TELE: 9400,5,13.7261,457.948,16.6396,211,26.048
+TELE: 9500,5,13.7281,457.512,16.6348,212,26.048
+TELE: 9600,5,13.7335,466.598,16.5659,212,26.048
+TELE: 9700,5,13.7353,466.884,16.5693,213,26.048
+TELE: 9800,5,13.7408,473.844,16.4977,213,26.048
+TELE: 9900,5,13.7423,473.462,16.4991,213,26.048
+MPPT: sampled Voc=16.5033V, target Vmp=13.2027
+TELE: 10000,5,13.7448,474.466,16.5033,215,26.048
+TELE: 10140,5,13.7524,489.98,16.3573,217,26.048
+TELE: 10240,5,13.7612,505.978,16.2129,219,26.048
+Bulk charge plateau reached -- measuring parasitic baseline, then pulse-testing for outgassing.
+-> Mode: 2
+Parasitic baseline: idle V=13.769, holding at 13.869
+Parasitic/self-discharge-compensation current: -49.999 mA
+-> Mode: 6
+Starting outgassing characterization: maximum-available-current pulse.
+MPPT: sampled Voc=19.995V, target Vmp=15.996
+Baseline capacitance established: 21.9917 F
+Pulse probe: I=552.636mA R=0.444937 ohm tau=9.78492 s
+Knee detected: V=13.8441 I=539.878 efficiency=0.0389976
+Pulse energy: E_cap=69.4596J E_gas=70.5737J (gas fraction=50.3978%)
+Decay fit (post-knee): tau_fast=9.31052s tau_slow=86.8101s
+Charge/decay capacitance asymmetry ratio: 0.951518
+Initial high-current pulse found outgassing -- starting bisection search for the minimum current.
+MPPT: sampled Voc=20.0041V, target Vmp=16.0033
+Pulse probe: I=-49.0019mA R=0 ohm tau=-1 s
+Knee detected: V=13.7969 I=561.472 efficiency=-9.00682
+Pulse energy: E_cap=13.7134J E_gas=0.799979J (gas fraction=5.51203%)
+Decay fit (post-knee): tau_fast=-1s tau_slow=9.31112s
+MPPT: sampled Voc=19.9961V, target Vmp=15.9969
+Pulse probe: I=-50.3607mA R=0 ohm tau=-1 s
+Knee detected: V=13.7212 I=408.644 efficiency=-4.86488
+Pulse energy: E_cap=8.57564J E_gas=0.0264893J (gas fraction=0.307939%)
+Decay fit (post-knee): tau_fast=-1s tau_slow=8.5455s
+MPPT: sampled Voc=19.9967V, target Vmp=15.9974
+Pulse probe: I=-8.23697mA R=0 ohm tau=-1 s
+Knee detected: V=13.5227 I=-49.5202 efficiency=-1.71392
+Pulse energy: E_cap=5.37961J E_gas=0.0469607J (gas fraction=0.865384%)
+Decay fit (post-knee): tau_fast=-1s tau_slow=9.77594s
+MPPT: sampled Voc=20.001V, target Vmp=16.0008
+Pulse probe: I=-50.2803mA R=0 ohm tau=-1 s
+Knee detected: V=13.5244 I=-8.09022 efficiency=-5.5939
+Pulse energy: E_cap=3.77552J E_gas=0J (gas fraction=0%)
+Decay fit (post-knee): tau_fast=-1s tau_slow=14.5855s
+MPPT: sampled Voc=20.0006V, target Vmp=16.0004
+Pulse probe: I=207.486mA R=0 ohm tau=0 s
+Knee detected: V=13.5592 I=132.435 efficiency=-0.0729719
+Pulse energy: E_cap=3.06512J E_gas=0J (gas fraction=0%)
+Decay fit (post-knee): tau_fast=-1s tau_slow=6.47717s
+MPPT: sampled Voc=19.9992V, target Vmp=15.9994
+Pulse probe: I=196.07mA R=0 ohm tau=0 s
+Knee detected: V=13.4784 I=-50.7164 efficiency=0.0371664
+Pulse energy: E_cap=2.60193J E_gas=0J (gas fraction=0%)
+Decay fit (post-knee): tau_fast=-1s tau_slow=11.6074s
+Bisection converged -- running one confirmation pulse before finalizing.
+MPPT: sampled Voc=19.997V, target Vmp=15.9976
+Pulse probe: I=123.573mA R=0 ohm tau=0 s
+Knee detected: V=13.5497 I=169.477 efficiency=-0.0400298
+Pulse energy: E_cap=2.41199J E_gas=0J (gas fraction=0%)
+Decay fit (post-knee): tau_fast=-1s tau_slow=9.64227s
+Outgassing result: minimum current~28.1231 mA at V=13.4784
+-> Mode: 7
+MPPT: sampled Voc=19.9991V, target Vmp=15.9993
+Charge complete (float current tapered to termination threshold).
+-> Mode: 8
+TELE: 435060,8,13.4394,-50.3143,19.9991,1,26.048
+[high_r] TEST PASSED: MODE_CHARGE_DONE reached.
+
+--- STARTING TEST SCENARIO: aged ---
+-> Mode: 1
+Loaded prior calibration:
+  parasitic=-49.999 mA
+  outgas I=28.1231 mA at V=13.4784
+Ready. Serial: 'D'=passive formation test, 'C'=start charge (bulk -> parasitic -> pulse test -> float), 'A'=re-run parasitic characterization only.
+-> Mode: 5
+TELE: 200,5,13.4395,-49.306,20.0003,42,26.048
+[aged] Step 0: Mode=5 Vbatt=13.496 Ibatt=-50.5
+TELE: 300,5,13.4956,-50.5172,19.9951,44,26.048
+TELE: 400,5,13.4944,-49.9174,19.9961,47,26.048
+TELE: 500,5,13.4943,-50.7863,19.9953,49,26.048
+TELE: 600,5,13.4933,-49.0942,20.0028,51,26.048
+TELE: 700,5,13.4929,-50.9251,19.996,54,26.048
+TELE: 800,5,13.4925,-50.7782,19.9952,56,26.048
+TELE: 900,5,13.4924,-49.266,19.9961,59,26.048
+TELE: 1000,5,13.492,-50.7365,20.0023,61,26.048
+TELE: 1100,5,13.4917,-50.4618,19.9968,63,26.048
+TELE: 1200,5,13.4914,-49.3475,20.0009,66,26.048
+TELE: 1300,5,13.4908,-50.7406,20.0029,68,26.048
+TELE: 1400,5,13.4907,-49.6183,19.9955,71,26.048
+TELE: 1500,5,13.4906,-50.8258,19.9999,73,26.048
+TELE: 1600,5,13.4898,-50.7825,20.0004,75,26.048
+TELE: 1700,5,13.4901,-50.9138,20.003,78,26.048
+TELE: 1800,5,13.4902,-49.4362,19.9979,80,26.048
+TELE: 1900,5,13.4894,-49.1128,20.002,83,26.048
+TELE: 2000,5,13.4897,-49.5401,19.9959,85,26.048
+TELE: 2100,5,13.4892,-50.8352,20.0001,87,26.048
+TELE: 2200,5,13.4893,-50.8313,19.9995,90,26.048
+TELE: 2300,5,13.4889,-50.4934,20.001,92,26.048
+TELE: 2400,5,13.4887,-50.8376,20.0046,95,26.048
+TELE: 2500,5,13.4883,-50.7691,20.0032,97,26.048
+TELE: 2600,5,13.4878,-50.6235,20.0031,100,26.048
+TELE: 2700,5,13.4878,-49.3777,19.9971,102,26.048
+TELE: 2800,5,13.4879,-50.6555,20.0034,104,26.048
+TELE: 2900,5,13.4882,-50.6764,20.0045,107,26.048
+TELE: 3000,5,13.4881,-49.5814,20.0031,109,26.048
+TELE: 3100,5,13.4871,-50.7411,19.9994,112,26.048
+TELE: 3200,5,13.4876,-49.1279,20.0018,114,26.048
+TELE: 3300,5,13.4868,-50.1041,20,116,26.048
+TELE: 3400,5,13.4874,-50.733,19.9994,119,26.048
+TELE: 3500,5,13.4866,-50.6723,19.9999,121,26.048
+TELE: 3600,5,13.4866,-49.5603,20.0035,124,26.048
+TELE: 3700,5,13.487,-49.1695,20.0022,126,26.048
+TELE: 3800,5,13.4867,-49.7674,20.0026,128,26.048
+TELE: 3900,5,13.4858,-50.4149,19.9966,131,26.048
+TELE: 4000,5,13.4864,-49.2142,20.0026,133,26.048
+TELE: 4100,5,13.4854,-50.5504,20.0023,136,26.048
+TELE: 4200,5,13.4854,-49.3978,20.0038,138,26.048
+TELE: 4300,5,13.4858,-50.5301,19.9953,140,26.048
+TELE: 4400,5,13.4855,-49.4855,19.9963,143,26.048
+TELE: 4500,5,13.4852,-50.6216,20.002,145,26.048
+TELE: 4600,5,13.485,-50.8179,20.0007,148,26.048
+TELE: 4700,5,13.4852,-50.106,20.0031,150,26.048
+TELE: 4800,5,13.4849,-50.303,20.0002,152,26.048
+TELE: 4900,5,13.4846,-49.5059,19.9959,155,26.048
+TELE: 5000,5,13.4841,-49.2854,19.9953,157,26.048
+TELE: 5100,5,13.4838,-49.3713,20.0029,160,26.048
+TELE: 5200,5,13.4845,-50.4281,19.9996,162,26.048
+TELE: 5300,5,13.4838,-49.2426,19.9975,164,26.048
+TELE: 5400,5,13.4841,-50.0556,20.0049,167,26.048
+TELE: 5500,5,13.4836,-50.4191,19.9952,169,26.048
+TELE: 5600,5,13.4837,-49.5408,20.003,172,26.048
+TELE: 5700,5,13.4834,-49.1115,20.0015,174,26.048
+TELE: 5800,5,13.4873,-8.65384,19.7745,176,26.048
+TELE: 5900,5,13.491,30.2026,19.5595,178,26.048
+TELE: 6000,5,13.496,67.2165,19.3398,180,26.048
+TELE: 6100,5,13.5006,103.27,19.132,182,26.048
+TELE: 6200,5,13.5056,136.534,18.9304,184,26.048
+TELE: 6300,5,13.51,169.232,18.7318,186,26.048
+TELE: 6400,5,13.5149,201.516,18.5366,187,26.048
+TELE: 6500,5,13.5191,214.78,18.4409,189,26.048
+TELE: 6600,5,13.5236,244.258,18.2487,190,26.048
+TELE: 6700,5,13.5278,258.019,18.1672,191,26.048
+TELE: 6800,5,13.5309,271.992,18.0755,192,26.048
+TELE: 6900,5,13.5346,285.03,17.9872,194,26.048
+TELE: 7000,5,13.539,311.445,17.7987,195,26.048
+TELE: 7100,5,13.5429,322.468,17.7158,196,26.048
+TELE: 7200,5,13.5465,334.349,17.6312,197,26.048
+TELE: 7300,5,13.5499,347.538,17.5457,198,26.048
+TELE: 7400,5,13.5528,359.497,17.4643,199,26.048
+TELE: 7500,5,13.5567,369.321,17.3744,199,26.048
+TELE: 7600,5,13.5583,369.274,17.3803,200,26.048
+TELE: 7700,5,13.5621,380.782,17.2976,201,26.048
+TELE: 7800,5,13.5649,391.293,17.2205,202,26.048
+TELE: 7900,5,13.5675,401.428,17.1385,202,26.048
+TELE: 8000,5,13.5695,401.183,17.1334,203,26.048
+TELE: 8100,5,13.5725,413.004,17.0549,204,26.048
+TELE: 8200,5,13.5761,422.286,16.9803,204,26.048
+TELE: 8300,5,13.5782,421.684,16.976,205,26.048
+TELE: 8400,5,13.5809,430.936,16.9044,205,26.048
+TELE: 8500,5,13.5826,431.099,16.9053,206,26.048
+TELE: 8600,5,13.585,442.326,16.8215,206,26.048
+TELE: 8700,5,13.5875,440.066,16.8239,207,26.048
+TELE: 8800,5,13.5897,450.713,16.746,207,26.048
+TELE: 8900,5,13.5922,450.045,16.7496,208,26.048
+TELE: 9000,5,13.5943,458.963,16.6725,208,26.048
+TELE: 9100,5,13.5967,458.984,16.6752,209,26.048
+TELE: 9200,5,13.5995,469.246,16.6039,209,26.048
+TELE: 9300,5,13.601,468.793,16.6058,209,26.048
+TELE: 9400,5,13.6028,466.919,16.6025,210,26.048
+TELE: 9500,5,13.6056,476.703,16.5281,210,26.048
+TELE: 9600,5,13.6074,475.768,16.5334,210,26.048
+TELE: 9700,5,13.609,476.887,16.5297,211,26.048
+TELE: 9800,5,13.6114,485.934,16.4543,211,26.048
+TELE: 9900,5,13.6135,485.389,16.4616,211,26.048
+MPPT: sampled Voc=16.4617V, target Vmp=13.1694
+TELE: 10000,5,13.6154,484.226,16.4617,213,26.048
+TELE: 10140,5,13.6184,502.18,16.3078,215,26.048
+TELE: 10240,5,13.6219,519.706,16.1636,217,26.048
+TELE: 10340,5,13.6262,534.29,16.0167,219,26.048
+TELE: 10440,5,13.63,549.367,15.8763,220,26.048
+TELE: 10540,5,13.6331,556.574,15.8035,222,26.048
+TELE: 10640,5,13.6363,571.076,15.6671,223,26.048
+TELE: 10740,5,13.6393,578.794,15.6059,225,26.048
+TELE: 10840,5,13.6435,592.917,15.4701,226,26.048
+TELE: 10940,5,13.6467,597.794,15.3993,228,26.048
+TELE: 11040,5,13.6501,611.039,15.2706,229,26.048
+TELE: 11140,5,13.6533,616.644,15.2048,230,26.048
+TELE: 11240,5,13.6563,621.701,15.1495,231,26.048
+TELE: 11340,5,13.6593,627.601,15.0882,232,26.048
+TELE: 11440,5,13.6632,633.453,15.0276,233,26.048
+TELE: 11540,5,13.6659,639.436,14.9601,235,26.048
+TELE: 11640,5,13.6688,650.927,14.841,236,26.048
+TELE: 11740,5,13.6728,656.106,14.7782,237,26.048
+TELE: 11840,5,13.6759,660.408,14.7149,237,26.048
+TELE: 11940,5,13.6781,659.049,14.7276,238,26.048
+TELE: 12040,5,13.6808,664.494,14.6654,239,26.048
+TELE: 12140,5,13.6838,669.981,14.6032,240,26.048
+TELE: 12240,5,13.6868,673.16,14.548,241,26.048
+TELE: 12340,5,13.6894,678.651,14.488,242,26.048
+TELE: 12440,5,13.6929,682.462,14.4384,243,26.048
+TELE: 12540,5,13.6957,687.854,14.3821,243,26.048
+TELE: 12640,5,13.698,687.111,14.3815,244,26.048
+TELE: 12740,5,13.7008,690.454,14.3276,245,26.048
+TELE: 12840,5,13.7042,695.87,14.2731,245,26.048
+TELE: 12940,5,13.7063,694.369,14.268,246,26.048
+TELE: 13040,5,13.7087,699.413,14.2128,247,26.048
+TELE: 13140,5,13.7121,703.657,14.1641,247,26.048
+TELE: 13240,5,13.714,703.441,14.1679,248,26.048
+TELE: 13340,5,13.717,707.561,14.1133,248,26.048
+TELE: 13440,5,13.7197,707.552,14.1169,249,26.048
+TELE: 13540,5,13.7221,711.011,14.0567,249,26.048
+TELE: 13640,5,13.7247,710.78,14.0623,250,26.048
+TELE: 13740,5,13.7268,714.778,14.0104,251,26.048
+TELE: 13840,5,13.7303,718.331,13.9563,251,26.048
+TELE: 13940,5,13.7326,717.051,13.9576,251,26.048
+TELE: 14040,5,13.7349,716.947,13.9551,252,26.048
+TELE: 14140,5,13.7372,721.298,13.9035,252,26.048
+TELE: 14240,5,13.7397,721.367,13.9074,253,26.048
+TELE: 14340,5,13.7424,723.297,13.8546,253,26.048
+TELE: 14440,5,13.7449,722.828,13.8626,254,26.048
+TELE: 14540,5,13.7474,727.112,13.8059,254,26.048
+TELE: 14640,5,13.7492,726.953,13.8105,254,26.048
+TELE: 14740,5,13.7513,727.114,13.8127,255,26.048
+TELE: 14840,5,13.7537,730.8,13.7617,255,26.048
+TELE: 14940,5,13.7566,730.328,13.764,255,26.048
+TELE: 15040,5,13.7589,730.224,13.7648,255,26.048
+TELE: 15140,5,13.761,730.089,13.7682,255,26.048
+TELE: 15240,5,13.7629,729.287,13.7638,255,26.048
+TELE: 15340,5,13.7649,729.19,13.7664,255,26.048
+TELE: 15440,5,13.7674,728.315,13.7766,255,26.048
+Bulk charge plateau reached -- measuring parasitic baseline, then pulse-testing for outgassing.
+-> Mode: 2
+Parasitic baseline: idle V=13.7695, holding at 13.8695
+Parasitic/self-discharge-compensation current: -50.0472 mA
+-> Mode: 6
+Starting outgassing characterization: maximum-available-current pulse.
+MPPT: sampled Voc=20.0043V, target Vmp=16.0034
+Baseline capacitance established: 16.8868 F
+Pulse probe: I=727.44mA R=0.115204 ohm tau=1.94542 s
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse energy: E_cap=-1.77558J E_gas=0J (gas fraction=0%)
+tau_decay=0.803861s vs tau_charge=1.94542s
+No knee yet at max available current -- battery not yet at gassing voltage; continuing.
+MPPT: sampled Voc=19.9968V, target Vmp=15.9975
+Pulse probe: I=716.709mA R=0.115599 ohm tau=2.0727 s
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse energy: E_cap=-1.72874J E_gas=0J (gas fraction=0%)
+tau_decay=0.819708s vs tau_charge=2.0727s
+No knee yet at max available current -- battery not yet at gassing voltage; continuing.
+MPPT: sampled Voc=19.9952V, target Vmp=15.9962
+Pulse probe: I=706.403mA R=0.114225 ohm tau=2.18663 s
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse energy: E_cap=-1.87855J E_gas=0J (gas fraction=0%)
+tau_decay=0.792517s vs tau_charge=2.18663s
+No knee yet at max available current -- battery not yet at gassing voltage; continuing.
+MPPT: sampled Voc=19.9961V, target Vmp=15.9969
+Pulse probe: I=696.938mA R=0.115211 ohm tau=2.38143 s
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse energy: E_cap=-2.08702J E_gas=0J (gas fraction=0%)
+tau_decay=0.987908s vs tau_charge=2.38143s
+No knee yet at max available current -- battery not yet at gassing voltage; continuing.
+MPPT: sampled Voc=20.0031V, target Vmp=16.0024
+Pulse probe: I=689.256mA R=0.113001 ohm tau=2.4128 s
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Knee detected: V=14.0169 I=-50.368 efficiency=0.490442
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse energy: E_cap=-3.07537J E_gas=0J (gas fraction=0%)
+Decay fit (post-knee): tau_fast=-1s tau_slow=-1s
+Initial high-current pulse found outgassing -- starting bisection search for the minimum current.
+MPPT: sampled Voc=20.002V, target Vmp=16.0016
+Pulse probe: I=-49.7103mA R=0 ohm tau=-1 s
+Pulse energy: E_cap=-0.257543J E_gas=0J (gas fraction=0%)
+Bisection converged -- running one confirmation pulse before finalizing.
+MPPT: sampled Voc=20.0028V, target Vmp=16.0023
+Pulse probe: I=-50.8459mA R=0 ohm tau=-1 s
+Pulse energy: E_cap=-0.349491J E_gas=0J (gas fraction=0%)
+Final confirmation pulse did not reproduce the knee -- borderline/noisy result, keeping the last confirmed value but treat it with some caution.
+Outgassing result: minimum current~-50.368 mA at V=14.0169
+-> Mode: 7
+MPPT: sampled Voc=20.0011V, target Vmp=16.0009
+Charge complete (float current tapered to termination threshold).
+-> Mode: 8
+TELE: 153420,8,13.9278,-50.8247,20.0011,3,26.048
+[aged] TEST PASSED: MODE_CHARGE_DONE reached.
+
+--- STARTING TEST SCENARIO: hot ---
+-> Mode: 1
+Loaded prior calibration:
+  parasitic=-50.0472 mA
+  outgas I=-50.368 mA at V=14.0169
+Ready. Serial: 'D'=passive formation test, 'C'=start charge (bulk -> parasitic -> pulse test -> float), 'A'=re-run parasitic characterization only.
+-> Mode: 5
+Bulk charge plateau reached -- measuring parasitic baseline, then pulse-testing for outgassing.
+-> Mode: 2
+Parasitic baseline: idle V=13.9274, holding at 13.9686
+[hot] Step 0: Mode=2 Vbatt=13.496 Ibatt=-49.7
+Parasitic/self-discharge-compensation current: -49.9705 mA
+-> Mode: 6
+Starting outgassing characterization: maximum-available-current pulse.
+MPPT: sampled Voc=19.9975V, target Vmp=15.998
+Pulse probe: I=-49.7839mA R=0 ohm tau=-1 s
+Pulse energy: E_cap=-1.34639J E_gas=0J (gas fraction=0%)
+No knee yet at max available current -- battery not yet at gassing voltage; continuing.
+Pulse probe: I=-49.0396mA R=0 ohm tau=-1 s
+Pulse energy: E_cap=-1.3405J E_gas=0J (gas fraction=0%)
+No knee yet at max available current -- battery not yet at gassing voltage; continuing.
+MPPT: sampled Voc=20.0001V, target Vmp=16.0001
+Pulse probe: I=-49.9531mA R=0 ohm tau=-1 s
+Pulse energy: E_cap=-1.34657J E_gas=0J (gas fraction=0%)
+No knee yet at max available current -- battery not yet at gassing voltage; continuing.
+Pulse probe: I=-50.2472mA R=0 ohm tau=-1 s
+Pulse energy: E_cap=-1.34592J E_gas=0J (gas fraction=0%)
+No knee yet at max available current -- battery not yet at gassing voltage; continuing.
+MPPT: sampled Voc=20.0024V, target Vmp=16.0019
+Pulse probe: I=-50.8867mA R=0 ohm tau=-1 s
+Pulse energy: E_cap=-1.34343J E_gas=0J (gas fraction=0%)
+No knee yet at max available current -- battery not yet at gassing voltage; continuing.
+Pulse probe: I=-50.3566mA R=0 ohm tau=-1 s
+Pulse energy: E_cap=-1.34494J E_gas=0J (gas fraction=0%)
+No knee yet at max available current -- battery not yet at gassing voltage; continuing.
+MPPT: sampled Voc=20.0004V, target Vmp=16.0003
+Pulse probe: I=-50.6202mA R=0 ohm tau=-1 s
+Pulse energy: E_cap=-1.34149J E_gas=0J (gas fraction=0%)
+No knee yet at max available current -- battery not yet at gassing voltage; continuing.
+Pulse probe: I=-50.3896mA R=0 ohm tau=-1 s
+Pulse energy: E_cap=-1.34337J E_gas=0J (gas fraction=0%)
+No knee yet at max available current -- battery not yet at gassing voltage; continuing.
+MPPT: sampled Voc=20.001V, target Vmp=16.0008
+Pulse probe: I=-50.0516mA R=0 ohm tau=-1 s
+Pulse energy: E_cap=-1.34402J E_gas=0J (gas fraction=0%)
+No knee yet at max available current -- battery not yet at gassing voltage; continuing.
+Pulse probe: I=-49.2635mA R=0 ohm tau=-1 s
+Pulse energy: E_cap=-1.33847J E_gas=0J (gas fraction=0%)
+No knee yet at max available current -- battery not yet at gassing voltage; continuing.
+MPPT: sampled Voc=19.9983V, target Vmp=15.9986
+Pulse probe: I=-50.2285mA R=0 ohm tau=-1 s
+Pulse energy: E_cap=-1.3409J E_gas=0J (gas fraction=0%)
+No knee yet at max available current -- battery not yet at gassing voltage; continuing.
+MPPT: sampled Voc=19.9963V, target Vmp=15.997
+Pulse probe: I=-49.3408mA R=0 ohm tau=-1 s
+Pulse energy: E_cap=-1.3421J E_gas=0J (gas fraction=0%)
+No knee yet at max available current -- battery not yet at gassing voltage; continuing.
+Pulse probe: I=-49.5779mA R=0 ohm tau=-1 s
+Pulse energy: E_cap=-1.33343J E_gas=0J (gas fraction=0%)
+No knee yet at max available current -- battery not yet at gassing voltage; continuing.
+MPPT: sampled Voc=19.9977V, target Vmp=15.9981
+Pulse probe: I=-50.0448mA R=0 ohm tau=-1 s
+Pulse energy: E_cap=-1.33464J E_gas=0J (gas fraction=0%)
+No knee yet at max available current -- battery not yet at gassing voltage; continuing.
+Pulse probe: I=-49.3227mA R=0 ohm tau=-1 s
+Pulse energy: E_cap=-1.33203J E_gas=0J (gas fraction=0%)
+No knee yet at max available current -- battery not yet at gassing voltage; continuing.
+MPPT: sampled Voc=20.0031V, target Vmp=16.0025
+Pulse probe: I=-49.5371mA R=0 ohm tau=-1 s
+Pulse energy: E_cap=-1.33309J E_gas=0J (gas fraction=0%)
+No knee yet at max available current -- battery not yet at gassing voltage; continuing.
+Pulse probe: I=-50.676mA R=0 ohm tau=-1 s
+Pulse energy: E_cap=-1.33171J E_gas=0J (gas fraction=0%)
+No knee yet at max available current -- battery not yet at gassing voltage; continuing.
+MPPT: sampled Voc=20.0022V, target Vmp=16.0017
+Pulse probe: I=-49.1486mA R=0 ohm tau=-1 s
+Pulse energy: E_cap=-1.33103J E_gas=0J (gas fraction=0%)
+No knee yet at max available current -- battery not yet at gassing voltage; continuing.
+Pulse probe: I=-49.069mA R=0 ohm tau=-1 s
+Pulse energy: E_cap=-1.33479J E_gas=0J (gas fraction=0%)
+No knee yet at max available current -- battery not yet at gassing voltage; continuing.
+MPPT: sampled Voc=20.0008V, target Vmp=16.0006
+Pulse probe: I=-49.1111mA R=0 ohm tau=-1 s
+Pulse energy: E_cap=-1.33585J E_gas=0J (gas fraction=0%)
+No knee yet at max available current -- battery not yet at gassing voltage; continuing.
+Pulse probe: I=-50.5018mA R=0 ohm tau=-1 s
+Pulse energy: E_cap=-1.33544J E_gas=0J (gas fraction=0%)
+No knee yet at max available current -- battery not yet at gassing voltage; continuing.
+MPPT: sampled Voc=19.9996V, target Vmp=15.9997
+Pulse probe: I=-49.7808mA R=0 ohm tau=-1 s
+Pulse energy: E_cap=-1.32616J E_gas=0J (gas fraction=0%)
+No knee yet at max available current -- battery not yet at gassing voltage; continuing.
+Pulse probe: I=-50.458mA R=0 ohm tau=-1 s
+Pulse energy: E_cap=-1.33143J E_gas=0J (gas fraction=0%)
+No knee yet at max available current -- battery not yet at gassing voltage; continuing.
+MPPT: sampled Voc=20.0005V, target Vmp=16.0004
+Pulse probe: I=-50.4525mA R=0 ohm tau=-1 s
+Pulse energy: E_cap=-1.32842J E_gas=0J (gas fraction=0%)
+No knee yet at max available current -- battery not yet at gassing voltage; continuing.
+Pulse probe: I=-50.3676mA R=0 ohm tau=-1 s
+Pulse energy: E_cap=-1.33051J E_gas=0J (gas fraction=0%)
+No knee yet at max available current -- battery not yet at gassing voltage; continuing.
+MPPT: sampled Voc=19.9963V, target Vmp=15.9971
+Pulse probe: I=-50.8144mA R=0 ohm tau=-1 s
+Pulse energy: E_cap=-1.33436J E_gas=0J (gas fraction=0%)
+No knee yet at max available current -- battery not yet at gassing voltage; continuing.
+Pulse probe: I=-49.4431mA R=0 ohm tau=-1 s
+Pulse energy: E_cap=-1.33061J E_gas=0J (gas fraction=0%)
+No knee yet at max available current -- battery not yet at gassing voltage; continuing.
+MPPT: sampled Voc=20.0046V, target Vmp=16.0037
+Pulse probe: I=-49.4896mA R=0 ohm tau=-1 s
+Pulse energy: E_cap=-1.33388J E_gas=0J (gas fraction=0%)
+No knee yet at max available current -- battery not yet at gassing voltage; continuing.
+Pulse probe: I=-49.7486mA R=0 ohm tau=-1 s
+Pulse energy: E_cap=-1.32505J E_gas=0J (gas fraction=0%)
+No knee yet at max available current -- battery not yet at gassing voltage; continuing.
+MPPT: sampled Voc=19.9963V, target Vmp=15.997
+Pulse probe: I=-50.2673mA R=0 ohm tau=-1 s
+Pulse energy: E_cap=-1.32915J E_gas=0J (gas fraction=0%)
+No knee yet at max available current -- battery not yet at gassing voltage; continuing.
+MPPT: sampled Voc=19.9986V, target Vmp=15.9989
+Pulse probe: I=-49.7253mA R=0 ohm tau=-1 s
+Pulse energy: E_cap=-1.32904J E_gas=0J (gas fraction=0%)
+[hot] Step 5000: Mode=6 Vbatt=13.255 Ibatt=-50.8
+No knee yet at max available current -- battery not yet at gassing voltage; continuing.
+MPPT: sampled Voc=20.0028V, target Vmp=16.0022
+Pulse probe: I=-50.5964mA R=0 ohm tau=-1 s
+Pulse energy: E_cap=-1.32339J E_gas=0J (gas fraction=0%)
+No knee yet at max available current -- battery not yet at gassing voltage; continuing.
+Pulse probe: I=-50.8826mA R=0 ohm tau=-1 s
+Pulse energy: E_cap=-1.32461J E_gas=0J (gas fraction=0%)
+No knee yet at max available current -- battery not yet at gassing voltage; continuing.
+MPPT: sampled Voc=20.0028V, target Vmp=16.0022
+Pulse probe: I=-49.2749mA R=0 ohm tau=-1 s
+Pulse energy: E_cap=-1.31974J E_gas=0J (gas fraction=0%)
+No knee yet at max available current -- battery not yet at gassing voltage; continuing.
+Pulse probe: I=-50.099mA R=0 ohm tau=-1 s
+Pulse energy: E_cap=-1.3243J E_gas=0J (gas fraction=0%)
+No knee yet at max available current -- battery not yet at gassing voltage; continuing.
+MPPT: sampled Voc=20.0006V, target Vmp=16.0005
+Pulse probe: I=-49.7036mA R=0 ohm tau=-1 s
+Pulse energy: E_cap=-1.31995J E_gas=0J (gas fraction=0%)
+No knee yet at max available current -- battery not yet at gassing voltage; continuing.
+Pulse probe: I=-50.354mA R=0 ohm tau=-1 s
+Pulse energy: E_cap=-1.3205J E_gas=0J (gas fraction=0%)
+No knee yet at max available current -- battery not yet at gassing voltage; continuing.
+MPPT: sampled Voc=20.0001V, target Vmp=16.0001
+Pulse probe: I=-50.4086mA R=0 ohm tau=-1 s
+Pulse energy: E_cap=-1.31769J E_gas=0J (gas fraction=0%)
+No knee yet at max available current -- battery not yet at gassing voltage; continuing.
+MPPT: sampled Voc=19.9981V, target Vmp=15.9985
+Pulse probe: I=-50.9727mA R=0 ohm tau=-1 s
+Pulse energy: E_cap=-1.32011J E_gas=0J (gas fraction=0%)
+No knee yet at max available current -- battery not yet at gassing voltage; continuing.
+Pulse probe: I=-50.6212mA R=0 ohm tau=-1 s
+Pulse energy: E_cap=-1.31967J E_gas=0J (gas fraction=0%)
+No knee yet at max available current -- battery not yet at gassing voltage; continuing.
+MPPT: sampled Voc=19.9959V, target Vmp=15.9967
+Pulse probe: I=-49.7426mA R=0 ohm tau=-1 s
+Pulse energy: E_cap=-1.31453J E_gas=0J (gas fraction=0%)
+No knee yet at max available current -- battery not yet at gassing voltage; continuing.
+Pulse probe: I=-50.2786mA R=0 ohm tau=-1 s
+Pulse energy: E_cap=-1.30923J E_gas=0J (gas fraction=0%)
+No knee yet at max available current -- battery not yet at gassing voltage; continuing.
+MPPT: sampled Voc=19.9984V, target Vmp=15.9987
+Pulse probe: I=-50.605mA R=0 ohm tau=-1 s
+Pulse energy: E_cap=-1.31584J E_gas=0J (gas fraction=0%)
+No knee yet at max available current -- battery not yet at gassing voltage; continuing.
+Pulse probe: I=-49.9694mA R=0 ohm tau=-1 s
+Pulse energy: E_cap=-1.31832J E_gas=0J (gas fraction=0%)
+No knee yet at max available current -- battery not yet at gassing voltage; continuing.
+MPPT: sampled Voc=19.997V, target Vmp=15.9976
+Pulse probe: I=-50.7585mA R=0 ohm tau=-1 s
+Pulse energy: E_cap=-1.31019J E_gas=0J (gas fraction=0%)
+No knee yet at max available current -- battery not yet at gassing voltage; continuing.
+Pulse probe: I=-50.446mA R=0 ohm tau=-1 s
+Pulse energy: E_cap=-1.31507J E_gas=0J (gas fraction=0%)
+No knee yet at max available current -- battery not yet at gassing voltage; continuing.
+MPPT: sampled Voc=20V, target Vmp=16
+Pulse probe: I=-49.7779mA R=0 ohm tau=-1 s
+Pulse energy: E_cap=-1.31647J E_gas=0J (gas fraction=0%)
+No knee yet at max available current -- battery not yet at gassing voltage; continuing.
+Pulse probe: I=-49.9741mA R=0 ohm tau=-1 s
+Pulse energy: E_cap=-1.31595J E_gas=0J (gas fraction=0%)
+No knee yet at max available current -- battery not yet at gassing voltage; continuing.
+MPPT: sampled Voc=19.9977V, target Vmp=15.9982
+Pulse probe: I=-49.9931mA R=0 ohm tau=-1 s
+Pulse energy: E_cap=-1.31435J E_gas=0J (gas fraction=0%)
+No knee yet at max available current -- battery not yet at gassing voltage; continuing.
+MPPT: sampled Voc=20.0027V, target Vmp=16.0022
+Pulse probe: I=-49.9211mA R=0 ohm tau=-1 s
+Pulse energy: E_cap=-1.31448J E_gas=0J (gas fraction=0%)
+No knee yet at max available current -- battery not yet at gassing voltage; continuing.
+Pulse probe: I=-50.6432mA R=0 ohm tau=-1 s
+Pulse energy: E_cap=-1.31235J E_gas=0J (gas fraction=0%)
+No knee yet at max available current -- battery not yet at gassing voltage; continuing.
+MPPT: sampled Voc=19.995V, target Vmp=15.996
+Pulse probe: I=-49.2795mA R=0 ohm tau=-1 s
+Pulse energy: E_cap=-1.31249J E_gas=0J (gas fraction=0%)
+No knee yet at max available current -- battery not yet at gassing voltage; continuing.
+Pulse probe: I=-14.191mA R=0 ohm tau=-1 s
+Pulse energy: E_cap=-0.35213J E_gas=0J (gas fraction=0%)
+No knee yet at max available current -- battery not yet at gassing voltage; continuing.
+MPPT: sampled Voc=20.0025V, target Vmp=16.002
+Baseline capacitance established: 17.4892 F
+Pulse probe: I=48.2689mA R=0.16471 ohm tau=2.88063 s
+Knee detected: V=13.1297 I=47.182 efficiency=-0.0834168
+Pulse energy: E_cap=2.28873J E_gas=2.83086J (gas fraction=55.2947%)
+Decay fit (post-knee): tau_fast=-1s tau_slow=-1s
+Initial high-current pulse found outgassing -- starting bisection search for the minimum current.
+MPPT: sampled Voc=19.9952V, target Vmp=15.9961
+Pulse probe: I=90.4203mA R=0 ohm tau=0 s
+Knee detected: V=13.1174 I=30.5179 efficiency=-0.728297
+Pulse energy: E_cap=1.65811J E_gas=0.474002J (gas fraction=22.2316%)
+Decay fit (post-knee): tau_fast=-1s tau_slow=8.4027s
+Bisection converged -- running one confirmation pulse before finalizing.
+MPPT: sampled Voc=19.9985V, target Vmp=15.9988
+Pulse probe: I=128.902mA R=0.118733 ohm tau=6.59073 s
+Knee detected: V=13.1163 I=128.771 efficiency=-1.98147
+Pulse energy: E_cap=8.7237J E_gas=0J (gas fraction=0%)
+Decay fit (post-knee): tau_fast=-1s tau_slow=121.254s
+[hot] Step 10000: Mode=6 Vbatt=13.043 Ibatt=-51.0
+Outgassing result: minimum current~33.591 mA at V=13.1174
+-> Mode: 7
+MPPT: sampled Voc=20.003V, target Vmp=16.0024
+Charge complete (float current tapered to termination threshold).
+-> Mode: 8
+TELE: 1004280,8,13.0414,-49.5638,20.003,3,26.048
+[hot] TEST PASSED: MODE_CHARGE_DONE reached.
+
+--- STARTING TEST SCENARIO: cold ---
+-> Mode: 1
+Loaded prior calibration:
+  parasitic=-49.9705 mA
+  outgas I=33.591 mA at V=13.1174
+Ready. Serial: 'D'=passive formation test, 'C'=start charge (bulk -> parasitic -> pulse test -> float), 'A'=re-run parasitic characterization only.
+-> Mode: 5
+TELE: 200,5,13.0417,-50.5519,19.999,42,26.048
+[cold] Step 0: Mode=5 Vbatt=13.496 Ibatt=-50.2
+TELE: 300,5,13.496,-50.199,20.0045,44,26.048
+TELE: 400,5,13.496,-49.3924,20.0048,47,26.048
+TELE: 500,5,13.4953,-49.9235,20.0019,49,26.048
+TELE: 600,5,13.4951,-49.4661,20.0033,52,26.048
+TELE: 700,5,13.4947,-50.4743,20.0035,54,26.048
+TELE: 800,5,13.4945,-50.4068,20.0012,56,26.048
+TELE: 900,5,13.494,-50.242,19.9957,59,26.048
+TELE: 1000,5,13.4944,-50.3816,20.0023,61,26.048
+TELE: 1100,5,13.4945,-50.5725,20.0017,63,26.048
+TELE: 1200,5,13.4935,-49.179,19.9985,66,26.048
+TELE: 1300,5,13.4933,-49.6987,20.0031,68,26.048
+TELE: 1400,5,13.4933,-49.7296,19.9969,71,26.048
+TELE: 1500,5,13.493,-49.6272,20.001,73,26.048
+TELE: 1600,5,13.4936,-50.0849,19.9965,75,26.048
+TELE: 1700,5,13.4935,-50.0437,20.0033,78,26.048
+TELE: 1800,5,13.4926,-50.8996,19.9965,80,26.048
+TELE: 1900,5,13.4931,-50.9362,20.0009,83,26.048
+TELE: 2000,5,13.4926,-50.984,20.0028,85,26.048
+TELE: 2100,5,13.4929,-50.6167,20.0015,87,26.048
+TELE: 2200,5,13.4924,-49.1533,20.0037,90,26.048
+TELE: 2300,5,13.4923,-50.8001,19.9971,92,26.048
+TELE: 2400,5,13.4927,-50.4159,19.9975,95,26.048
+TELE: 2500,5,13.4917,-50.9195,20.0029,97,26.048
+TELE: 2600,5,13.4922,-49.3685,19.9956,99,26.048
+TELE: 2700,5,13.4917,-50.7875,19.996,102,26.048
+TELE: 2800,5,13.4917,-49.2131,20.001,104,26.048
+TELE: 2900,5,13.4919,-49.0766,20.0045,107,26.048
+TELE: 3000,5,13.492,-50.8424,19.9987,109,26.048
+TELE: 3100,5,13.4911,-49.7485,19.9972,111,26.048
+TELE: 3200,5,13.4918,-50.0285,19.9966,114,26.048
+TELE: 3300,5,13.4918,-50.5086,19.9952,116,26.048
+TELE: 3400,5,13.4917,-50.8168,20.0012,119,26.048
+TELE: 3500,5,13.4916,-50.8122,20.004,121,26.048
+TELE: 3600,5,13.4909,-49.8083,19.9978,123,26.048
+TELE: 3700,5,13.4913,-49.7867,19.9968,126,26.048
+TELE: 3800,5,13.491,-50.5307,19.9984,128,26.048
+TELE: 3900,5,13.4905,-50.1215,19.9952,131,26.048
+TELE: 4000,5,13.4909,-49.9263,20.0032,133,26.048
+TELE: 4100,5,13.4904,-49.3083,19.997,135,26.048
+TELE: 4200,5,13.4908,-49.5239,20.0008,138,26.048
+TELE: 4300,5,13.4903,-49.8025,20.0028,140,26.048
+TELE: 4400,5,13.4909,-50.5816,20.0033,143,26.048
+TELE: 4500,5,13.4909,-49.1142,19.9998,145,26.048
+TELE: 4600,5,13.4907,-49.3059,19.9992,147,26.048
+TELE: 4700,5,13.4906,-50.2275,19.9954,150,26.048
+TELE: 4800,5,13.4905,-49.8335,20.0007,152,26.048
+TELE: 4900,5,13.4902,-49.7266,20.001,155,26.048
+TELE: 5000,5,13.4898,-49.6054,20.0003,157,26.048
+TELE: 5100,5,13.4896,-49.5949,19.9991,159,26.048
+TELE: 5200,5,13.4902,-49.8356,19.996,162,26.048
+TELE: 5300,5,13.4898,-50.7065,19.9991,164,26.048
+TELE: 5400,5,13.4897,-49.3233,20.0024,167,26.048
+TELE: 5500,5,13.4894,-50.9859,19.9988,169,26.048
+TELE: 5600,5,13.4894,-49.4118,19.9988,171,26.048
+TELE: 5700,5,13.4896,-49.0618,20.0005,174,26.048
+TELE: 5800,5,13.4925,-10.3122,19.7899,176,26.048
+TELE: 5900,5,13.4968,28.4665,19.5695,178,26.048
+TELE: 6000,5,13.4997,66.1596,19.3542,180,26.048
+TELE: 6100,5,13.5034,102.092,19.1414,182,26.048
+TELE: 6200,5,13.5068,136.036,18.9315,184,26.048
+TELE: 6300,5,13.5107,169.867,18.7379,186,26.048
+TELE: 6400,5,13.5139,200.332,18.5372,187,26.048
+TELE: 6500,5,13.516,215.915,18.4409,189,26.048
+TELE: 6600,5,13.52,245.944,18.2474,190,26.048
+TELE: 6700,5,13.5219,258.237,18.1585,191,26.048
+TELE: 6800,5,13.5239,273.513,18.069,192,26.048
+TELE: 6900,5,13.5265,286.01,17.9735,194,26.048
+TELE: 7000,5,13.5297,312.873,17.7888,195,26.048
+TELE: 7100,5,13.5327,325.127,17.7091,196,26.048
+TELE: 7200,5,13.5343,338.143,17.6179,197,26.048
+TELE: 7300,5,13.5369,349.751,17.5323,198,26.048
+TELE: 7400,5,13.539,360.812,17.4421,198,26.048
+TELE: 7500,5,13.5409,360.562,17.4473,199,26.048
+TELE: 7600,5,13.5426,372.987,17.3594,200,26.048
+TELE: 7700,5,13.5448,383.13,17.2766,201,26.048
+TELE: 7800,5,13.5471,395.448,17.1928,202,26.048
+TELE: 7900,5,13.5493,405.338,17.1152,202,26.048
+TELE: 8000,5,13.5511,404.722,17.1149,203,26.048
+TELE: 8100,5,13.5529,415.024,17.0342,204,26.048
+TELE: 8200,5,13.5545,426.479,16.9471,204,26.048
+TELE: 8300,5,13.556,426.7,16.9551,205,26.048
+TELE: 8400,5,13.5578,436.946,16.8733,205,26.048
+TELE: 8500,5,13.5595,436.521,16.8778,206,26.048
+TELE: 8600,5,13.5614,445.806,16.7961,206,26.048
+TELE: 8700,5,13.5624,445.136,16.7943,207,26.048
+TELE: 8800,5,13.5649,455.499,16.7231,207,26.048
+TELE: 8900,5,13.5658,454.233,16.7156,208,26.048
+TELE: 9000,5,13.5676,463.867,16.6382,208,26.048
+TELE: 9100,5,13.5682,463.998,16.6414,208,26.048
+TELE: 9200,5,13.5696,464.736,16.6424,209,26.048
+TELE: 9300,5,13.5714,474.067,16.5684,209,26.048
+TELE: 9400,5,13.5723,472.497,16.5723,209,26.048
+TELE: 9500,5,13.5732,472.396,16.5701,210,26.048
+TELE: 9600,5,13.5754,482.065,16.4917,210,26.048
+TELE: 9700,5,13.576,481.894,16.49,210,26.048
+TELE: 9800,5,13.5774,482.09,16.4954,211,26.048
+TELE: 9900,5,13.5796,490.953,16.4201,211,26.048
+MPPT: sampled Voc=16.4155V, target Vmp=13.1324
+TELE: 10000,5,13.5805,491.058,16.4155,213,26.048
+TELE: 10140,5,13.5825,507.996,16.2691,215,26.048
+TELE: 10240,5,13.585,524.411,16.1179,216,26.048
+TELE: 10340,5,13.5871,533.151,16.0473,218,26.048
+TELE: 10440,5,13.589,549.686,15.9068,220,26.048
+TELE: 10540,5,13.5921,563.49,15.7632,221,26.048
+TELE: 10640,5,13.5932,571.016,15.6944,223,26.048
+TELE: 10740,5,13.5957,585.136,15.5545,224,26.048
+TELE: 10840,5,13.5978,592.48,15.4864,226,26.048
+TELE: 10940,5,13.5995,605.691,15.3484,227,26.048
+TELE: 11040,5,13.6018,611.436,15.2867,228,26.048
+TELE: 11140,5,13.6033,618.469,15.2242,230,26.048
+TELE: 11240,5,13.6052,629.822,15.0949,231,26.048
+TELE: 11340,5,13.607,636.576,15.0249,232,26.048
+TELE: 11440,5,13.609,640.806,14.9657,233,26.048
+TELE: 11540,5,13.6113,647.787,14.8998,234,26.048
+TELE: 11640,5,13.6122,652.427,14.8449,235,26.048
+TELE: 11740,5,13.6139,657.218,14.7815,236,26.048
+TELE: 11840,5,13.6164,663.342,14.7219,237,26.048
+TELE: 11940,5,13.6178,669.28,14.6554,238,26.048
+TELE: 12040,5,13.6191,673.051,14.6009,239,26.048
+TELE: 12140,5,13.6213,679.098,14.5416,240,26.048
+TELE: 12240,5,13.6225,683.052,14.4797,241,26.048
+TELE: 12340,5,13.6246,687.621,14.4249,241,26.048
+TELE: 12440,5,13.6249,687.343,14.4272,242,26.048
+TELE: 12540,5,13.6264,691.813,14.3617,243,26.048
+TELE: 12640,5,13.6285,696.418,14.3039,244,26.048
+TELE: 12740,5,13.63,700.167,14.2492,244,26.048
+TELE: 12840,5,13.6314,700.486,14.2516,245,26.048
+TELE: 12940,5,13.633,704.655,14.1924,246,26.048
+TELE: 13040,5,13.6342,708.506,14.1439,246,26.048
+TELE: 13140,5,13.6354,708.411,14.1427,247,26.048
+TELE: 13240,5,13.6367,713.643,14.0813,247,26.048
+TELE: 13340,5,13.6377,713.761,14.0834,248,26.048
+TELE: 13440,5,13.6388,716.935,14.0316,249,26.048
+TELE: 13540,5,13.6405,720.699,13.9762,249,26.048
+TELE: 13640,5,13.642,721.601,13.9795,250,26.048
+TELE: 13740,5,13.6432,725.612,13.9276,250,26.048
+TELE: 13840,5,13.6445,724.412,13.9286,250,26.048
+TELE: 13940,5,13.6451,723.851,13.9229,251,26.048
+TELE: 14040,5,13.6465,728.906,13.8661,251,26.048
+TELE: 14140,5,13.6478,728.435,13.8746,252,26.048
+TELE: 14240,5,13.6488,731.129,13.817,252,26.048
+TELE: 14340,5,13.6498,731.261,13.8226,253,26.048
+TELE: 14440,5,13.6509,734.968,13.7704,253,26.048
+TELE: 14540,5,13.6525,736.056,13.767,253,26.048
+TELE: 14640,5,13.6529,734.403,13.7668,254,26.048
+TELE: 14740,5,13.6547,738.8,13.7187,254,26.048
+TELE: 14840,5,13.655,739.401,13.7162,255,26.048
+TELE: 14940,5,13.6564,742.503,13.6676,255,26.048
+TELE: 15040,5,13.6571,741.251,13.6633,255,26.048
+TELE: 15140,5,13.6588,742.518,13.6629,255,26.048
+TELE: 15240,5,13.6592,742.609,13.6707,255,26.048
+TELE: 15340,5,13.6603,740.612,13.6686,255,26.048
+TELE: 15440,5,13.6615,742.19,13.6657,255,26.048
+TELE: 15540,5,13.6618,741.942,13.6701,255,26.048
+TELE: 15640,5,13.6634,741.08,13.6693,255,26.048
+TELE: 15740,5,13.664,740.851,13.6671,255,26.048
+TELE: 15840,5,13.6644,741.681,13.6754,255,26.048
+TELE: 15940,5,13.6658,741.388,13.67,255,26.048
+TELE: 16040,5,13.666,740.733,13.6706,255,26.048
+TELE: 16140,5,13.6671,740.506,13.6762,255,26.048
+TELE: 16240,5,13.6685,741.455,13.6792,255,26.048
+TELE: 16340,5,13.6692,740.166,13.672,255,26.048
+TELE: 16440,5,13.6698,740.697,13.6794,255,26.048
+TELE: 16540,5,13.6703,739.618,13.675,255,26.048
+TELE: 16640,5,13.6709,741.122,13.6773,255,26.048
+TELE: 16740,5,13.6725,740.004,13.6772,255,26.048
+TELE: 16840,5,13.6728,739.021,13.6757,255,26.048
+TELE: 16940,5,13.6735,738.978,13.6829,255,26.048
+TELE: 17040,5,13.6749,739.879,13.685,255,26.048
+TELE: 17140,5,13.6754,739.195,13.6838,255,26.048
+TELE: 17240,5,13.6764,739.829,13.6811,255,26.048
+TELE: 17340,5,13.6769,740.436,13.6838,255,26.048
+TELE: 17440,5,13.6772,739.779,13.6838,255,26.048
+TELE: 17540,5,13.6783,740.203,13.6874,255,26.048
+TELE: 17640,5,13.6793,739.774,13.6837,255,26.048
+TELE: 17740,5,13.6797,739.702,13.6873,255,26.048
+TELE: 17840,5,13.681,738.98,13.6836,255,26.048
+TELE: 17940,5,13.6816,738.666,13.6918,255,26.048
+TELE: 18040,5,13.6818,738.531,13.6857,255,26.048
+TELE: 18140,5,13.6826,739.498,13.6933,255,26.048
+TELE: 18240,5,13.6834,738.634,13.695,255,26.048
+TELE: 18340,5,13.6845,738.136,13.6938,255,26.048
+TELE: 18440,5,13.6845,738.934,13.6932,255,26.048
+TELE: 18540,5,13.6856,737.985,13.6931,255,26.048
+TELE: 18640,5,13.6866,737.983,13.6901,255,26.048
+TELE: 18740,5,13.6873,738.171,13.6953,255,26.048
+TELE: 18840,5,13.6878,737.439,13.6914,255,26.048
+TELE: 18940,5,13.6887,738.744,13.6974,255,26.048
+TELE: 19040,5,13.689,737.303,13.6985,255,26.048
+TELE: 19140,5,13.6898,737.764,13.6925,255,26.048
+TELE: 19240,5,13.6911,738.411,13.6961,255,26.048
+TELE: 19340,5,13.6911,737.06,13.6981,255,26.048
+TELE: 19440,5,13.6922,736.766,13.7002,255,26.048
+TELE: 19540,5,13.6929,736.525,13.6986,255,26.048
+TELE: 19640,5,13.6941,737.936,13.703,255,26.048
+TELE: 19740,5,13.694,737.147,13.7049,255,26.048
+TELE: 19840,5,13.6954,737.289,13.7033,255,26.048
+TELE: 19940,5,13.6961,737.058,13.7045,255,26.048
+MPPT: sampled Voc=13.7011V, target Vmp=10.9609
+TELE: 20040,5,13.6968,737.421,13.7011,255,26.048
+TELE: 20180,5,13.6975,736.583,13.7087,255,26.048
+TELE: 20280,5,13.6981,737.173,13.707,255,26.048
+TELE: 20380,5,13.6989,737.699,13.7095,255,26.048
+TELE: 20480,5,13.6992,736.657,13.7102,255,26.048
+TELE: 20580,5,13.7,736.639,13.709,255,26.048
+TELE: 20680,5,13.7011,737.086,13.708,255,26.048
+TELE: 20780,5,13.7016,735.964,13.7101,255,26.048
+TELE: 20880,5,13.7022,736.702,13.7045,255,26.048
+TELE: 20980,5,13.7026,735.448,13.7061,255,26.048
+TELE: 21080,5,13.704,737.115,13.7141,255,26.048
+TELE: 21180,5,13.7043,735.923,13.7075,255,26.048
+TELE: 21280,5,13.7054,735.046,13.7172,255,26.048
+TELE: 21380,5,13.7057,736.284,13.7133,255,26.048
+TELE: 21480,5,13.7063,735.696,13.7156,255,26.048
+TELE: 21580,5,13.7073,736.181,13.7118,255,26.048
+TELE: 21680,5,13.7076,736.107,13.7146,255,26.048
+TELE: 21780,5,13.7087,736.425,13.7139,255,26.048
+TELE: 21880,5,13.7095,736.334,13.7184,255,26.048
+TELE: 21980,5,13.7097,735.855,13.7135,255,26.048
+TELE: 22080,5,13.7104,734.75,13.7173,255,26.048
+TELE: 22180,5,13.7116,734.909,13.7195,255,26.048
+TELE: 22280,5,13.7114,734.764,13.7176,255,26.048
+TELE: 22380,5,13.7122,735.908,13.7216,255,26.048
+TELE: 22480,5,13.7129,735.775,13.7207,255,26.048
+TELE: 22580,5,13.7138,735.775,13.7201,255,26.048
+TELE: 22680,5,13.7148,735.696,13.724,255,26.048
+TELE: 22780,5,13.7151,733.767,13.7256,255,26.048
+TELE: 22880,5,13.7163,733.642,13.7194,255,26.048
+TELE: 22980,5,13.7164,735.131,13.7263,255,26.048
+TELE: 23080,5,13.7178,734.979,13.7231,255,26.048
+TELE: 23180,5,13.7183,734.16,13.7232,255,26.048
+TELE: 23280,5,13.719,734.516,13.7268,255,26.048
+TELE: 23380,5,13.719,734.539,13.7291,255,26.048
+TELE: 23480,5,13.72,734.89,13.7252,255,26.048
+TELE: 23580,5,13.7211,734.904,13.7292,255,26.048
+TELE: 23680,5,13.7217,733.384,13.7242,255,26.048
+TELE: 23780,5,13.7218,734.555,13.7289,255,26.048
+TELE: 23880,5,13.723,733.451,13.727,255,26.048
+TELE: 23980,5,13.7232,732.82,13.7334,255,26.048
+TELE: 24080,5,13.7244,733.745,13.7315,255,26.048
+TELE: 24180,5,13.7252,734.032,13.7296,255,26.048
+TELE: 24280,5,13.7255,733.024,13.7363,255,26.048
+TELE: 24380,5,13.7267,734.196,13.7316,255,26.048
+TELE: 24480,5,13.7269,732.842,13.7337,255,26.048
+TELE: 24580,5,13.7273,733.453,13.7372,255,26.048
+TELE: 24680,5,13.7282,733.507,13.7394,255,26.048
+TELE: 24780,5,13.7294,733.446,13.7411,255,26.048
+TELE: 24880,5,13.73,733.862,13.7353,255,26.048
+TELE: 24980,5,13.7305,732.94,13.7344,255,26.048
+TELE: 25080,5,13.7308,733.178,13.7399,255,26.048
+TELE: 25180,5,13.7323,733.06,13.7435,255,26.048
+TELE: 25280,5,13.732,732.036,13.742,255,26.048
+TELE: 25380,5,13.7329,732.021,13.7446,255,26.048
+TELE: 25480,5,13.7342,732.356,13.7418,255,26.048
+TELE: 25580,5,13.7343,732.915,13.739,255,26.048
+TELE: 25680,5,13.7356,731.319,13.7432,255,26.048
+TELE: 25780,5,13.7357,732.979,13.7389,255,26.048
+TELE: 25880,5,13.737,732.325,13.7454,255,26.048
+TELE: 25980,5,13.7374,731.24,13.742,255,26.048
+TELE: 26080,5,13.7378,731.117,13.7454,255,26.048
+TELE: 26180,5,13.7382,731.954,13.7496,255,26.048
+TELE: 26280,5,13.7392,731.606,13.7456,255,26.048
+TELE: 26380,5,13.7401,731.257,13.7494,255,26.048
+TELE: 26480,5,13.7404,732.43,13.7434,255,26.048
+TELE: 26580,5,13.741,730.725,13.745,255,26.048
+TELE: 26680,5,13.7416,731.33,13.7445,255,26.048
+TELE: 26780,5,13.7432,731.61,13.7479,255,26.048
+TELE: 26880,5,13.743,730.987,13.7538,255,26.048
+TELE: 26980,5,13.7443,731.079,13.749,255,26.048
+TELE: 27080,5,13.7449,730.93,13.7494,255,26.048
+TELE: 27180,5,13.7455,731.236,13.7551,255,26.048
+TELE: 27280,5,13.746,731.483,13.749,255,26.048
+TELE: 27380,5,13.7469,729.836,13.7501,255,26.048
+TELE: 27480,5,13.7475,730.684,13.7567,255,26.048
+TELE: 27580,5,13.7477,730.642,13.7592,255,26.048
+TELE: 27680,5,13.7488,730.589,13.755,255,26.048
+TELE: 27780,5,13.7498,729.511,13.7564,255,26.048
+TELE: 27880,5,13.7499,730.498,13.7606,255,26.048
+TELE: 27980,5,13.7514,730.126,13.7622,255,26.048
+TELE: 28080,5,13.7514,731.094,13.7597,255,26.048
+TELE: 28180,5,13.7524,730.91,13.7551,255,26.048
+TELE: 28280,5,13.7528,729.331,13.7625,255,26.048
+TELE: 28380,5,13.754,729.555,13.7647,255,26.048
+TELE: 28480,5,13.754,729.028,13.7579,255,26.048
+TELE: 28580,5,13.7552,730.66,13.7593,255,26.048
+TELE: 28680,5,13.7557,729.761,13.7595,255,26.048
+TELE: 28780,5,13.7561,729.726,13.7605,255,26.048
+TELE: 28880,5,13.7569,729.274,13.7646,255,26.048
+TELE: 28980,5,13.758,728.597,13.7659,255,26.048
+TELE: 29080,5,13.7583,729.764,13.7665,255,26.048
+TELE: 29180,5,13.7594,728.46,13.7668,255,26.048
+TELE: 29280,5,13.7597,728.948,13.7679,255,26.048
+TELE: 29380,5,13.7603,728.175,13.771,255,26.048
+TELE: 29480,5,13.7607,728,13.7656,255,26.048
+TELE: 29580,5,13.7621,728.274,13.7659,255,26.048
+TELE: 29680,5,13.7624,728.33,13.7734,255,26.048
+TELE: 29780,5,13.7631,729.137,13.7718,255,26.048
+TELE: 29880,5,13.7634,727.79,13.7739,255,26.048
+TELE: 29980,5,13.7642,728.599,13.7684,255,26.048
+MPPT: sampled Voc=13.77V, target Vmp=11.016
+TELE: 30080,5,13.7656,729.208,13.77,255,26.048
+TELE: 30220,5,13.7654,727.885,13.769,255,26.048
+TELE: 30320,5,13.7661,728.941,13.7754,255,26.048
+TELE: 30420,5,13.7676,728.471,13.7701,255,26.048
+TELE: 30520,5,13.7682,727.971,13.771,255,26.048
+TELE: 30620,5,13.7684,728.923,13.7784,255,26.048
+Bulk charge plateau reached -- measuring parasitic baseline, then pulse-testing for outgassing.
+-> Mode: 2
+Parasitic baseline: idle V=13.7689, holding at 13.8689
+Parasitic/self-discharge-compensation current: -50.0615 mA
+-> Mode: 6
+Starting outgassing characterization: maximum-available-current pulse.
+MPPT: sampled Voc=19.9951V, target Vmp=15.9961
+Baseline capacitance established: 30.092 F
+Pulse probe: I=730.276mA R=0.0958434 ohm tau=2.88411 s
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse energy: E_cap=-2.38887J E_gas=0J (gas fraction=0%)
+tau_decay=2.13709s vs tau_charge=2.88411s
+No knee yet at max available current -- battery not yet at gassing voltage; continuing.
+MPPT: sampled Voc=20.0047V, target Vmp=16.0038
+Pulse probe: I=725.968mA R=0.0964328 ohm tau=2.92281 s
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Knee detected: V=13.7388 I=-49.9384 efficiency=0.452282
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse energy: E_cap=-3.16306J E_gas=0J (gas fraction=0%)
+Decay fit (post-knee): tau_fast=-1s tau_slow=-1s
+Initial high-current pulse found outgassing -- starting bisection search for the minimum current.
+MPPT: sampled Voc=19.9987V, target Vmp=15.9989
+Pulse probe: I=-49.4742mA R=0 ohm tau=-1 s
+Pulse energy: E_cap=0.158959J E_gas=0J (gas fraction=0%)
+Bisection converged -- running one confirmation pulse before finalizing.
+Pulse probe: I=-49.947mA R=0 ohm tau=-1 s
+Pulse energy: E_cap=-0.753544J E_gas=0J (gas fraction=0%)
+Final confirmation pulse did not reproduce the knee -- borderline/noisy result, keeping the last confirmed value but treat it with some caution.
+Outgassing result: minimum current~-49.9384 mA at V=13.7388
+-> Mode: 7
+MPPT: sampled Voc=20.0018V, target Vmp=16.0014
+Charge complete (float current tapered to termination threshold).
+-> Mode: 8
+TELE: 131440,8,13.7061,-50.7859,20.0018,1,26.048
+[cold] TEST PASSED: MODE_CHARGE_DONE reached.
+
+--- STARTING TEST SCENARIO: cloudy ---
+-> Mode: 1
+Loaded prior calibration:
+  parasitic=-50.0615 mA
+  outgas I=-49.9384 mA at V=13.7388
+Ready. Serial: 'D'=passive formation test, 'C'=start charge (bulk -> parasitic -> pulse test -> float), 'A'=re-run parasitic characterization only.
+-> Mode: 5
+TELE: 200,5,13.7055,-49.015,20.005,42,26.048
+[cloudy] Step 0: Mode=5 Vbatt=13.496 Ibatt=-49.1
+TELE: 300,5,13.4962,-49.0897,20.0039,44,26.048
+TELE: 400,5,13.496,-50.0716,20.0042,47,26.048
+TELE: 500,5,13.4952,-50.1509,19.9979,49,26.048
+TELE: 600,5,13.4948,-49.4742,19.9974,52,26.048
+TELE: 700,5,13.4951,-50.8485,19.9974,54,26.048
+TELE: 800,5,13.4943,-50.8814,20.0002,56,26.048
+TELE: 900,5,13.4942,-49.6355,20.0008,59,26.048
+TELE: 1000,5,13.4941,-49.8043,20.0044,61,26.048
+TELE: 1100,5,13.4936,-50.5927,20.0049,64,26.048
+TELE: 1200,5,13.4938,-49.9978,19.9992,66,26.048
+TELE: 1300,5,13.4934,-50.4477,19.9983,68,26.048
+TELE: 1400,5,13.4933,-50.5117,19.998,71,26.048
+TELE: 1500,5,13.4935,-49.2537,20.0007,73,26.048
+TELE: 1600,5,13.4933,-50.3801,19.997,75,26.048
+TELE: 1700,5,13.4934,-49.7968,20,78,26.048
+TELE: 1800,5,13.4933,-50.0933,19.996,80,26.048
+TELE: 1900,5,13.4926,-50.2259,19.9993,83,26.048
+TELE: 2000,5,13.4927,-50.4297,20.0007,85,26.048
+TELE: 2100,5,13.4927,-50.2888,20.0043,87,26.048
+TELE: 2200,5,13.4927,-50.5327,20.0008,90,26.048
+TELE: 2300,5,13.4924,-50.0367,20.0028,92,26.048
+TELE: 2400,5,13.492,-49.5838,19.9979,95,26.048
+TELE: 2500,5,13.4921,-50.5745,19.9998,97,26.048
+TELE: 2600,5,13.4918,-49.9903,19.996,99,26.048
+TELE: 2700,5,13.4921,-49.487,20.0009,102,26.048
+TELE: 2800,5,13.4917,-50.8656,19.9982,104,26.048
+TELE: 2900,5,13.4915,-49.5457,19.9989,107,26.048
+TELE: 3000,5,13.4918,-50.5063,20.002,109,26.048
+TELE: 3100,5,13.4919,-49.3365,19.9987,111,26.048
+TELE: 3200,5,13.4914,-49.7577,19.995,114,26.048
+TELE: 3300,5,13.4916,-49.849,20.003,116,26.048
+TELE: 3400,5,13.4914,-49.9012,19.9991,119,26.048
+TELE: 3500,5,13.4915,-49.7455,19.9962,121,26.048
+TELE: 3600,5,13.4915,-49.6565,19.9988,123,26.048
+TELE: 3700,5,13.4915,-50.4128,19.9955,126,26.048
+TELE: 3800,5,13.4912,-50.3575,19.9988,128,26.048
+TELE: 3900,5,13.491,-49.0133,20.0025,131,26.048
+TELE: 4000,5,13.4903,-49.7341,19.9994,133,26.048
+TELE: 4100,5,13.491,-50.5566,20.0026,135,26.048
+TELE: 4200,5,13.4902,-50.1456,19.9972,138,26.048
+TELE: 4300,5,13.4909,-50.9472,19.9978,140,26.048
+TELE: 4400,5,13.4904,-50.5151,19.9987,143,26.048
+TELE: 4500,5,13.4909,-49.5286,20.0041,145,26.048
+TELE: 4600,5,13.49,-49.5798,19.9968,147,26.048
+TELE: 4700,5,13.4905,-50.2462,20.0042,150,26.048
+TELE: 4800,5,13.4898,-49.6983,19.9958,152,26.048
+TELE: 4900,5,13.4903,-50.2461,19.9975,155,26.048
+TELE: 5000,5,13.4906,-50.7102,19.9991,157,26.048
+TELE: 5100,5,13.4899,-49.4023,19.9955,159,26.048
+TELE: 5200,5,13.4897,-50.5291,20.0026,162,26.048
+TELE: 5300,5,13.4901,-50.9352,20.0015,164,26.048
+TELE: 5400,5,13.49,-49.404,19.9996,167,26.048
+TELE: 5500,5,13.4898,-49.2497,19.9998,169,26.048
+TELE: 5600,5,13.4894,-49.5136,20.0007,171,26.048
+TELE: 5700,5,13.4896,-49.8781,20.0023,174,26.048
+TELE: 5800,5,13.4926,-18.8269,19.7806,176,26.048
+TELE: 5900,5,13.4951,11.0272,19.5685,178,26.048
+TELE: 6000,5,13.4974,41.6958,19.3473,180,26.048
+TELE: 6100,5,13.5009,70.6555,19.1409,182,26.048
+TELE: 6200,5,13.503,99.6723,18.9283,184,26.048
+TELE: 6300,5,13.5061,125.606,18.7294,186,26.048
+TELE: 6400,5,13.509,151.843,18.5314,187,26.048
+TELE: 6500,5,13.5106,164.628,18.4366,189,26.048
+TELE: 6600,5,13.514,191.078,18.2465,190,26.048
+TELE: 6700,5,13.5162,202.563,18.1527,191,26.048
+TELE: 6800,5,13.5178,216.246,18.0557,192,26.048
+TELE: 6900,5,13.5199,227.155,17.9647,194,26.048
+TELE: 7000,5,13.5231,250.058,17.7858,195,26.048
+TELE: 7100,5,13.5249,262.053,17.6954,196,26.048
+TELE: 7200,5,13.527,274.919,17.605,197,26.048
+TELE: 7300,5,13.5292,287.078,17.5169,198,26.048
+TELE: 7400,5,13.5314,298.027,17.4375,198,26.048
+TELE: 7500,5,13.5321,298.24,17.4338,199,26.048
+TELE: 7600,5,13.5343,310.482,17.3486,200,26.048
+TELE: 7700,5,13.5365,320.998,17.268,201,26.048
+TELE: 7800,5,13.5384,333.678,17.1798,202,26.048
+TELE: 7900,5,13.5401,344.454,17.0988,202,26.048
+TELE: 8000,5,13.5415,345.45,17.1035,203,26.048
+TELE: 8100,5,13.5437,356.514,17.018,203,26.048
+TELE: 8200,5,13.545,358.366,17.0254,204,26.048
+TELE: 8300,5,13.5472,367.652,16.9466,205,26.048
+TELE: 8400,5,13.5491,377.848,16.8612,205,26.048
+TELE: 8500,5,13.5505,381.056,16.8607,206,26.048
+TELE: 8600,5,13.5521,389.777,16.7833,206,26.048
+TELE: 8700,5,13.5532,391.71,16.7866,207,26.048
+TELE: 8800,5,13.5546,401.737,16.71,207,26.048
+TELE: 8900,5,13.5559,404.318,16.7117,207,26.048
+TELE: 9000,5,13.557,404.804,16.7148,208,26.048
+TELE: 9100,5,13.5589,415.212,16.6342,208,26.048
+TELE: 9200,5,13.5602,415.977,16.6362,209,26.048
+TELE: 9300,5,13.5623,426.078,16.5605,209,26.048
+TELE: 9400,5,13.564,427.886,16.5527,209,26.048
+TELE: 9500,5,13.5647,430.395,16.5633,210,26.048
+TELE: 9600,5,13.566,439.427,16.4792,210,26.048
+TELE: 9700,5,13.5678,440.169,16.4817,210,26.048
+TELE: 9800,5,13.5689,442.783,16.4805,211,26.048
+TELE: 9900,5,13.5704,451.418,16.4047,211,26.048
+MPPT: sampled Voc=16.4088V, target Vmp=13.127
+TELE: 10000,5,13.5715,453.055,16.4088,213,26.048
+TELE: 10140,5,13.5741,470.732,16.2616,215,26.048
+TELE: 10240,5,13.5768,487.764,16.1067,216,26.048
+TELE: 10340,5,13.5784,496.551,16.0425,218,26.048
+TELE: 10440,5,13.5807,514.211,15.8896,220,26.048
+TELE: 10540,5,13.5828,528.953,15.7565,221,26.048
+TELE: 10640,5,13.5846,537.624,15.6823,223,26.048
+TELE: 10740,5,13.5871,552.454,15.5496,224,26.048
+TELE: 10840,5,13.5892,559.026,15.4758,226,26.048
+TELE: 10940,5,13.5916,573.718,15.3425,227,26.048
+TELE: 11040,5,13.5935,582.022,15.2731,228,26.048
+TELE: 11140,5,13.5954,589.272,15.214,230,26.048
+TELE: 11240,5,13.5982,602.82,15.0813,231,26.048
+TELE: 11340,5,13.5994,608.127,15.0238,232,26.048
+TELE: 11440,5,13.6013,614.758,14.9607,233,26.048
+TELE: 11540,5,13.6039,621.749,14.8991,234,26.048
+TELE: 11640,5,13.6056,629.794,14.8335,235,26.048
+TELE: 11740,5,13.607,635.283,14.7718,236,26.048
+TELE: 11840,5,13.6093,641.106,14.7069,237,26.048
+TELE: 11940,5,13.6102,648.188,14.6471,238,26.048
+TELE: 12040,5,13.6123,653.391,14.5948,239,26.048
+TELE: 12140,5,13.6141,660.787,14.5374,240,26.048
+TELE: 12240,5,13.6163,665.199,14.4704,241,26.048
+TELE: 12340,5,13.6178,672.109,14.4208,241,26.048
+TELE: 12440,5,13.6186,673.336,14.4153,242,26.048
+TELE: 12540,5,13.6204,678.549,14.358,243,26.048
+TELE: 12640,5,13.6226,682.707,14.3065,244,26.048
+TELE: 12740,5,13.6245,689.095,14.2444,244,26.048
+TELE: 12840,5,13.6255,690.154,14.2438,245,26.048
+TELE: 12940,5,13.6267,695.481,14.1901,245,26.048
+TELE: 13040,5,13.6285,696.208,14.1936,246,26.048
+TELE: 13140,5,13.6293,701.069,14.1367,247,26.048
+TELE: 13240,5,13.6316,706.512,14.0844,247,26.048
+TELE: 13340,5,13.633,706.456,14.0845,248,26.048
+TELE: 13440,5,13.6344,711.626,14.0211,248,26.048
+TELE: 13540,5,13.6349,711.61,14.0307,249,26.048
+TELE: 13640,5,13.6365,717.112,13.9761,249,26.048
+TELE: 13740,5,13.6383,717.17,13.9692,250,26.048
+TELE: 13840,5,13.6391,721.128,13.9162,250,26.048
+TELE: 13940,5,13.6403,721.62,13.923,251,26.048
+TELE: 14040,5,13.6424,726.031,13.8661,251,26.048
+TELE: 14140,5,13.6432,726.756,13.8726,252,26.048
+TELE: 14240,5,13.6446,730.764,13.8166,252,26.048
+TELE: 14340,5,13.6456,729.951,13.8181,253,26.048
+TELE: 14440,5,13.6469,735.159,13.7632,253,26.048
+TELE: 14540,5,13.6479,733.811,13.7597,253,26.048
+TELE: 14640,5,13.6489,735.311,13.76,254,26.048
+TELE: 14740,5,13.6503,739.648,13.7108,254,26.048
+TELE: 14840,5,13.652,738.947,13.7143,254,26.048
+TELE: 14940,5,13.6528,739.513,13.7111,255,26.048
+TELE: 15040,5,13.6537,743.215,13.663,255,26.048
+TELE: 15140,5,13.655,742.039,13.6631,255,26.048
+TELE: 15240,5,13.6555,743.131,13.6626,255,26.048
+TELE: 15340,5,13.6566,742.655,13.6652,255,26.048
+TELE: 15440,5,13.6573,741.68,13.6629,255,26.048
+TELE: 15540,5,13.6581,740.604,13.6611,255,26.048
+TELE: 15640,5,13.6594,741.729,13.6632,255,26.048
+TELE: 15740,5,13.6602,741.949,13.6706,255,26.048
+TELE: 15840,5,13.6614,741.574,13.668,255,26.048
+TELE: 15940,5,13.662,739.973,13.6671,255,26.048
+TELE: 16040,5,13.6627,739.528,13.6661,255,26.048
+TELE: 16140,5,13.6637,739.53,13.6747,255,26.048
+TELE: 16240,5,13.6642,737.899,13.6685,255,26.048
+TELE: 16340,5,13.6654,738.669,13.6741,255,26.048
+TELE: 16440,5,13.6664,737.052,13.6694,255,26.048
+TELE: 16540,5,13.6668,736.761,13.6718,255,26.048
+TELE: 16640,5,13.6682,735.942,13.6701,255,26.048
+TELE: 16740,5,13.6681,735.314,13.6752,255,26.048
+TELE: 16840,5,13.6693,734.824,13.6731,255,26.048
+TELE: 16940,5,13.6695,733.702,13.6783,255,26.048
+TELE: 17040,5,13.6707,732.719,13.6737,255,26.048
+TELE: 17140,5,13.6714,732.054,13.6821,255,26.048
+TELE: 17240,5,13.672,731.175,13.683,255,26.048
+TELE: 17340,5,13.6722,731.274,13.6819,255,26.048
+TELE: 17440,5,13.6733,729.137,13.6833,255,26.048
+TELE: 17540,5,13.6745,729.429,13.6861,255,26.048
+TELE: 17640,5,13.6749,726.746,13.6818,255,26.048
+TELE: 17740,5,13.6753,725.6,13.6782,255,26.048
+TELE: 17840,5,13.6759,725.578,13.6785,255,26.048
+TELE: 17940,5,13.6768,724.265,13.6872,255,26.048
+TELE: 18040,5,13.6775,722.389,13.6833,255,26.048
+TELE: 18140,5,13.678,720.711,13.6896,255,26.048
+TELE: 18240,5,13.6785,719.706,13.688,255,26.048
+TELE: 18340,5,13.6789,717.789,13.6884,255,26.048
+TELE: 18440,5,13.6798,716.394,13.6879,255,26.048
+TELE: 18540,5,13.6804,715.666,13.6902,255,26.048
+TELE: 18640,5,13.6801,713.718,13.6925,255,26.048
+TELE: 18740,5,13.6808,713.585,13.6925,255,26.048
+TELE: 18840,5,13.6817,710.501,13.6879,255,26.048
+TELE: 18940,5,13.6823,708.673,13.6913,255,26.048
+TELE: 19040,5,13.6823,708.433,13.6928,255,26.048
+TELE: 19140,5,13.683,705.577,13.6861,255,26.048
+TELE: 19240,5,13.6837,704.311,13.6958,255,26.048
+TELE: 19340,5,13.6845,703.135,13.6936,255,26.048
+TELE: 19440,5,13.6845,701.555,13.6945,255,26.048
+TELE: 19540,5,13.6849,699.41,13.6887,255,26.048
+TELE: 19640,5,13.6851,698.083,13.6926,255,26.048
+TELE: 19740,5,13.6861,695.097,13.6982,255,26.048
+TELE: 19840,5,13.686,693.277,13.6891,255,26.048
+TELE: 19940,5,13.6873,692.322,13.6894,255,26.048
+MPPT: sampled Voc=13.6995V, target Vmp=10.9596
+TELE: 20040,5,13.6869,689.842,13.6995,255,26.048
+TELE: 20180,5,13.6878,686.921,13.6909,255,26.048
+TELE: 20280,5,13.6879,684.966,13.6912,255,26.048
+TELE: 20380,5,13.6883,683.204,13.6971,255,26.048
+TELE: 20480,5,13.6884,681.738,13.6926,255,26.048
+TELE: 20580,5,13.6886,679.099,13.6918,255,26.048
+TELE: 20680,5,13.689,676.771,13.6997,255,26.048
+TELE: 20780,5,13.6902,673.659,13.7003,255,26.048
+TELE: 20880,5,13.6899,672.126,13.6946,255,26.048
+TELE: 20980,5,13.6905,669.612,13.6978,255,26.048
+TELE: 21080,5,13.6908,666.386,13.6975,255,26.048
+TELE: 21180,5,13.6911,665.65,13.6996,255,26.048
+TELE: 21280,5,13.6916,662.196,13.6947,255,26.048
+TELE: 21380,5,13.6922,659.887,13.696,255,26.048
+TELE: 21480,5,13.6919,658.021,13.702,255,26.048
+TELE: 21580,5,13.6921,654.018,13.6994,255,26.048
+TELE: 21680,5,13.6929,652.311,13.7027,255,26.048
+TELE: 21780,5,13.6924,649.456,13.7019,255,26.048
+TELE: 21880,5,13.6935,647.034,13.7037,255,26.048
+TELE: 21980,5,13.6936,644.26,13.702,255,26.048
+TELE: 22080,5,13.6934,641.726,13.7021,255,26.048
+TELE: 22180,5,13.6934,639.347,13.6998,255,26.048
+TELE: 22280,5,13.6943,635.742,13.7049,255,26.048
+TELE: 22380,5,13.6945,633.408,13.6971,255,26.048
+TELE: 22480,5,13.6948,629.695,13.7026,255,26.048
+TELE: 22580,5,13.6947,628.223,13.7048,255,26.048
+TELE: 22680,5,13.6952,624.595,13.7065,255,26.048
+TELE: 22780,5,13.6953,621.043,13.7008,255,26.048
+TELE: 22880,5,13.6951,618.577,13.7031,255,26.048
+TELE: 22980,5,13.6953,616.757,13.7048,255,26.048
+TELE: 23080,5,13.6955,613.588,13.7074,255,26.048
+TELE: 23180,5,13.6953,609.494,13.6987,255,26.048
+TELE: 23280,5,13.6961,607.309,13.705,255,26.048
+TELE: 23380,5,13.6964,604.496,13.7056,255,26.048
+TELE: 23480,5,13.6961,601.395,13.7021,255,26.048
+TELE: 23580,5,13.6958,597.367,13.7017,255,26.048
+TELE: 23680,5,13.696,594.344,13.7039,255,26.048
+TELE: 23780,5,13.6965,590.424,13.7018,255,26.048
+TELE: 23880,5,13.6963,588.353,13.706,255,26.048
+TELE: 23980,5,13.697,585.124,13.7077,255,26.048
+TELE: 24080,5,13.6971,581.541,13.7086,255,26.048
+TELE: 24180,5,13.6965,578.241,13.7058,255,26.048
+TELE: 24280,5,13.6968,574.954,13.7052,255,26.048
+TELE: 24380,5,13.6969,572.206,13.7013,255,26.048
+TELE: 24480,5,13.6969,567.767,13.7091,255,26.048
+TELE: 24580,5,13.6972,564.874,13.7016,255,26.048
+TELE: 24680,5,13.6966,561.662,13.7089,255,26.048
+TELE: 24780,5,13.6972,558.629,13.7092,255,26.048
+TELE: 24880,5,13.6973,554.362,13.7041,255,26.048
+TELE: 24980,5,13.697,550.308,13.7023,255,26.048
+TELE: 25080,5,13.6968,547.112,13.7089,255,26.048
+TELE: 25180,5,13.6966,543.819,13.7085,255,26.048
+TELE: 25280,5,13.6972,539.938,13.7015,255,26.048
+TELE: 25380,5,13.6973,537.174,13.7023,255,26.048
+TELE: 25480,5,13.6974,533.811,13.7064,255,26.048
+TELE: 25580,5,13.6973,528.754,13.7047,255,26.048
+TELE: 25680,5,13.6965,525.471,13.7046,255,26.048
+TELE: 25780,5,13.6966,521.757,13.706,255,26.048
+TELE: 25880,5,13.6971,519.239,13.7031,255,26.048
+TELE: 25980,5,13.6968,514.32,13.7057,255,26.048
+TELE: 26080,5,13.6971,511.653,13.6996,255,26.048
+TELE: 26180,5,13.697,507.845,13.7074,255,26.048
+TELE: 26280,5,13.6968,503.103,13.6993,255,26.048
+TELE: 26380,5,13.6968,499.934,13.7033,255,26.048
+TELE: 26480,5,13.6963,496.974,13.7041,255,26.048
+TELE: 26580,5,13.6959,492.154,13.7035,255,26.048
+TELE: 26680,5,13.6963,487.645,13.6992,255,26.048
+TELE: 26780,5,13.6962,485.049,13.7015,255,26.048
+TELE: 26880,5,13.6962,480.452,13.7016,255,26.048
+TELE: 26980,5,13.6955,477.035,13.7033,255,26.048
+TELE: 27080,5,13.6958,473.85,13.706,255,26.048
+TELE: 27180,5,13.6954,468.252,13.7014,255,26.048
+TELE: 27280,5,13.695,465.736,13.7013,255,26.048
+TELE: 27380,5,13.6956,460.797,13.706,255,26.048
+TELE: 27480,5,13.6951,458.038,13.6998,255,26.048
+TELE: 27580,5,13.6949,452.39,13.7076,255,26.048
+TELE: 27680,5,13.6951,448.997,13.6978,255,26.048
+TELE: 27780,5,13.6941,444.905,13.7007,255,26.048
+TELE: 27880,5,13.6942,441.602,13.7061,255,26.048
+TELE: 27980,5,13.6939,436.979,13.6973,255,26.048
+TELE: 28080,5,13.6943,433.867,13.7054,255,26.048
+TELE: 28180,5,13.6933,430.397,13.7011,255,26.048
+TELE: 28280,5,13.6932,424.656,13.7011,255,26.048
+TELE: 28380,5,13.693,420.56,13.7008,255,26.048
+TELE: 28480,5,13.6925,417.736,13.701,255,26.048
+TELE: 28580,5,13.6929,413.376,13.6978,255,26.048
+TELE: 28680,5,13.6927,408.442,13.6973,255,26.048
+TELE: 28780,5,13.6922,404.847,13.6983,255,26.048
+TELE: 28880,5,13.692,401.221,13.7018,255,26.048
+TELE: 28980,5,13.6921,396.696,13.7046,255,26.048
+TELE: 29080,5,13.6916,392.502,13.7023,255,26.048
+TELE: 29180,5,13.6918,389.586,13.7021,255,26.048
+TELE: 29280,5,13.6915,385.799,13.7019,255,26.048
+TELE: 29380,5,13.6906,380.987,13.6948,255,26.048
+TELE: 29480,5,13.6902,377.578,13.7034,255,26.048
+TELE: 29580,5,13.6899,373.06,13.7003,255,26.048
+TELE: 29680,5,13.6897,369.271,13.6945,255,26.048
+TELE: 29780,5,13.6896,364.13,13.6927,255,26.048
+TELE: 29880,5,13.6896,360.222,13.6933,255,26.048
+TELE: 29980,5,13.6891,356.556,13.7014,255,26.048
+MPPT: sampled Voc=13.6977V, target Vmp=10.9582
+TELE: 30080,5,13.6883,352.845,13.6977,255,26.048
+TELE: 30220,5,13.6882,347.501,13.6931,255,26.048
+TELE: 30320,5,13.6881,343.997,13.701,255,26.048
+TELE: 30420,5,13.6877,339.577,13.6965,255,26.048
+TELE: 30520,5,13.6876,335.96,13.6957,255,26.048
+TELE: 30620,5,13.6873,330.754,13.6924,255,26.048
+TELE: 30720,5,13.6864,327.246,13.6945,255,26.048
+TELE: 30820,5,13.6867,323.024,13.6958,255,26.048
+TELE: 30920,5,13.6864,319.929,13.6973,255,26.048
+TELE: 31020,5,13.6859,315.086,13.6918,255,26.048
+TELE: 31120,5,13.6852,310.611,13.6907,255,26.048
+TELE: 31220,5,13.6847,307.64,13.6941,255,26.048
+TELE: 31320,5,13.6851,303.168,13.6973,255,26.048
+TELE: 31420,5,13.6841,298.941,13.6911,255,26.048
+TELE: 31520,5,13.6835,295.648,13.6951,255,26.048
+TELE: 31620,5,13.6834,289.946,13.6879,255,26.048
+TELE: 31720,5,13.6828,287.427,13.6957,255,26.048
+TELE: 31820,5,13.6831,283.563,13.6898,255,26.048
+TELE: 31920,5,13.6822,279.121,13.6875,255,26.048
+TELE: 32020,5,13.6822,274.375,13.6893,255,26.048
+TELE: 32120,5,13.682,270.759,13.6872,255,26.048
+TELE: 32220,5,13.6812,266.15,13.6934,255,26.048
+TELE: 32320,5,13.681,261.755,13.6933,255,26.048
+TELE: 32420,5,13.6809,259.371,13.6855,255,26.048
+TELE: 32520,5,13.6796,253.454,13.6879,255,26.048
+TELE: 32620,5,13.6795,251.096,13.6861,255,26.048
+TELE: 32720,5,13.679,246.173,13.6836,255,26.048
+TELE: 32820,5,13.6789,242.754,13.6892,255,26.048
+TELE: 32920,5,13.6787,238.639,13.6884,255,26.048
+TELE: 33020,5,13.6776,233.962,13.6853,255,26.048
+TELE: 33120,5,13.6772,230.755,13.6867,255,26.048
+TELE: 33220,5,13.6776,225.903,13.6842,255,26.048
+TELE: 33320,5,13.6765,223.672,13.6887,255,26.048
+TELE: 33420,5,13.6768,219.719,13.6809,255,26.048
+TELE: 33520,5,13.6764,214.933,13.6806,255,26.048
+TELE: 33620,5,13.6756,211.172,13.6837,255,26.048
+TELE: 33720,5,13.6753,208.078,13.6837,255,26.048
+TELE: 33820,5,13.6742,202.499,13.6787,255,26.048
+TELE: 33920,5,13.674,200.391,13.6864,255,26.048
+TELE: 34020,5,13.6743,196.579,13.6844,255,26.048
+TELE: 34120,5,13.6739,191.761,13.6838,255,26.048
+TELE: 34220,5,13.6726,188.302,13.6827,255,26.048
+TELE: 34320,5,13.6727,184.239,13.6836,255,26.048
+TELE: 34420,5,13.6718,179.703,13.6767,255,26.048
+TELE: 34520,5,13.6719,176.111,13.6758,255,26.048
+TELE: 34620,5,13.6709,172.715,13.6814,255,26.048
+TELE: 34720,5,13.671,168.658,13.6773,255,26.048
+TELE: 34820,5,13.6701,166.371,13.676,255,26.048
+TELE: 34920,5,13.6702,162.099,13.6798,255,26.048
+TELE: 35020,5,13.6698,158.479,13.6799,255,26.048
+TELE: 35120,5,13.6684,153.966,13.6806,255,26.048
+TELE: 35220,5,13.6688,150.268,13.6755,255,26.048
+TELE: 35320,5,13.6682,148.497,13.6794,255,26.048
+TELE: 35420,5,13.6675,144.107,13.6789,255,26.048
+TELE: 35520,5,13.6674,139.934,13.6709,255,26.048
+TELE: 35620,5,13.6665,137.915,13.6796,255,26.048
+TELE: 35720,5,13.666,132.686,13.6717,255,26.048
+TELE: 35820,5,13.6659,130.377,13.6733,255,26.048
+TELE: 35920,5,13.6654,125.714,13.6732,255,26.048
+TELE: 36020,5,13.6644,122.281,13.6684,255,26.048
+TELE: 36120,5,13.6645,119.948,13.6715,255,26.048
+TELE: 36220,5,13.6642,115.596,13.6744,255,26.048
+TELE: 36320,5,13.6631,113.474,13.6728,255,26.048
+TELE: 36420,5,13.6631,109.339,13.6738,255,26.048
+TELE: 36520,5,13.6623,105.538,13.6729,255,26.048
+TELE: 36620,5,13.6622,102.835,13.6685,255,26.048
+TELE: 36720,5,13.6615,100.703,13.6676,255,26.048
+TELE: 36820,5,13.6611,96.4358,13.67,255,26.048
+TELE: 36920,5,13.661,93.8259,13.6664,255,26.048
+TELE: 37020,5,13.6606,89.669,13.6649,255,26.048
+TELE: 37120,5,13.6597,86.8508,13.6695,255,26.048
+TELE: 37220,5,13.6595,83.5347,13.6645,255,26.048
+TELE: 37320,5,13.6586,80.4722,13.6675,255,26.048
+TELE: 37420,5,13.6587,77.4698,13.6627,255,26.048
+TELE: 37520,5,13.6577,74.1347,13.6676,255,26.048
+TELE: 37620,5,13.6573,71.4203,13.6674,255,26.048
+TELE: 37720,5,13.6571,68.529,13.6659,255,26.048
+TELE: 37820,5,13.6562,65.4392,13.668,255,26.048
+TELE: 37920,5,13.656,64.0286,13.6661,255,26.048
+TELE: 38020,5,13.6555,60.637,13.6627,255,26.048
+TELE: 38120,5,13.6555,57.8566,13.6603,255,26.048
+TELE: 38220,5,13.655,54.8794,13.6615,255,26.048
+TELE: 38320,5,13.6541,52.2779,13.6638,255,26.048
+TELE: 38420,5,13.6545,49.5203,13.6666,255,26.048
+TELE: 38520,5,13.6539,47.1656,13.6629,255,26.048
+TELE: 38620,5,13.6534,44.3317,13.6571,255,26.048
+TELE: 38720,5,13.6532,41.5876,13.6645,255,26.048
+TELE: 38820,5,13.6519,38.335,13.6637,255,26.048
+TELE: 38920,5,13.6521,34.7312,13.6636,255,26.048
+TELE: 39020,5,13.6514,32.9177,13.6626,255,26.048
+TELE: 39120,5,13.6516,30.6725,13.6545,255,26.048
+TELE: 39220,5,13.651,28.0291,13.6547,255,26.048
+TELE: 39320,5,13.6504,25.2886,13.6544,255,26.048
+TELE: 39420,5,13.6499,22.7385,13.6622,255,26.048
+TELE: 39520,5,13.649,19.9453,13.6542,255,26.048
+TELE: 39620,5,13.6493,17.9127,13.6533,255,26.048
+TELE: 39720,5,13.6482,15.8222,13.6612,255,26.048
+TELE: 39820,5,13.6481,13.5388,13.6597,255,26.048
+TELE: 39920,5,13.6482,11.527,13.6542,255,26.048
+TELE: 40020,5,13.647,8.67526,13.6579,255,26.048
+MPPT: sampled Voc=13.6546V, target Vmp=10.9237
+TELE: 40120,5,13.6472,8.16186,13.6546,255,26.048
+TELE: 40260,5,13.6467,4.419,13.6567,255,26.048
+TELE: 40360,5,13.6465,3.98352,13.6512,255,26.048
+TELE: 40460,5,13.6464,0.990934,13.6569,255,26.048
+TELE: 40560,5,13.6451,-0.425748,13.652,255,26.048
+TELE: 40660,5,13.6451,-2.68808,13.6501,255,26.048
+TELE: 40760,5,13.645,-4.37495,13.65,255,26.048
+TELE: 40860,5,13.6444,-7.36916,13.6544,255,26.048
+TELE: 40960,5,13.6443,-7.72026,13.6497,255,26.048
+TELE: 41060,5,13.644,-9.97937,13.657,255,26.048
+TELE: 41160,5,13.6438,-11.55,13.6506,255,26.048
+TELE: 41260,5,13.6426,-14.0024,13.6514,255,26.048
+TELE: 41360,5,13.6425,-15.5432,13.6555,255,26.048
+TELE: 41460,5,13.6423,-17.2111,13.6525,255,26.048
+TELE: 41560,5,13.6424,-18.8227,13.6479,255,26.048
+TELE: 41660,5,13.6414,-19.8101,13.6502,255,26.048
+TELE: 41760,5,13.6413,-22.4509,13.65,255,26.048
+TELE: 41860,5,13.6411,-22.8502,13.6541,255,26.048
+TELE: 41960,5,13.6407,-24.5278,13.6533,255,26.048
+TELE: 42060,5,13.6409,-27.2029,13.6448,255,26.048
+TELE: 42160,5,13.6405,-28.7241,13.65,255,26.048
+TELE: 42260,5,13.6398,-29.5765,13.6494,255,26.048
+TELE: 42360,5,13.6395,-31.0923,13.6435,255,26.048
+TELE: 42460,5,13.6391,-31.0532,13.6449,255,26.048
+TELE: 42560,5,13.639,-32.4636,13.6451,255,26.048
+TELE: 42660,5,13.6388,-35.033,13.6499,255,26.048
+TELE: 42760,5,13.6381,-34.6759,13.6424,255,26.048
+TELE: 42860,5,13.6377,-35.8503,13.6466,255,26.048
+TELE: 42960,5,13.6379,-37.7384,13.6432,255,26.048
+TELE: 43060,5,13.6375,-37.9355,13.6455,255,26.048
+TELE: 43160,5,13.6376,-39.6771,13.6504,255,26.048
+TELE: 43260,5,13.6371,-39.7784,13.645,255,26.048
+TELE: 43360,5,13.6366,-41.2413,13.6433,255,26.048
+TELE: 43460,5,13.6366,-42.4478,13.6443,255,26.048
+TELE: 43560,5,13.6363,-43.0676,13.6421,255,26.048
+TELE: 43660,5,13.636,-43.5593,13.6404,255,26.048
+TELE: 43760,5,13.6365,-44.3807,13.6469,255,26.048
+TELE: 43860,5,13.6356,-44.191,13.6426,255,26.048
+TELE: 43960,5,13.6353,-44.7525,13.6435,255,26.048
+TELE: 44060,5,13.6355,-45.937,13.6394,255,26.048
+TELE: 44160,5,13.6352,-46.3581,13.6432,255,26.048
+TELE: 44260,5,13.6352,-45.9475,13.6416,255,26.048
+TELE: 44360,5,13.6344,-46.8007,13.6412,255,26.048
+TELE: 44460,5,13.635,-47.7837,13.6465,255,26.048
+TELE: 44560,5,13.6344,-47.3474,13.6413,255,26.048
+TELE: 44660,5,13.6347,-46.9877,13.6384,255,26.048
+TELE: 44760,5,13.6348,-47.3189,13.6467,255,26.048
+TELE: 44860,5,13.6343,-45.9016,13.6384,255,26.048
+TELE: 44960,5,13.6339,-47.432,13.6395,255,26.048
+TELE: 45060,5,13.6344,-46.92,13.6459,255,26.048
+TELE: 45160,5,13.634,-47.6723,13.6385,255,26.048
+TELE: 45260,5,13.6339,-46.9691,13.6467,255,26.048
+TELE: 45360,5,13.6337,-47.4721,13.6379,255,26.048
+TELE: 45460,5,13.6334,-46.9174,13.6429,255,26.048
+TELE: 45560,5,13.6335,-46.7119,13.6445,255,26.048
+TELE: 45660,5,13.6334,-46.332,13.6431,255,26.048
+TELE: 45760,5,13.6334,-46.945,13.6399,255,26.048
+TELE: 45860,5,13.6334,-46.9282,13.6439,255,26.048
+TELE: 45960,5,13.633,-45.932,13.6396,255,26.048
+TELE: 46060,5,13.633,-46.4981,13.6416,255,26.048
+TELE: 46160,5,13.6333,-46.948,13.6424,255,26.048
+TELE: 46260,5,13.6326,-46.9341,13.6449,255,26.048
+TELE: 46360,5,13.6331,-46.1214,13.6407,255,26.048
+TELE: 46460,5,13.6328,-46.1263,13.6417,255,26.048
+TELE: 46560,5,13.6327,-46.4573,13.6452,255,26.048
+TELE: 46660,5,13.633,-47.0046,13.6359,255,26.048
+TELE: 46760,5,13.6329,-45.3658,13.6439,255,26.048
+TELE: 46860,5,13.6328,-45.7138,13.6453,255,26.048
+TELE: 46960,5,13.633,-44.655,13.6421,255,26.048
+TELE: 47060,5,13.6325,-44.2935,13.64,255,26.048
+TELE: 47160,5,13.6331,-43.7066,13.6452,255,26.048
+TELE: 47260,5,13.6325,-42.3207,13.6422,255,26.048
+TELE: 47360,5,13.6329,-41.8168,13.6358,255,26.048
+TELE: 47460,5,13.6325,-41.1607,13.6431,255,26.048
+TELE: 47560,5,13.6331,-40.0422,13.6371,255,26.048
+TELE: 47660,5,13.6327,-39.4664,13.6442,255,26.048
+TELE: 47760,5,13.6324,-38.0003,13.637,255,26.048
+TELE: 47860,5,13.6329,-35.7741,13.6432,255,26.048
+TELE: 47960,5,13.6331,-34.4617,13.6436,255,26.048
+TELE: 48060,5,13.633,-34.9745,13.6406,255,26.048
+TELE: 48160,5,13.6333,-32.8137,13.6431,255,26.048
+TELE: 48260,5,13.6328,-31.7419,13.6413,255,26.048
+TELE: 48360,5,13.6333,-31.1082,13.6374,255,26.048
+TELE: 48460,5,13.6339,-29.4545,13.6405,255,26.048
+TELE: 48560,5,13.6339,-27.2888,13.6413,255,26.048
+TELE: 48660,5,13.6333,-27.2221,13.6452,255,26.048
+TELE: 48760,5,13.6338,-25.0106,13.6437,255,26.048
+TELE: 48860,5,13.6345,-22.6612,13.6381,255,26.048
+TELE: 48960,5,13.6345,-22.192,13.6445,255,26.048
+TELE: 49060,5,13.6347,-20.9837,13.6422,255,26.048
+TELE: 49160,5,13.6342,-19.5611,13.6402,255,26.048
+TELE: 49260,5,13.6346,-16.6037,13.64,255,26.048
+TELE: 49360,5,13.6348,-16.2828,13.6449,255,26.048
+TELE: 49460,5,13.6348,-13.5905,13.6384,255,26.048
+TELE: 49560,5,13.6358,-11.261,13.6436,255,26.048
+TELE: 49660,5,13.6358,-10.5326,13.6466,255,26.048
+TELE: 49760,5,13.6361,-8.45084,13.6442,255,26.048
+TELE: 49860,5,13.6361,-6.02182,13.6467,255,26.048
+TELE: 49960,5,13.6365,-5.78522,13.6419,255,26.048
+TELE: 50060,5,13.6362,-3.32202,13.6436,255,26.048
+MPPT: sampled Voc=13.6485V, target Vmp=10.9188
+TELE: 50160,5,13.6364,-0.427427,13.6485,255,26.048
+TELE: 50300,5,13.6365,1.75311,13.6485,255,26.048
+TELE: 50400,5,13.6372,3.23264,13.6413,255,26.048
+TELE: 50500,5,13.6372,4.82225,13.6472,255,26.048
+TELE: 50600,5,13.6377,8.05288,13.6474,255,26.048
+TELE: 50700,5,13.6376,9.5406,13.6416,255,26.048
+TELE: 50800,5,13.6379,11.293,13.6502,255,26.048
+TELE: 50900,5,13.6387,14.231,13.6431,255,26.048
+TELE: 51000,5,13.6389,15.4945,13.6476,255,26.048
+TELE: 51100,5,13.6389,19.4745,13.6423,255,26.048
+TELE: 51200,5,13.64,21.7856,13.6517,255,26.048
+TELE: 51300,5,13.6403,22.6772,13.6463,255,26.048
+TELE: 51400,5,13.6403,25.7371,13.6481,255,26.048
+TELE: 51500,5,13.6406,28.8689,13.6512,255,26.048
+TELE: 51600,5,13.6414,31.1828,13.6515,255,26.048
+TELE: 51700,5,13.6416,33.9091,13.6538,255,26.048
+TELE: 51800,5,13.6421,35.2238,13.6521,255,26.048
+TELE: 51900,5,13.6425,38.8589,13.6452,255,26.048
+TELE: 52000,5,13.6425,41.8908,13.6514,255,26.048
+TELE: 52100,5,13.6431,42.9067,13.6476,255,26.048
+TELE: 52200,5,13.6435,45.9057,13.6535,255,26.048
+TELE: 52300,5,13.6436,48.5325,13.6495,255,26.048
+TELE: 52400,5,13.6444,51.1172,13.6525,255,26.048
+TELE: 52500,5,13.645,55.6293,13.6515,255,26.048
+TELE: 52600,5,13.6447,57.9064,13.6515,255,26.048
+TELE: 52700,5,13.6459,60.2966,13.658,255,26.048
+TELE: 52800,5,13.6462,63.3476,13.6587,255,26.048
+TELE: 52900,5,13.6468,66.2808,13.6578,255,26.048
+TELE: 53000,5,13.6473,69.2028,13.6578,255,26.048
+TELE: 53100,5,13.6477,71.6463,13.6532,255,26.048
+TELE: 53200,5,13.6476,75.2638,13.6587,255,26.048
+TELE: 53300,5,13.6487,78.4287,13.6524,255,26.048
+TELE: 53400,5,13.6495,81.5084,13.658,255,26.048
+TELE: 53500,5,13.6495,83.4935,13.6568,255,26.048
+TELE: 53600,5,13.6499,88.284,13.6571,255,26.048
+TELE: 53700,5,13.6506,89.9312,13.6613,255,26.048
+TELE: 53800,5,13.6509,93.6881,13.6564,255,26.048
+TELE: 53900,5,13.6517,97.5552,13.6592,255,26.048
+TELE: 54000,5,13.6521,100.542,13.6628,255,26.048
+TELE: 54100,5,13.6531,103.581,13.6592,255,26.048
+TELE: 54200,5,13.6537,106.316,13.664,255,26.048
+TELE: 54300,5,13.6545,109.333,13.6664,255,26.048
+TELE: 54400,5,13.6545,113.052,13.662,255,26.048
+TELE: 54500,5,13.655,116.499,13.661,255,26.048
+TELE: 54600,5,13.6558,119.616,13.6629,255,26.048
+TELE: 54700,5,13.6561,122.874,13.6654,255,26.048
+TELE: 54800,5,13.6572,127.528,13.6625,255,26.048
+TELE: 54900,5,13.6576,129.535,13.6694,255,26.048
+TELE: 55000,5,13.6585,134.395,13.6654,255,26.048
+TELE: 55100,5,13.6594,137.826,13.6652,255,26.048
+TELE: 55200,5,13.6598,139.852,13.6658,255,26.048
+TELE: 55300,5,13.6603,144.061,13.6671,255,26.048
+TELE: 55400,5,13.6609,147.151,13.6658,255,26.048
+TELE: 55500,5,13.6613,150.808,13.6668,255,26.048
+TELE: 55600,5,13.6622,154.312,13.6746,255,26.048
+TELE: 55700,5,13.6631,158.035,13.6705,255,26.048
+TELE: 55800,5,13.6639,161.94,13.6697,255,26.048
+TELE: 55900,5,13.6639,166.802,13.6727,255,26.048
+TELE: 56000,5,13.6653,169.051,13.6688,255,26.048
+TELE: 56100,5,13.6657,173.309,13.6756,255,26.048
+TELE: 56200,5,13.6665,177.885,13.6751,255,26.048
+TELE: 56300,5,13.6676,180.104,13.679,255,26.048
+TELE: 56400,5,13.6685,185.032,13.6782,255,26.048
+TELE: 56500,5,13.6688,189.183,13.6745,255,26.048
+TELE: 56600,5,13.6697,192.231,13.6809,255,26.048
+TELE: 56700,5,13.6704,196.637,13.68,255,26.048
+TELE: 56800,5,13.6707,198.85,13.6816,255,26.048
+TELE: 56900,5,13.6714,203.736,13.6775,255,26.048
+TELE: 57000,5,13.6721,206.94,13.6768,255,26.048
+TELE: 57100,5,13.6729,212.081,13.6801,255,26.048
+TELE: 57200,5,13.6739,214.649,13.681,255,26.048
+TELE: 57300,5,13.6749,218.918,13.6777,255,26.048
+TELE: 57400,5,13.6758,222.745,13.6822,255,26.048
+TELE: 57500,5,13.6761,227.691,13.6816,255,26.048
+TELE: 57600,5,13.6777,230.058,13.6806,255,26.048
+TELE: 57700,5,13.6781,235.019,13.6853,255,26.048
+TELE: 57800,5,13.6788,237.588,13.6833,255,26.048
+TELE: 57900,5,13.6794,242.115,13.6873,255,26.048
+TELE: 58000,5,13.6809,247.339,13.6909,255,26.048
+TELE: 58100,5,13.6811,249.702,13.6917,255,26.048
+TELE: 58200,5,13.6828,253.799,13.6867,255,26.048
+TELE: 58300,5,13.6836,258.175,13.6934,255,26.048
+TELE: 58400,5,13.6844,263.2,13.6912,255,26.048
+TELE: 58500,5,13.6853,266.35,13.6932,255,26.048
+TELE: 58600,5,13.6854,270.915,13.6964,255,26.048
+TELE: 58700,5,13.6866,274.117,13.6962,255,26.048
+TELE: 58800,5,13.6878,277.947,13.6972,255,26.048
+TELE: 58900,5,13.6886,283.184,13.6939,255,26.048
+TELE: 59000,5,13.6896,287.092,13.6956,255,26.048
+TELE: 59100,5,13.69,291.069,13.6996,255,26.048
+TELE: 59200,5,13.6915,293.667,13.7015,255,26.048
+TELE: 59300,5,13.692,299.077,13.7026,255,26.048
+TELE: 59400,5,13.6933,303.431,13.699,255,26.048
+TELE: 59500,5,13.6935,306.79,13.6973,255,26.048
+TELE: 59600,5,13.6952,311.43,13.7041,255,26.048
+TELE: 59700,5,13.6957,314.189,13.6994,255,26.048
+TELE: 59800,5,13.6971,318.718,13.7012,255,26.048
+TELE: 59900,5,13.6975,323.672,13.7009,255,26.048
+TELE: 60000,5,13.6988,326.515,13.709,255,26.048
+TELE: 60100,5,13.6993,331.012,13.7078,255,26.048
+MPPT: sampled Voc=13.7061V, target Vmp=10.9649
+TELE: 60200,5,13.7008,334.839,13.7061,255,26.048
+TELE: 60340,5,13.7011,338.227,13.7048,255,26.048
+TELE: 60440,5,13.7023,344.085,13.7123,255,26.048
+TELE: 60540,5,13.7035,347.769,13.7062,255,26.048
+TELE: 60640,5,13.7044,351.774,13.7167,255,26.048
+TELE: 60740,5,13.705,354.881,13.7098,255,26.048
+TELE: 60840,5,13.7059,358.711,13.7161,255,26.048
+TELE: 60940,5,13.7074,363.893,13.7133,255,26.048
+TELE: 61040,5,13.7085,366.952,13.7111,255,26.048
+TELE: 61140,5,13.7098,372.189,13.7168,255,26.048
+TELE: 61240,5,13.7102,374.993,13.7161,255,26.048
+TELE: 61340,5,13.7117,379.29,13.7198,255,26.048
+TELE: 61440,5,13.7119,384.194,13.7197,255,26.048
+TELE: 61540,5,13.713,388.549,13.7216,255,26.048
+TELE: 61640,5,13.7143,391.079,13.7246,255,26.048
+TELE: 61740,5,13.7157,394.968,13.7262,255,26.048
+TELE: 61840,5,13.7167,398.714,13.724,255,26.048
+TELE: 61940,5,13.7176,403.064,13.7199,255,26.048
+TELE: 62040,5,13.7183,407.878,13.7254,255,26.048
+TELE: 62140,5,13.7198,410.961,13.7243,255,26.048
+TELE: 62240,5,13.7205,416.167,13.7293,255,26.048
+TELE: 62340,5,13.7216,418.91,13.731,255,26.048
+TELE: 62440,5,13.7227,422.87,13.7322,255,26.048
+TELE: 62540,5,13.7233,426.337,13.7282,255,26.048
+TELE: 62640,5,13.7247,430.567,13.7314,255,26.048
+TELE: 62740,5,13.7254,434.686,13.7377,255,26.048
+TELE: 62840,5,13.7265,439.197,13.7366,255,26.048
+TELE: 62940,5,13.7273,441.937,13.7337,255,26.048
+TELE: 63040,5,13.7286,446.435,13.732,255,26.048
+TELE: 63140,5,13.7303,451.334,13.7342,255,26.048
+TELE: 63240,5,13.7308,454.902,13.7392,255,26.048
+TELE: 63340,5,13.7316,459.252,13.7347,255,26.048
+TELE: 63440,5,13.733,461.927,13.7357,255,26.048
+TELE: 63540,5,13.7339,465.935,13.7418,255,26.048
+TELE: 63640,5,13.7351,469.701,13.7379,255,26.048
+TELE: 63740,5,13.7363,473.961,13.7385,255,26.048
+TELE: 63840,5,13.7375,477.748,13.7441,255,26.048
+TELE: 63940,5,13.738,481.246,13.7414,255,26.048
+TELE: 64040,5,13.7396,484.241,13.7474,255,26.048
+TELE: 64140,5,13.74,488.016,13.7482,255,26.048
+TELE: 64240,5,13.7415,492.049,13.7485,255,26.048
+TELE: 64340,5,13.7422,495.426,13.7452,255,26.048
+TELE: 64440,5,13.7441,500.338,13.752,255,26.048
+TELE: 64540,5,13.7445,503.808,13.7485,255,26.048
+TELE: 64640,5,13.7454,506.71,13.7542,255,26.048
+TELE: 64740,5,13.7474,510.973,13.7531,255,26.048
+TELE: 64840,5,13.7482,514.229,13.7577,255,26.048
+TELE: 64940,5,13.7494,517.056,13.7607,255,26.048
+TELE: 65040,5,13.7506,520.784,13.759,255,26.048
+TELE: 65140,5,13.7512,524.389,13.7617,255,26.048
+TELE: 65240,5,13.7523,527.308,13.7556,255,26.048
+TELE: 65340,5,13.7537,531.875,13.7635,255,26.048
+TELE: 65440,5,13.7543,535.677,13.7666,255,26.048
+TELE: 65540,5,13.7554,537.648,13.7664,255,26.048
+TELE: 65640,5,13.7567,542.456,13.7661,255,26.048
+TELE: 65740,5,13.7577,545.123,13.7668,255,26.048
+TELE: 65840,5,13.7592,547.648,13.7623,255,26.048
+TELE: 65940,5,13.7595,551.816,13.7693,255,26.048
+TELE: 66040,5,13.7614,555.553,13.7699,255,26.048
+TELE: 66140,5,13.7625,557.774,13.7677,255,26.048
+TELE: 66240,5,13.7631,562.245,13.7718,255,26.048
+TELE: 66340,5,13.7638,564.908,13.7686,255,26.048
+TELE: 66440,5,13.7656,567.76,13.7773,255,26.048
+TELE: 66540,5,13.7667,571.248,13.7774,255,26.048
+TELE: 66640,5,13.7678,575.041,13.7724,255,26.048
+TELE: 66740,5,13.7685,577.394,13.7759,255,26.048
+Bulk charge plateau reached -- measuring parasitic baseline, then pulse-testing for outgassing.
+-> Mode: 2
+Parasitic baseline: idle V=13.7692, holding at 13.8692
+Parasitic/self-discharge-compensation current: -49.9666 mA
+-> Mode: 6
+Starting outgassing characterization: maximum-available-current pulse.
+MPPT: sampled Voc=19.9991V, target Vmp=15.9993
+Baseline capacitance established: 86.2506 F
+Pulse probe: I=29.6941mA R=0.146844 ohm tau=12.6654 s
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Knee detected: V=13.6626 I=-50.7834 efficiency=-38.7953
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse energy: E_cap=-4.37224J E_gas=0J (gas fraction=0%)
+Decay fit (post-knee): tau_fast=-1s tau_slow=-1s
+Initial high-current pulse found outgassing -- starting bisection search for the minimum current.
+MPPT: sampled Voc=19.9963V, target Vmp=15.9971
+Pulse probe: I=-49.6852mA R=0 ohm tau=-1 s
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse paused: solar dropout detected.
+Pulse energy: E_cap=-0.53675J E_gas=0J (gas fraction=0%)
+Bisection converged -- running one confirmation pulse before finalizing.
+Pulse probe: I=-49.5546mA R=1.29771 ohm tau=-1 s
+Pulse energy: E_cap=-0.54489J E_gas=0J (gas fraction=0%)
+Final confirmation pulse did not reproduce the knee -- borderline/noisy result, keeping the last confirmed value but treat it with some caution.
+Outgassing result: minimum current~-50.7834 mA at V=13.6626
+-> Mode: 7
+MPPT: sampled Voc=20.0029V, target Vmp=16.0023
+Charge complete (float current tapered to termination threshold).
+-> Mode: 8
+TELE: 238620,8,13.6085,-50,20.0029,2,26.048
+[cloudy] TEST PASSED: MODE_CHARGE_DONE reached.
+
+--- SUMMARY ---
+Passed 6/6 scenarios.
