@@ -1,4 +1,4 @@
-SCENARIOS = healthy high_r aged cloudy hot cold stalled stormy
+SCENARIOS = healthy high_r aged cloudy hot cold stalled stormy dropout
 LOGS = $(addsuffix .log, $(SCENARIOS))
 SVGS_FULL = $(addsuffix _full.svg, $(SCENARIOS))
 SVGS_PULSES = $(addsuffix _pulses.svg, $(SCENARIOS))

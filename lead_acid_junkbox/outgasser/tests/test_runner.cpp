@@ -99,7 +99,7 @@ bool run_test(const std::string& scenario) {
 }
 
 int main() {
-    std::vector<std::string> scenarios = {"healthy", "high_r", "aged", "hot", "cold", "cloudy", "stormy", "stalled"};
+    std::vector<std::string> scenarios = {"healthy", "high_r", "aged", "hot", "cold", "cloudy", "stormy", "stalled", "dropout"};
     int passed = 0;
 
     for (const auto& s : scenarios) {
