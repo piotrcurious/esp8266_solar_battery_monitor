@@ -70,6 +70,10 @@ class SolarSim:
         if scenario == "cloudy":
             # Cloud passing every 60s
             self.cloud_factor = 0.5 + 0.5 * math.sin(self.time * 2 * math.pi / 60.0)
+        elif scenario == "stormy":
+            # Fast deep clouds
+            self.cloud_factor = 0.3 + 0.7 * math.sin(self.time * 2 * math.pi / 20.0)
+            if self.cloud_factor < 0: self.cloud_factor = 0
         else:
             self.cloud_factor = 1.0
 
