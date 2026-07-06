@@ -13,33 +13,41 @@ def generate_svg(data, output_svg, title, zoom_mode=None):
 
     if zoom_mode:
         # Filter for a specific mode range if requested
-        times = [d['t'] for d in data if d['m'] == zoom_mode]
-        v_bats = [d['v'] for d in data if d['m'] == zoom_mode]
-        i_bats = [d['i'] for d in data if d['m'] == zoom_mode]
+        filtered = [d for d in data if d['m'] == zoom_mode]
     else:
-        times = [d['t'] for d in data]
-        v_bats = [d['v'] for d in data]
-        i_bats = [d['i'] for d in data]
+        filtered = data
 
-    if not times:
+    if not filtered:
         return
 
-    # Downsample
-    step = max(1, len(times) // 1000)
-    times = times[::step]
-    v_bats = v_bats[::step]
-    i_bats = i_bats[::step]
+    # To handle X-axis continuity, split data into segments where time gap > 1s
+    segments = []
+    if filtered:
+        curr_seg = [filtered[0]]
+        for i in range(1, len(filtered)):
+            # Gap detection
+            if (filtered[i]['t'] - filtered[i-1]['t']) > 2.0:
+                segments.append(curr_seg)
+                curr_seg = []
+            curr_seg.append(filtered[i])
+        segments.append(curr_seg)
 
-    width = 1000
-    height = 500
-    padding = 70
+    # Global min/max for scaling across all segments
+    all_times = [d['t'] for d in filtered]
+    all_v = [d['v'] for d in filtered]
+    all_i = [d['i'] for d in filtered]
 
-    t_min, t_max = min(times), max(times)
-    v_min, v_max = min(v_bats), max(v_bats)
-    i_min, i_max = min(i_bats), max(i_bats)
+    t_min, t_max = min(all_times), max(all_times)
+    v_min, v_max = min(all_v), max(all_v)
+    i_min, i_max = min(all_i), max(all_i)
 
     if v_max == v_min: v_max += 0.1; v_min -= 0.1
     if i_max == i_min: i_max += 0.1; i_min -= 0.1
+    if t_max == t_min: t_max += 1.0
+
+    width = 1000
+    height = 500
+    padding = 75
 
     def scale(val, src_min, src_max, dst_min, dst_max):
         return dst_min + (val - src_min) * (dst_max - dst_min) / (src_max - src_min)
@@ -54,20 +62,24 @@ def generate_svg(data, output_svg, title, zoom_mode=None):
             v_val = v_min + (v_max - v_min) * i / 5
             y = scale(v_val, v_min, v_max, height-padding, padding)
             f.write(f'<line x1="{padding}" y1="{y}" x2="{width-padding}" y2="{y}" stroke="#eee" stroke-width="1"/>\n')
-            f.write(f'<text x="{padding-5}" y="{y+4}" text-anchor="end" font-family="sans-serif" font-size="12" fill="red">{v_val:.2f}V</text>\n')
+            f.write(f'<text x="{padding-10}" y="{y+4}" text-anchor="end" font-family="sans-serif" font-size="12" fill="red">{v_val:.2f}V</text>\n')
 
         for i in range(6):
             i_val = i_min + (i_max - i_min) * i / 5
             y = scale(i_val, i_min, i_max, height-padding, padding)
-            f.write(f'<text x="{width-padding+5}" y="{y+4}" text-anchor="start" font-family="sans-serif" font-size="12" fill="blue">{i_val:.2f}A</text>\n')
+            f.write(f'<text x="{width-padding+10}" y="{y+4}" text-anchor="start" font-family="sans-serif" font-size="12" fill="blue">{i_val:.2f}A</text>\n')
 
-        # V_bat path
-        v_pts = " ".join([f"{scale(t, t_min, t_max, padding, width-padding):.1f},{scale(v, v_min, v_max, height-padding, padding):.1f}" for t, v in zip(times, v_bats)])
-        f.write(f'<polyline points="{v_pts}" fill="none" stroke="red" stroke-width="2.5" opacity="0.8"/>\n')
+        # Plot each segment separately to avoid jump lines
+        for seg in segments:
+            # Downsample segment for size
+            step = max(1, len(seg) // 500)
+            seg = seg[::step]
 
-        # I_bat path
-        i_pts = " ".join([f"{scale(t, t_min, t_max, padding, width-padding):.1f},{scale(i, i_min, i_max, height-padding, padding):.1f}" for t, i in zip(times, i_bats)])
-        f.write(f'<polyline points="{i_pts}" fill="none" stroke="blue" stroke-width="1.5" stroke-dasharray="5,3"/>\n')
+            v_pts = " ".join([f"{scale(d['t'], t_min, t_max, padding, width-padding):.1f},{scale(d['v'], v_min, v_max, height-padding, padding):.1f}" for d in seg])
+            f.write(f'<polyline points="{v_pts}" fill="none" stroke="red" stroke-width="2.5" opacity="0.8"/>\n')
+
+            i_pts = " ".join([f"{scale(d['t'], t_min, t_max, padding, width-padding):.1f},{scale(d['i'], i_min, i_max, height-padding, padding):.1f}" for d in seg])
+            f.write(f'<polyline points="{i_pts}" fill="none" stroke="blue" stroke-width="1.5" stroke-dasharray="5,3"/>\n')
 
         # Axis
         f.write(f'<line x1="{padding}" y1="{height-padding}" x2="{width-padding}" y2="{height-padding}" stroke="#333" stroke-width="2"/>\n')
@@ -78,11 +90,11 @@ def generate_svg(data, output_svg, title, zoom_mode=None):
         for i in range(6):
             t_val = t_min + (t_max - t_min) * i / 5
             x = scale(t_val, t_min, t_max, padding, width-padding)
-            f.write(f'<text x="{x}" y="{height-padding+20}" text-anchor="middle" font-family="sans-serif" font-size="12">{t_val:.0f}s</text>\n')
+            f.write(f'<text x="{x}" y="{height-padding+25}" text-anchor="middle" font-family="sans-serif" font-size="12">{t_val:.0f}s</text>\n')
 
         # Legend
-        f.write(f'<g transform="translate({width-180}, 60)">\n')
-        f.write(f'<rect width="120" height="50" fill="white" fill-opacity="0.9" stroke="#ccc"/>\n')
+        f.write(f'<g transform="translate({width-200}, 60)">\n')
+        f.write(f'<rect width="140" height="50" fill="white" fill-opacity="0.9" stroke="#ccc"/>\n')
         f.write(f'<line x1="10" y1="15" x2="40" y2="15" stroke="red" stroke-width="3"/>\n')
         f.write(f'<text x="45" y="20" font-family="sans-serif" font-size="14">Voltage</text>\n')
         f.write(f'<line x1="10" y1="35" x2="40" y2="35" stroke="blue" stroke-width="2" stroke-dasharray="5,3"/>\n')
@@ -111,10 +123,7 @@ def main():
     if not data:
         return
 
-    # 1. Overall Cycle
     generate_svg(data, f"{out_prefix}_full.svg", f"Full Charge Cycle: {out_prefix}")
-
-    # 2. Characterization Zoom (Mode 6: OUTGAS_PULSE_TEST)
     generate_svg(data, f"{out_prefix}_pulses.svg", f"Outgassing Characterization Detail (Zoom): {out_prefix}", zoom_mode=6)
 
 if __name__ == "__main__":
