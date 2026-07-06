@@ -2,16 +2,20 @@
 #include "telemetry_frame.hpp"
 #include <ESPAsyncWebServer.h>
 #include <AsyncUDP.h>
+#include <freertos/FreeRTOS.h>
+#include <freertos/semphr.h>
 
 #define NUMBER_OF_BUFFERS 5
 #define MINUTES_GRAPH_BUFFER_MAX 1440
 
 // Buffers to store 24 hours of data (1 minute resolution)
-// Changed to pointers to avoid large contiguous memory requirements
 float* minutes_buffer[NUMBER_OF_BUFFERS];
+int buffer_head = 0; // Circular buffer head
 uint32_t total_packets = 0;
 telemetry_frame last_frame;
 bool new_packet_received = false;
+
+SemaphoreHandle_t bufferMutex = NULL;
 
 AsyncWebServer server(80);
 AsyncUDP udp;
@@ -205,34 +209,32 @@ const char index_html[] PROGMEM = R"rawliteral(
 </html>
 )rawliteral";
 
-void shift_buffers() {
-    for (int j = 0; j < NUMBER_OF_BUFFERS; j++) {
-        if (minutes_buffer[j]) {
-            memmove(&minutes_buffer[j][0], &minutes_buffer[j][1], (MINUTES_GRAPH_BUFFER_MAX - 1) * sizeof(float));
-        }
-    }
-}
-
 void update_minute_tick() {
-    shift_buffers();
-    if (new_packet_received) {
-        minutes_buffer[0][MINUTES_GRAPH_BUFFER_MAX - 1] = last_frame.radio_active_time;
-        minutes_buffer[1][MINUTES_GRAPH_BUFFER_MAX - 1] = last_frame.voltage_ADC0;
-        minutes_buffer[2][MINUTES_GRAPH_BUFFER_MAX - 1] = last_frame.wifi_rssi;
-        minutes_buffer[3][MINUTES_GRAPH_BUFFER_MAX - 1] = last_frame.SH4x_rel_humidity;
-        minutes_buffer[4][MINUTES_GRAPH_BUFFER_MAX - 1] = last_frame.SH4x_temperature;
-        new_packet_received = false;
-    } else {
-        for (int j = 0; j < NUMBER_OF_BUFFERS; j++) {
-            if (minutes_buffer[j]) {
-                minutes_buffer[j][MINUTES_GRAPH_BUFFER_MAX - 1] = NAN;
+    if (xSemaphoreTake(bufferMutex, pdMS_TO_TICKS(100)) == pdTRUE) {
+        buffer_head = (buffer_head + 1) % MINUTES_GRAPH_BUFFER_MAX;
+
+        if (new_packet_received) {
+            minutes_buffer[0][buffer_head] = last_frame.radio_active_time;
+            minutes_buffer[1][buffer_head] = last_frame.voltage_ADC0;
+            minutes_buffer[2][buffer_head] = last_frame.wifi_rssi;
+            minutes_buffer[3][buffer_head] = last_frame.SH4x_rel_humidity;
+            minutes_buffer[4][buffer_head] = last_frame.SH4x_temperature;
+            new_packet_received = false;
+        } else {
+            for (int j = 0; j < NUMBER_OF_BUFFERS; j++) {
+                if (minutes_buffer[j]) {
+                    minutes_buffer[j][buffer_head] = NAN;
+                }
             }
         }
+        xSemaphoreGive(bufferMutex);
     }
 }
 
 void setup() {
     Serial.begin(115200);
+
+    bufferMutex = xSemaphoreCreateMutex();
 
     // Dynamic allocation of individual buffers
     for (int j = 0; j < NUMBER_OF_BUFFERS; j++) {
@@ -251,9 +253,13 @@ void setup() {
     if (udp.listenMulticast(multicastIP, multicastPort)) {
         udp.onPacket([](AsyncUDPPacket packet) {
             if (packet.length() == sizeof(telemetry_frame)) {
-                memcpy(&last_frame, packet.data(), sizeof(telemetry_frame));
-                new_packet_received = true;
-                total_packets++;
+                // Mutex protection for last_frame and new_packet_received
+                if (xSemaphoreTake(bufferMutex, pdMS_TO_TICKS(10)) == pdTRUE) {
+                    memcpy(&last_frame, packet.data(), sizeof(telemetry_frame));
+                    new_packet_received = true;
+                    total_packets++;
+                    xSemaphoreGive(bufferMutex);
+                }
             }
         });
     }
@@ -263,22 +269,48 @@ void setup() {
     });
 
     server.on("/data", HTTP_GET, [](AsyncWebServerRequest *request){
-        // Chunked response to avoid large memory peak
-        AsyncWebServerResponse *response = request->beginChunkedResponse("application/octet-stream", [](uint8_t *buffer, size_t maxLen, size_t index) -> size_t {
+        // Capture current head under mutex
+        int current_head;
+        if (xSemaphoreTake(bufferMutex, pdMS_TO_TICKS(100)) == pdTRUE) {
+            current_head = buffer_head;
+            xSemaphoreGive(bufferMutex);
+        } else {
+            request->send(503, "text/plain", "Busy");
+            return;
+        }
+
+        // Chunked response to avoid large memory peak and re-order circular buffer
+        AsyncWebServerResponse *response = request->beginChunkedResponse("application/octet-stream", [current_head](uint8_t *buffer, size_t maxLen, size_t index) -> size_t {
             size_t total_size = NUMBER_OF_BUFFERS * MINUTES_GRAPH_BUFFER_MAX * sizeof(float);
             if (index >= total_size) return 0;
 
-            size_t channel = index / (MINUTES_GRAPH_BUFFER_MAX * sizeof(float));
-            size_t offset_in_channel = index % (MINUTES_GRAPH_BUFFER_MAX * sizeof(float));
-            size_t remaining_in_channel = (MINUTES_GRAPH_BUFFER_MAX * sizeof(float)) - offset_in_channel;
+            size_t global_float_index = index / sizeof(float);
+            size_t channel = global_float_index / MINUTES_GRAPH_BUFFER_MAX;
+            size_t time_index = global_float_index % MINUTES_GRAPH_BUFFER_MAX;
 
-            size_t to_copy = (maxLen < remaining_in_channel) ? maxLen : remaining_in_channel;
-            if (minutes_buffer[channel]) {
-                memcpy(buffer, (uint8_t*)minutes_buffer[channel] + offset_in_channel, to_copy);
-            } else {
-                memset(buffer, 0, to_copy); // Should not happen
+            // In circular buffer, the oldest data is at (head + 1) % MAX
+            // and the newest is at (head) % MAX.
+            // We want to send in chronological order: oldest to newest.
+            size_t circular_index = (current_head + 1 + time_index) % MINUTES_GRAPH_BUFFER_MAX;
+
+            size_t bytes_to_copy = 0;
+            // Send at least 1 float, up to maxLen
+            while (bytes_to_copy + sizeof(float) <= maxLen && index + bytes_to_copy < total_size) {
+                size_t current_global_float_index = (index + bytes_to_copy) / sizeof(float);
+                size_t current_channel = current_global_float_index / MINUTES_GRAPH_BUFFER_MAX;
+                size_t current_time_index = current_global_float_index % MINUTES_GRAPH_BUFFER_MAX;
+                size_t current_circular_index = (current_head + 1 + current_time_index) % MINUTES_GRAPH_BUFFER_MAX;
+
+                if (minutes_buffer[current_channel]) {
+                    memcpy(buffer + bytes_to_copy, &minutes_buffer[current_channel][current_circular_index], sizeof(float));
+                } else {
+                    float nan_val = NAN;
+                    memcpy(buffer + bytes_to_copy, &nan_val, sizeof(float));
+                }
+                bytes_to_copy += sizeof(float);
             }
-            return to_copy;
+
+            return bytes_to_copy;
         });
         request->send(response);
     });
