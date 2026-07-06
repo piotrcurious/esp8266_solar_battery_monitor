@@ -629,6 +629,18 @@ void applyTemperatureCompensation() {
   CHARGE_V_OVERVOLTAGE = 15.5f + offset;
 }
 
+void logTelemetry() {
+  // Structured logging: TELE: time_ms, mode, v_bat, i_bat, v_in, duty, temp
+  Serial.print("TELE: ");
+  Serial.print(millis()); Serial.print(",");
+  Serial.print(mode); Serial.print(",");
+  Serial.print(ina219.getBusVoltage_V(), 3); Serial.print(",");
+  Serial.print(ina219.getCurrent_mA() * CURRENT_SIGN, 1); Serial.print(",");
+  Serial.print(readVinPanel(), 2); Serial.print(",");
+  Serial.print(currentChargeDuty); Serial.print(",");
+  Serial.println(getBatteryTemp(), 1);
+}
+
 void loop() {
   unsigned long currentMillis = millis();
 
@@ -648,6 +660,8 @@ void loop() {
   float dt = (currentMillis - previousMillis) / 1000.0f;
   previousMillis = currentMillis;
   kalmanSetTimestep(dt);
+
+  logTelemetry(); // Centralized logging every tick
 
   float vBatt = ina219.getBusVoltage_V();
   float vIn   = readVinPanel();
@@ -739,15 +753,6 @@ void loop() {
         break;
       }
 
-      // Structured logging: TELE: time_ms, mode, v_bat, i_bat, v_in, duty, temp
-      Serial.print("TELE: ");
-      Serial.print(currentMillis); Serial.print(",");
-      Serial.print(mode); Serial.print(",");
-      Serial.print(vBatt, 3); Serial.print(",");
-      Serial.print(iBatt, 1); Serial.print(",");
-      Serial.print(vIn, 2); Serial.print(",");
-      Serial.print(currentChargeDuty); Serial.print(",");
-      Serial.println(getBatteryTemp(), 1);
       break;
     }
 
@@ -1016,15 +1021,6 @@ void loop() {
         enterMode(MODE_CHARGE_DONE);
       }
 
-      // Structured logging: TELE: time_ms, mode, v_bat, i_bat, v_in, duty, temp
-      Serial.print("TELE: ");
-      Serial.print(currentMillis); Serial.print(",");
-      Serial.print(mode); Serial.print(",");
-      Serial.print(vBatt, 3); Serial.print(",");
-      Serial.print(iBatt, 1); Serial.print(",");
-      Serial.print(vIn, 2); Serial.print(",");
-      Serial.print(currentChargeDuty); Serial.print(",");
-      Serial.println(getBatteryTemp(), 1);
       break;
     }
 
