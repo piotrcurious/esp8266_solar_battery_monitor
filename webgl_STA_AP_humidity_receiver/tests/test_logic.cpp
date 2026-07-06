@@ -47,15 +47,17 @@ struct AsyncUDP {
 #define NUMBER_OF_BUFFERS 5
 #define MINUTES_GRAPH_BUFFER_MAX 1440
 
-float minutes_buffer[NUMBER_OF_BUFFERS][MINUTES_GRAPH_BUFFER_MAX];
+float* minutes_buffer[NUMBER_OF_BUFFERS];
 uint32_t global_total_packets = 0;
 telemetry_frame last_frame;
 bool new_packet_received = false;
 
 void shift_buffers() {
     for (int j = 0; j < NUMBER_OF_BUFFERS; j++) {
-        for(int i=0; i<MINUTES_GRAPH_BUFFER_MAX-1; i++) {
-            minutes_buffer[j][i] = minutes_buffer[j][i+1];
+        if (minutes_buffer[j]) {
+            for(int i=0; i<MINUTES_GRAPH_BUFFER_MAX-1; i++) {
+                minutes_buffer[j][i] = minutes_buffer[j][i+1];
+            }
         }
     }
 }
@@ -71,7 +73,9 @@ void update_minute_tick() {
         new_packet_received = false;
     } else {
         for (int j = 0; j < NUMBER_OF_BUFFERS; j++) {
-            minutes_buffer[j][MINUTES_GRAPH_BUFFER_MAX - 1] = NAN;
+            if (minutes_buffer[j]) {
+                minutes_buffer[j][MINUTES_GRAPH_BUFFER_MAX - 1] = NAN;
+            }
         }
     }
 }
@@ -79,6 +83,7 @@ void update_minute_tick() {
 int main() {
     // Initialize
     for (int j = 0; j < NUMBER_OF_BUFFERS; j++) {
+        minutes_buffer[j] = new float[MINUTES_GRAPH_BUFFER_MAX];
         for (int i = 0; i < MINUTES_GRAPH_BUFFER_MAX; i++) {
             minutes_buffer[j][i] = NAN;
         }
@@ -118,9 +123,12 @@ int main() {
 
     if (success) {
         std::cout << "Simulation SUCCESS" << std::endl;
+        // Clean up
+        for (int j = 0; j < NUMBER_OF_BUFFERS; j++) delete[] minutes_buffer[j];
         return 0;
     } else {
         std::cout << "Simulation FAILED" << std::endl;
+        for (int j = 0; j < NUMBER_OF_BUFFERS; j++) delete[] minutes_buffer[j];
         return 1;
     }
 }
