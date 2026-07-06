@@ -4,8 +4,9 @@ import struct
 import json
 import math
 import sys
+import cgi
 
-PORT = 8001 # Changed port
+PORT = 8002 # Changed port again
 MINUTES_GRAPH_BUFFER_MAX = 1440
 NUMBER_OF_BUFFERS = 5
 
@@ -19,7 +20,6 @@ for j in range(NUMBER_OF_BUFFERS):
 
 class MockESP32Handler(http.server.SimpleHTTPRequestHandler):
     def do_GET(self):
-        print(f"Request: {self.path}")
         if self.path == '/':
             self.send_response(200)
             self.send_header('Content-type', 'text/html')
@@ -45,7 +45,27 @@ class MockESP32Handler(http.server.SimpleHTTPRequestHandler):
         else:
             self.send_error(404)
 
+    def do_POST(self):
+        if self.path == '/settings':
+            form = cgi.FieldStorage(
+                fp=self.rfile,
+                headers=self.headers,
+                environ={'REQUEST_METHOD': 'POST'}
+            )
+            ssid = form.getvalue('ssid')
+            passw = form.getvalue('pass')
+            print(f"Received Settings: SSID={ssid}, PASS={passw}")
+            self.send_response(200)
+            self.send_header('Content-type', 'text/plain')
+            self.end_headers()
+            self.wfile.write(b"Settings saved. Rebooting...")
+        else:
+            self.send_error(404)
+
 socketserver.TCPServer.allow_reuse_address = True
 with socketserver.TCPServer(("", PORT), MockESP32Handler) as httpd:
     print(f"Serving mock ESP32 at http://localhost:{PORT}")
-    httpd.serve_forever()
+    try:
+        httpd.serve_forever()
+    except KeyboardInterrupt:
+        pass
