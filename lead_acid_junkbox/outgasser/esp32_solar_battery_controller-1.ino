@@ -156,6 +156,19 @@ const float CURRENT_SIGN      = 1.0f;
 
 Adafruit_INA219 ina219;
 
+// Forward declarations
+void startOutgasPulseTest();
+void applyPulseDuty(float iBatt);
+void beginPulse();
+void beginBisectionPulse();
+void startFloatHold();
+void handleModeBulk(float vBatt, unsigned long now);
+void handleModeParasitic(float vBatt, float iBatt, unsigned long now);
+void handleModePulseTest(float vBatt, unsigned long now);
+void handleModeFloat(float vBatt, unsigned long now);
+void handleModePassiveFormation(float vBatt, unsigned long now);
+void fitBiExponentialDecay(float* samples, unsigned long* timesMs, float &tauFastOut, float &tauSlowOut);
+
 float getBatteryTemp() {
   long sum = 0;
   for (int i = 0; i < ADC_OVERSAMPLE_N; i++) sum += analogRead(TEMP_PIN);
@@ -301,6 +314,8 @@ float parasiticTargetVoltage = 0;
 float parasiticHoldDuty = 0;
 float parasiticAccum = 0;
 int parasiticSamples = 0;
+float parasiticErrorIntegral = 0;
+const float PARASITIC_HOLD_KI = 2.0f;
 
 // ---- Safety / stall detection ----
 unsigned long lastVoltageRiseAt = 0;
@@ -348,7 +363,6 @@ float slope_est   = 0.0f;
 float internalResistance = 0.05f;
 
 float P[2][2] = { {1, 0}, {0, 1} };
-const float Qn[2][2] = { {0.0005f, 0}, {0, 0.0005f} };
 const float R_meas = 0.02f;
 
 float A[2][2];
@@ -365,6 +379,14 @@ void kalmanSetTimestep(float dt) {
 void kalmanUpdate(float current_input_ma, float measured_voltage) {
   float current_input = current_input_ma / 1000.0f;
 
+  // Adaptive noise parameters: higher current = higher noise allowed (turbulence/bubbles)
+  float q_v = 0.0005f;
+  float q_s = 0.0005f;
+  if (fabs(current_input) > 0.5f) {
+    q_v *= 2.0f;
+    q_s *= 5.0f;
+  }
+
   float x_pred[2];
   x_pred[0] = A[0][0] * voltage_est + A[0][1] * slope_est + Bc[0] * current_input;
   x_pred[1] = A[1][0] * voltage_est + A[1][1] * slope_est + Bc[1] * current_input;
@@ -376,10 +398,10 @@ void kalmanUpdate(float current_input_ma, float measured_voltage) {
   AP[1][1] = A[1][0]*P[0][1] + A[1][1]*P[1][1];
 
   float P_pred[2][2];
-  P_pred[0][0] = AP[0][0]*A[0][0] + AP[0][1]*A[0][1] + Qn[0][0];
-  P_pred[0][1] = AP[0][0]*A[1][0] + AP[0][1]*A[1][1] + Qn[0][1];
-  P_pred[1][0] = AP[1][0]*A[0][0] + AP[1][1]*A[0][1] + Qn[1][0];
-  P_pred[1][1] = AP[1][0]*A[1][0] + AP[1][1]*A[1][1] + Qn[1][1];
+  P_pred[0][0] = AP[0][0]*A[0][0] + AP[0][1]*A[0][1] + q_v;
+  P_pred[0][1] = AP[0][0]*A[1][0] + AP[0][1]*A[1][1];
+  P_pred[1][0] = AP[1][0]*A[0][0] + AP[1][1]*A[0][1];
+  P_pred[1][1] = AP[1][0]*A[1][0] + AP[1][1]*A[1][1] + q_s;
 
   float y = measured_voltage - (H[0]*x_pred[0] + H[1]*x_pred[1]);
   float S = H[0]*P_pred[0][0] + H[1]*P_pred[1][0] + R_meas;
@@ -463,22 +485,380 @@ void startParasiticCharacterization() {
   parasiticHoldDuty = 0;
   parasiticAccum = 0;
   parasiticSamples = 0;
+  parasiticErrorIntegral = 0;
   enterMode(MODE_CHAR_PARASITIC);
-  Serial.print("Parasitic baseline: idle V="); Serial.print(idleV,3);
-  Serial.print(", holding at "); Serial.println(parasiticTargetVoltage,3);
+  Serial.print("PARA: baseline start. Idle V="); Serial.print(idleV,3);
+  Serial.print(", target V="); Serial.println(parasiticTargetVoltage,3);
+}
+
+void handleModeParasitic(float vBatt, float iBatt, unsigned long now) {
+  float vError = parasiticTargetVoltage - vBatt;
+
+  // PI control
+  parasiticErrorIntegral += vError * (CONTROL_INTERVAL_MS/1000.0f);
+  parasiticErrorIntegral = constrain(parasiticErrorIntegral, -5.0f, 5.0f);
+
+  float duty = vError * PARASITIC_HOLD_KP + parasiticErrorIntegral * PARASITIC_HOLD_KI;
+  parasiticHoldDuty = constrain(duty, 0.0f, (float)PWM_MAX);
+  ledcWrite(CHARGE_CH, (int)parasiticHoldDuty);
+
+  bool settled = (now - stateEnteredAt) > (unsigned long)(PARASITIC_SETTLE_S * 1000);
+  if (settled) {
+    parasiticAccum += iBatt;
+    parasiticSamples++;
+
+    if (now % 2000 < 100) {
+       Serial.print("PARA: sampling. I="); Serial.print(iBatt,1);
+       Serial.print("mA Verr="); Serial.println(vError,3);
+    }
+
+    if ((now - stateEnteredAt) > (unsigned long)((PARASITIC_SETTLE_S + PARASITIC_SAMPLE_S) * 1000)) {
+      state.parasiticCurrent_mA = parasiticAccum / max(1, parasiticSamples);
+      ledcWrite(CHARGE_CH, 0);
+      saveState();
+      Serial.print("PARA: complete. Parasitic I=");
+      Serial.print(state.parasiticCurrent_mA, 2);
+      Serial.println(" mA");
+      if (postParasiticAction == POST_PARASITIC_START_PULSE_TEST) {
+        startOutgasPulseTest();
+      } else {
+        enterMode(MODE_IDLE);
+      }
+    }
+  }
 }
 
 void startPassiveFormationTest() {
   ledcWrite(CHARGE_CH, 0);
   enterMode(MODE_PASSIVE_FORMATION_TEST);
-  Serial.println("Starting passive formation test (observing discharge via parasitic load).");
+  Serial.println("FORM: passive test start (observing discharge via parasitic load).");
+}
+
+void handleModePassiveFormation(float vBatt, unsigned long now) {
+  float iBatt = ina219.getCurrent_mA() * CURRENT_SIGN;
+  kalmanUpdate(iBatt, vBatt);
+
+  if (fabs(slope_est) < slopeThreshold && (now - stateEnteredAt) > 10000) {
+    Serial.print("FORM: plateau detected. V="); Serial.println(voltage_est, 4);
+    Serial.print("FORM: current draw="); Serial.print(-iBatt, 2); Serial.println(" mA");
+    enterMode(MODE_WAIT_AFTER_OUTGASSING);
+  }
 }
 
 void startCharge() {
   mpptDutyCeiling = 40;
   lastVocSample = 0;
   chargeStartedAt = millis();
+  maxVoltageSeenInBulk = 0;
+  lastVoltageRiseAt = millis();
   enterMode(MODE_CHARGE_BULK);
+}
+
+void handleModePulseTest(float vBatt, unsigned long now) {
+  float iBatt = ina219.getCurrent_mA() * CURRENT_SIGN;
+  if (iBatt > OVERCURRENT_LIMIT_MA) { tripFault("pulse test overcurrent"); return; }
+  float vIn = readVinPanel();
+
+  switch (pulseSubPhase) {
+
+    case PULSE_PRE: {
+      ledcWrite(CHARGE_CH, 0);
+      mpptVoltageLoop(vIn);
+      V_beforePulse = vBatt;
+      if (!pulseOpenLoopMaxDuty) pidCharge.SetMode(AUTOMATIC);
+      pulseSubPhase = PULSE_IR_WAIT;
+      pulsePhaseStartedAt = now;
+      break;
+    }
+
+    case PULSE_IR_WAIT: {
+      applyPulseDuty(iBatt);
+      if (now - pulsePhaseStartedAt >= IR_SETTLE_MS) {
+        V_afterIR = vBatt;
+        R_est = (iBatt > 1.0f) ? (V_afterIR - V_beforePulse) / (iBatt/1000.0f) : 0;
+        pulseSubPhase = PULSE_PROBE;
+        pulsePhaseStartedAt = now;
+      }
+      break;
+    }
+
+    case PULSE_PROBE: {
+      applyPulseDuty(iBatt);
+      if (now - pulsePhaseStartedAt >= SLOPE_FIT_WINDOW_MS) {
+        V_afterProbe = vBatt;
+        float probeSlope = (V_afterProbe - V_afterIR) / (SLOPE_FIT_WINDOW_MS/1000.0f);
+        float iAmps = iBatt/1000.0f;
+        C_est = (probeSlope > 1e-6f) ? (iAmps/probeSlope) : -1;
+        tau_est = (C_est > 0) ? R_est*C_est : -1;
+        if (C_baseline < 0 && C_est > 0) {
+          C_baseline = C_est;
+          Serial.print("Baseline capacitance established: "); Serial.print(C_baseline,2); Serial.println(" F");
+        }
+
+        if (R_est > 0.001f && R_est < 2.0f) {
+          internalResistance = 0.8f * internalResistance + 0.2f * R_est;
+        }
+
+        slope1 = probeSlope;
+        emaSlope = probeSlope;
+        V_prevTick = V_afterProbe;
+        Serial.print("BISE: probe. I="); Serial.print(iBatt,1);
+        Serial.print("mA R="); Serial.print(R_est,4);
+        Serial.print(" ohm tau="); Serial.print(tau_est,2); Serial.println(" s");
+        pulseSubPhase = PULSE_MAIN;
+        pulsePhaseStartedAt = now;
+      }
+      break;
+    }
+
+    case PULSE_MAIN: {
+      applyPulseDuty(iBatt);
+
+      if (currentChargeDuty >= PWM_MAX - 5 && vIn < (vinTarget - 1.0f)) {
+        pulsePhaseStartedAt += CONTROL_INTERVAL_MS;
+        if (kneeDetected) pulsePostKneeStartedAt += CONTROL_INTERVAL_MS;
+        ledcWrite(CHARGE_CH, 0);
+        return;
+      }
+
+      float instSlope = (vBatt - V_prevTick) / (CONTROL_INTERVAL_MS/1000.0f);
+      kalmanUpdate(iBatt, vBatt);
+      float usedSlope = (fabs(slope_est) > 1e-6) ? slope_est : instSlope;
+      emaSlope = EMA_ALPHA*usedSlope + (1-EMA_ALPHA)*emaSlope;
+      V_prevTick = vBatt;
+
+      float iAmps = iBatt/1000.0f;
+      float I_cap = (C_baseline > 0) ? constrain(C_baseline*emaSlope, 0.0f, iAmps) : iAmps;
+      float I_gas = max(0.0f, iAmps - I_cap);
+      E_cap_J += vBatt * I_cap * (CONTROL_INTERVAL_MS/1000.0);
+      E_gas_J += vBatt * I_gas * (CONTROL_INTERVAL_MS/1000.0);
+
+      unsigned long elapsed = (now - pulsePhaseStartedAt);
+
+      if (!kneeDetected) {
+        float ratio = (slope1 > 1e-9f) ? emaSlope/slope1 : 1.0f;
+
+        if (vBatt >= CHARGE_V_OVERVOLTAGE - OVERVOLTAGE_PULSE_MARGIN) {
+          Serial.println("BISE: ceiling hit before knee.");
+          lastPulseResult = PULSE_CEILING_HIT;
+          goto pulseMainDone;
+        }
+
+        if (ratio < OUTGAS_EFFICIENCY_THRESHOLD) {
+          kneeConfirmTicks++;
+          if (kneeConfirmTicks >= KNEE_CONFIRM_TICKS) {
+            kneeDetected = true;
+            kneeVoltage = vBatt;
+            kneeCurrentMa = iBatt;
+            pulsePostKneeStartedAt = now;
+            Serial.print("BISE: knee! V="); Serial.print(kneeVoltage,4);
+            Serial.print(" I="); Serial.print(kneeCurrentMa,1);
+            Serial.print(" eff="); Serial.println(ratio,3);
+          }
+        } else {
+          kneeConfirmTicks = 0;
+        }
+        unsigned long noKneeTimeout = constrain(
+          (tau_est>0) ? (unsigned long)(TAU_MULTIPLE_FOR_PULSE*tau_est*1000.0f) : MIN_PULSE_MS,
+          MIN_PULSE_MS, MAX_PULSE_MS);
+        if (!kneeDetected && elapsed >= noKneeTimeout) {
+          slope2 = emaSlope;
+          lastPulseResult = PULSE_NO_KNEE;
+          goto pulseMainDone;
+        }
+      } else {
+        unsigned long postKneeTarget = constrain(
+          (tau_est>0) ? (unsigned long)(TAU_MULTIPLE_POST_KNEE*tau_est*1000.0f) : MIN_PULSE_MS,
+          MIN_PULSE_MS/2, MAX_PULSE_MS/2);
+        unsigned long postKneeElapsed = (now - pulsePostKneeStartedAt);
+        if (postKneeElapsed >= postKneeTarget) {
+          slope2 = emaSlope;
+          lastPulseResult = PULSE_KNEE_FOUND;
+          goto pulseMainDone;
+        }
+      }
+      break;
+
+      pulseMainDone:
+      Serial.print("BISE: pulse energy. E_cap="); Serial.print(E_cap_J,4);
+      Serial.print("J E_gas="); Serial.print(E_gas_J,4);
+      Serial.print("J (gas=");
+      Serial.print((E_cap_J+E_gas_J>1e-9)? (E_gas_J/(E_cap_J+E_gas_J))*100.0 : 0.0, 1);
+      Serial.println("%)");
+
+      ledcWrite(CHARGE_CH, 0);
+      decaySampleIdx = 0;
+      float tauRef = (tau_est>0) ? tau_est : 2.0f;
+      if (lastPulseResult == PULSE_KNEE_FOUND) {
+        float dtE = max(0.3f, tauRef*0.5f);
+        float dtL = max(1.0f, tauRef*2.0f);
+        decaySampleTimesMs[0] = 0;
+        decaySampleTimesMs[1] = (unsigned long)(dtE*1000);
+        decaySampleTimesMs[2] = (unsigned long)(4.0f*tauRef*1000);
+        decaySampleTimesMs[3] = decaySampleTimesMs[2] + (unsigned long)(dtL*1000);
+        decaySampleTimesMs[4] = decaySampleTimesMs[3] + (unsigned long)(dtL*1000);
+        decaySampleCount = 5;
+      } else {
+        unsigned long dtS = constrain((unsigned long)(tauRef*500.0f), 500UL, 20000UL);
+        decaySampleTimesMs[0] = 0; decaySampleTimesMs[1] = dtS; decaySampleTimesMs[2] = 2*dtS;
+        decaySampleCount = 3;
+      }
+      pulseSubPhase = PULSE_REST_EARLY;
+      pulsePhaseStartedAt = now;
+      break;
+    }
+
+    case PULSE_REST_EARLY: {
+      ledcWrite(CHARGE_CH, 0);
+      unsigned long elapsed = now - pulsePhaseStartedAt;
+      if (decaySampleIdx < decaySampleCount && elapsed >= decaySampleTimesMs[decaySampleIdx]) {
+        decaySamples[decaySampleIdx] = vBatt;
+        decaySampleIdx++;
+      }
+      if (decaySampleIdx >= decaySampleCount) {
+        float tauForRest = -1;
+        if (decaySampleCount == 3) {
+          float d1 = decaySamples[0]-decaySamples[1];
+          float d2 = decaySamples[1]-decaySamples[2];
+          float dtSec = decaySampleTimesMs[1]/1000.0f;
+          tau_decay = (d1>1e-5f && d2>1e-5f && d2<d1) ? -dtSec/logf(d2/d1) : -1;
+          if (tau_decay > 0 && tau_est > 0) {
+            Serial.print("DECAY: single. tau="); Serial.print(tau_decay,2);
+            Serial.print("s vs tau_ch="); Serial.print(tau_est,2); Serial.println("s");
+          }
+          tauForRest = (tau_decay>0) ? tau_decay : tau_est;
+        } else {
+          fitBiExponentialDecay(decaySamples, decaySampleTimesMs, tau_fast_decay, tau_slow_decay);
+          Serial.print("DECAY: bi. fast="); Serial.print(tau_fast_decay,2);
+          Serial.print("s slow="); Serial.print(tau_slow_decay,2); Serial.println("s");
+          tauForRest = (tau_slow_decay>0) ? tau_slow_decay : ((tau_fast_decay>0)?tau_fast_decay:tau_est);
+        }
+        unsigned long fullRestMs = constrain(
+          (tauForRest>0) ? (unsigned long)(3.0f*tauForRest*1000.0f) : MIN_REST_MS,
+          MIN_REST_MS, MAX_REST_MS);
+        unsigned long already = decaySampleTimesMs[decaySampleCount-1];
+        restRemainingMs = (fullRestMs > already) ? (fullRestMs - already) : 0;
+        pulseSubPhase = PULSE_REST_LATE;
+        pulsePhaseStartedAt = now;
+      }
+      break;
+    }
+
+    case PULSE_REST_LATE: {
+      ledcWrite(CHARGE_CH, 0);
+      if (now - pulsePhaseStartedAt >= restRemainingMs) {
+
+        if (pulseOpenLoopMaxDuty) {
+          if (lastPulseResult == PULSE_KNEE_FOUND) {
+            bisectHigh = kneeCurrentMa;
+            haveUpperBound = true;
+            state.outgassingCurrent_mA = kneeCurrentMa;
+            state.outgassingVoltage_V = kneeVoltage;
+            Serial.println("BISE: initial pulse OK. Starting bisection...");
+            pulseTestCurrent = (bisectLow+bisectHigh)/2.0f;
+            beginBisectionPulse();
+          } else if (lastPulseResult == PULSE_CEILING_HIT) {
+             tripFault("safety: ceiling hit on initial pulse. R_int too high?");
+             return;
+          } else {
+            Serial.println("BISE: no knee yet. Continuing bulk-pulse.");
+            beginPulse();
+          }
+        } else if (doingFinalConfirm) {
+          if (lastPulseResult != PULSE_KNEE_FOUND) {
+            Serial.println("BISE: final confirm failed to reproduce knee. Result may be noisy.");
+          }
+          state.calibrated = true;
+          saveState();
+          Serial.print("BISE: complete. I="); Serial.print(state.outgassingCurrent_mA);
+          Serial.print("mA at V="); Serial.println(state.outgassingVoltage_V,4);
+          startFloatHold();
+        } else {
+          bisectionIterations++;
+          if (lastPulseResult == PULSE_KNEE_FOUND) {
+            bisectHigh = pulseTestCurrent;
+            state.outgassingCurrent_mA = pulseTestCurrent;
+            state.outgassingVoltage_V = kneeVoltage;
+          } else if (lastPulseResult == PULSE_CEILING_HIT) {
+            Serial.println("BISE: ceiling hit during search. Treating as high bound.");
+            bisectHigh = pulseTestCurrent;
+          } else {
+            bisectLow = pulseTestCurrent;
+          }
+          if ((bisectHigh-bisectLow) <= BISECTION_RESOLUTION_MA || bisectionIterations >= MAX_BISECTION_ITERS) {
+            doingFinalConfirm = true;
+            pulseTestCurrent = bisectHigh;
+            Serial.println("BISE: converged. Running final confirmation pulse.");
+            beginBisectionPulse();
+          } else {
+            pulseTestCurrent = (bisectLow+bisectHigh)/2.0f;
+            beginBisectionPulse();
+          }
+        }
+      }
+      break;
+    }
+  }
+}
+
+void handleModeFloat(float vBatt, unsigned long now) {
+  if (now - chargeStartedAt > CHARGE_TIMEOUT_MS) { tripFault("charge timeout"); return; }
+
+  float iBatt = ina219.getCurrent_mA() * CURRENT_SIGN;
+  if (iBatt > OVERCURRENT_LIMIT_MA) { tripFault("charge overcurrent"); return; }
+
+  float vIn = readVinPanel();
+  mpptVoltageLoop(vIn);
+
+  float vError = cvTargetVoltage - vBatt;
+  // Manual PI scaled by dt
+  float duty = pidOut_charge + vError * 40.0f * (CONTROL_INTERVAL_MS / 1000.0f);
+  duty = constrain(duty, 0.0f, mpptDutyCeiling);
+  pidOut_charge = duty;
+  currentChargeDuty = (uint32_t)duty;
+  ledcWrite(CHARGE_CH, currentChargeDuty);
+
+  if (iBatt < CHARGE_TERMINATION_MA) {
+    ledcWrite(CHARGE_CH, 0);
+    Serial.println("FLOAT: complete (current tapered below threshold).");
+    enterMode(MODE_CHARGE_DONE);
+  }
+}
+
+void handleModeBulk(float vBatt, unsigned long now) {
+  if (now - chargeStartedAt > CHARGE_TIMEOUT_MS) { tripFault("charge timeout"); return; }
+
+  float iBatt = ina219.getCurrent_mA() * CURRENT_SIGN;
+  float vIn = readVinPanel();
+
+  // Stall detection
+  if (vBatt > maxVoltageSeenInBulk + 0.01f) {
+    maxVoltageSeenInBulk = vBatt;
+    lastVoltageRiseAt = now;
+  } else if (vBatt < maxVoltageSeenInBulk - 0.05f) {
+    if (vIn >= vinTarget) {
+        tripFault("bulk charge voltage drop - possible cell failure");
+        return;
+    }
+  }
+
+  if (currentChargeDuty > 200 && (now - lastVoltageRiseAt > BULK_STALL_TIMEOUT_MS)) {
+    tripFault("bulk charge stalled - possible shorted cell");
+    return;
+  }
+
+  if (iBatt > OVERCURRENT_LIMIT_MA) { tripFault("charge overcurrent"); return; }
+
+  mpptVoltageLoop(vIn);
+  currentChargeDuty = (uint32_t)mpptDutyCeiling;
+  ledcWrite(CHARGE_CH, currentChargeDuty);
+
+  if (vBatt >= BULK_TARGET_V) {
+    Serial.println("BULK: plateau reached. Measuring parasitic baseline...");
+    ledcWrite(CHARGE_CH, 0);
+    postParasiticAction = POST_PARASITIC_START_PULSE_TEST;
+    startParasiticCharacterization();
+  }
 }
 
 // Applies the pulse's charge current, using whichever mode this pulse is in.
@@ -711,43 +1091,12 @@ void loop() {
       float iBatt = ina219.getCurrent_mA() * CURRENT_SIGN;
       if (iBatt > OVERCURRENT_LIMIT_MA) { tripFault("parasitic-probe overcurrent"); break; }
 
-      float vError = parasiticTargetVoltage - vBatt;
-      // Proportional control for faster settling in high-slope cases
-      parasiticHoldDuty = vError * PARASITIC_HOLD_KP;
-      parasiticHoldDuty = constrain(parasiticHoldDuty, 0.0f, (float)PWM_MAX);
-      ledcWrite(CHARGE_CH, (int)parasiticHoldDuty);
-
-      bool settled = (currentMillis - stateEnteredAt) > (unsigned long)(PARASITIC_SETTLE_S * 1000);
-      if (settled) {
-        parasiticAccum += iBatt;
-        parasiticSamples++;
-        if ((currentMillis - stateEnteredAt) > (unsigned long)((PARASITIC_SETTLE_S + PARASITIC_SAMPLE_S) * 1000)) {
-          state.parasiticCurrent_mA = parasiticAccum / max(1, parasiticSamples);
-          ledcWrite(CHARGE_CH, 0);
-          saveState();
-          Serial.print("Parasitic/self-discharge-compensation current: ");
-          Serial.print(state.parasiticCurrent_mA, 2);
-          Serial.println(" mA");
-          if (postParasiticAction == POST_PARASITIC_START_PULSE_TEST) {
-            startOutgasPulseTest();
-          } else {
-            enterMode(MODE_IDLE);
-          }
-        }
-      }
+      handleModeParasitic(vBatt, iBatt, currentMillis);
       break;
     }
 
     case MODE_PASSIVE_FORMATION_TEST: {
-      float iBatt = ina219.getCurrent_mA() * CURRENT_SIGN; // Expected to be negative (discharge)
-
-      kalmanUpdate(iBatt, vBatt);
-
-      if (fabs(slope_est) < slopeThreshold && (currentMillis - stateEnteredAt) > 10000) {
-        Serial.print("Passive discharge plateau detected at voltage: "); Serial.println(voltage_est, 4);
-        Serial.print("Current draw: "); Serial.print(-iBatt, 2); Serial.println(" mA");
-        enterMode(MODE_WAIT_AFTER_OUTGASSING);
-      }
+      handleModePassiveFormation(vBatt, currentMillis);
       break;
     }
 
@@ -759,335 +1108,17 @@ void loop() {
       break;
 
     case MODE_CHARGE_BULK: {
-      if (currentMillis - chargeStartedAt > CHARGE_TIMEOUT_MS) { tripFault("charge timeout"); break; }
-
-      float iBatt = ina219.getCurrent_mA() * CURRENT_SIGN;
-
-      // Stall detection: battery must rise by at least 10mV every timeout period if charging hard
-      if (vBatt > maxVoltageSeenInBulk + 0.01f) {
-        maxVoltageSeenInBulk = vBatt;
-        lastVoltageRiseAt = currentMillis;
-      } else if (vBatt < maxVoltageSeenInBulk - 0.05f) {
-        // Significant drop during bulk is also a sign of a problem (except during cloud which pauses)
-        if (vIn >= vinTarget) {
-            tripFault("bulk charge voltage drop - possible cell failure");
-            break;
-        }
-      }
-
-      if (lastVoltageRiseAt == 0) lastVoltageRiseAt = currentMillis; // Init
-
-      if (currentChargeDuty > 200 && (currentMillis - lastVoltageRiseAt > BULK_STALL_TIMEOUT_MS)) {
-        tripFault("bulk charge stalled - possible shorted cell");
-        break;
-      }
-
-      if (iBatt > OVERCURRENT_LIMIT_MA) { tripFault("charge overcurrent"); break; }
-
-      mpptVoltageLoop(vIn);
-      currentChargeDuty = (uint32_t)mpptDutyCeiling;
-      ledcWrite(CHARGE_CH, currentChargeDuty);
-
-      if (vBatt >= BULK_TARGET_V) {
-        Serial.println("Bulk charge plateau reached -- measuring parasitic baseline, then pulse-testing for outgassing.");
-        ledcWrite(CHARGE_CH, 0);
-        postParasiticAction = POST_PARASITIC_START_PULSE_TEST;
-        startParasiticCharacterization();
-        break;
-      }
-
+      handleModeBulk(vBatt, currentMillis);
       break;
     }
 
     case MODE_OUTGAS_PULSE_TEST: {
-      float iBatt = ina219.getCurrent_mA() * CURRENT_SIGN;
-      if (iBatt > OVERCURRENT_LIMIT_MA) { tripFault("pulse test overcurrent"); break; }
-
-      switch (pulseSubPhase) {
-
-        case PULSE_PRE: {
-          ledcWrite(CHARGE_CH, 0);
-          mpptVoltageLoop(vIn); // refresh MPPT target here, between pulses -- not mid-pulse
-          V_beforePulse = vBatt;
-          if (!pulseOpenLoopMaxDuty) pidCharge.SetMode(AUTOMATIC);
-          pulseSubPhase = PULSE_IR_WAIT;
-          pulsePhaseStartedAt = currentMillis;
-          break;
-        }
-
-        case PULSE_IR_WAIT: {
-          applyPulseDuty(iBatt);
-          if (currentMillis - pulsePhaseStartedAt >= IR_SETTLE_MS) {
-            V_afterIR = vBatt;
-            R_est = (iBatt > 1.0f) ? (V_afterIR - V_beforePulse) / (iBatt/1000.0f) : 0;
-            pulseSubPhase = PULSE_PROBE;
-            pulsePhaseStartedAt = currentMillis;
-          }
-          break;
-        }
-
-        case PULSE_PROBE: {
-          applyPulseDuty(iBatt);
-          if (currentMillis - pulsePhaseStartedAt >= SLOPE_FIT_WINDOW_MS) {
-            V_afterProbe = vBatt;
-            float probeSlope = (V_afterProbe - V_afterIR) / (SLOPE_FIT_WINDOW_MS/1000.0f);
-            float iAmps = iBatt/1000.0f;
-            C_est = (probeSlope > 1e-6f) ? (iAmps/probeSlope) : -1;
-            tau_est = (C_est > 0) ? R_est*C_est : -1;
-            if (C_baseline < 0 && C_est > 0) {
-              C_baseline = C_est;
-              Serial.print("Baseline capacitance established: "); Serial.print(C_baseline,2); Serial.println(" F");
-            }
-
-            // Update Kalman filter's internal resistance parameter with the measured R_est
-            if (R_est > 0.001f && R_est < 2.0f) {
-              internalResistance = 0.8f * internalResistance + 0.2f * R_est;
-            }
-
-            slope1 = probeSlope;
-            emaSlope = probeSlope;
-            V_prevTick = V_afterProbe;
-            Serial.print("Pulse probe: I="); Serial.print(iBatt,1);
-            Serial.print("mA R="); Serial.print(R_est,4);
-            Serial.print(" ohm tau="); Serial.print(tau_est,2); Serial.println(" s");
-            pulseSubPhase = PULSE_MAIN;
-            pulsePhaseStartedAt = currentMillis;
-          }
-          break;
-        }
-
-        case PULSE_MAIN: {
-          applyPulseDuty(iBatt);
-
-          // Detect solar dropout: if we're asking for current but Vin is tanking
-          if (currentChargeDuty >= PWM_MAX - 5 && vIn < (vinTarget - 1.0f)) {
-            Serial.println("Pulse paused: solar dropout detected.");
-            ledcWrite(CHARGE_CH, 0);
-            pulsePhaseStartedAt += CONTROL_INTERVAL_MS;
-            if (kneeDetected) pulsePostKneeStartedAt += CONTROL_INTERVAL_MS;
-            return; // Exit loop for this tick, don't advance timers or integrate
-          }
-
-          float instSlope = (vBatt - V_prevTick) / (CONTROL_INTERVAL_MS/1000.0f);
-
-          // Smoother slope estimate via Kalman filter if active
-          kalmanUpdate(iBatt, vBatt);
-          float usedSlope = (fabs(slope_est) > 1e-6) ? slope_est : instSlope;
-
-          emaSlope = EMA_ALPHA*usedSlope + (1-EMA_ALPHA)*emaSlope;
-          V_prevTick = vBatt;
-
-          float iAmps = iBatt/1000.0f;
-          // Use EMA slope for energy split to reduce noise bias
-          float I_cap = (C_baseline > 0) ? constrain(C_baseline*emaSlope, 0.0f, iAmps) : iAmps;
-          float I_gas = max(0.0f, iAmps - I_cap);
-          E_cap_J += vBatt * I_cap * (CONTROL_INTERVAL_MS/1000.0);
-          E_gas_J += vBatt * I_gas * (CONTROL_INTERVAL_MS/1000.0);
-
-          unsigned long elapsed = (currentMillis - pulsePhaseStartedAt);
-
-          if (!kneeDetected) {
-            float ratio = (slope1 > 1e-9f) ? emaSlope/slope1 : 1.0f;
-
-            // Safety margin check: separate from knee detection
-            if (vBatt >= CHARGE_V_OVERVOLTAGE - OVERVOLTAGE_PULSE_MARGIN) {
-              Serial.println("Pulse ended: reached voltage ceiling before knee.");
-              lastPulseResult = PULSE_CEILING_HIT;
-              goto pulseMainDone;
-            }
-
-            if (ratio < OUTGAS_EFFICIENCY_THRESHOLD) {
-              kneeConfirmTicks++;
-              if (kneeConfirmTicks >= KNEE_CONFIRM_TICKS) {
-                kneeDetected = true;
-                kneeVoltage = vBatt;
-                kneeCurrentMa = iBatt;
-                pulsePostKneeStartedAt = currentMillis;
-                Serial.print("Knee detected: V="); Serial.print(kneeVoltage,4);
-                Serial.print(" I="); Serial.print(kneeCurrentMa,1);
-                Serial.print(" efficiency="); Serial.println(ratio,3);
-              }
-            } else {
-              kneeConfirmTicks = 0;
-            }
-            unsigned long noKneeTimeout = constrain(
-              (tau_est>0) ? (unsigned long)(TAU_MULTIPLE_FOR_PULSE*tau_est*1000.0f) : MIN_PULSE_MS,
-              MIN_PULSE_MS, MAX_PULSE_MS);
-            if (!kneeDetected && elapsed >= noKneeTimeout) {
-              slope2 = emaSlope;
-              lastPulseResult = PULSE_NO_KNEE;
-              goto pulseMainDone;
-            }
-          } else {
-            unsigned long postKneeTarget = constrain(
-              (tau_est>0) ? (unsigned long)(TAU_MULTIPLE_POST_KNEE*tau_est*1000.0f) : MIN_PULSE_MS,
-              MIN_PULSE_MS/2, MAX_PULSE_MS/2);
-            // Account for pauses during the post-knee window too
-            unsigned long postKneeElapsed = (currentMillis - pulsePostKneeStartedAt);
-            if (postKneeElapsed >= postKneeTarget) {
-              slope2 = emaSlope;
-              lastPulseResult = PULSE_KNEE_FOUND;
-              goto pulseMainDone;
-            }
-          }
-          break;
-
-          pulseMainDone:
-          Serial.print("Pulse energy: E_cap="); Serial.print(E_cap_J,4);
-          Serial.print("J E_gas="); Serial.print(E_gas_J,4);
-          Serial.print("J (gas fraction=");
-          Serial.print((E_cap_J+E_gas_J>1e-9)? (E_gas_J/(E_cap_J+E_gas_J))*100.0 : 0.0, 1);
-          Serial.println("%)");
-
-          ledcWrite(CHARGE_CH, 0);
-          decaySampleIdx = 0;
-          float tauRef = (tau_est>0) ? tau_est : 2.0f;
-          if (lastPulseResult == PULSE_KNEE_FOUND) {
-            float dtE = max(0.3f, tauRef*0.5f);
-            float dtL = max(1.0f, tauRef*2.0f);
-            decaySampleTimesMs[0] = 0;
-            decaySampleTimesMs[1] = (unsigned long)(dtE*1000);
-            decaySampleTimesMs[2] = (unsigned long)(4.0f*tauRef*1000);
-            decaySampleTimesMs[3] = decaySampleTimesMs[2] + (unsigned long)(dtL*1000);
-            decaySampleTimesMs[4] = decaySampleTimesMs[3] + (unsigned long)(dtL*1000);
-            decaySampleCount = 5;
-          } else {
-            unsigned long dtS = constrain((unsigned long)(tauRef*500.0f), 500UL, 20000UL);
-            decaySampleTimesMs[0] = 0; decaySampleTimesMs[1] = dtS; decaySampleTimesMs[2] = 2*dtS;
-            decaySampleCount = 3;
-          }
-          pulseSubPhase = PULSE_REST_EARLY;
-          pulsePhaseStartedAt = currentMillis;
-          break;
-        }
-
-        case PULSE_REST_EARLY: {
-          ledcWrite(CHARGE_CH, 0);
-          unsigned long elapsed = currentMillis - pulsePhaseStartedAt;
-          if (decaySampleIdx < decaySampleCount && elapsed >= decaySampleTimesMs[decaySampleIdx]) {
-            decaySamples[decaySampleIdx] = vBatt;
-            decaySampleIdx++;
-          }
-          if (decaySampleIdx >= decaySampleCount) {
-            float tauForRest = -1;
-            if (decaySampleCount == 3) {
-              float d1 = decaySamples[0]-decaySamples[1];
-              float d2 = decaySamples[1]-decaySamples[2];
-              float dtSec = decaySampleTimesMs[1]/1000.0f;
-              tau_decay = (d1>1e-5f && d2>1e-5f && d2<d1) ? -dtSec/logf(d2/d1) : -1;
-              if (tau_decay > 0 && tau_est > 0) {
-                Serial.print("tau_decay="); Serial.print(tau_decay,2);
-                Serial.print("s vs tau_charge="); Serial.print(tau_est,2); Serial.println("s");
-              }
-              tauForRest = (tau_decay>0) ? tau_decay : tau_est;
-            } else {
-              fitBiExponentialDecay(decaySamples, decaySampleTimesMs, tau_fast_decay, tau_slow_decay);
-              Serial.print("Decay fit (post-knee): tau_fast="); Serial.print(tau_fast_decay,2);
-              Serial.print("s tau_slow="); Serial.print(tau_slow_decay,2); Serial.println("s");
-              if (tau_fast_decay > 0 && tau_est > 0) {
-                float apparentCratio = tau_fast_decay / tau_est; // ~R fixed, so tau ratio ~= C ratio
-                Serial.print("Charge/decay capacitance asymmetry ratio: "); Serial.println(apparentCratio,2);
-                if (apparentCratio > 2.0f || apparentCratio < 0.5f) {
-                  Serial.println("  note: charge-side and decay-side time constants disagree substantially -- "
-                                  "consistent with a genuine Faradaic (gassing) process, not just noise.");
-                }
-              }
-              tauForRest = (tau_slow_decay>0) ? tau_slow_decay : ((tau_fast_decay>0)?tau_fast_decay:tau_est);
-            }
-            unsigned long fullRestMs = constrain(
-              (tauForRest>0) ? (unsigned long)(3.0f*tauForRest*1000.0f) : MIN_REST_MS,
-              MIN_REST_MS, MAX_REST_MS);
-            unsigned long already = decaySampleTimesMs[decaySampleCount-1];
-            restRemainingMs = (fullRestMs > already) ? (fullRestMs - already) : 0;
-            pulseSubPhase = PULSE_REST_LATE;
-            pulsePhaseStartedAt = currentMillis;
-          }
-          break;
-        }
-
-        case PULSE_REST_LATE: {
-          ledcWrite(CHARGE_CH, 0);
-          if (currentMillis - pulsePhaseStartedAt >= restRemainingMs) {
-
-            if (pulseOpenLoopMaxDuty) {
-              if (lastPulseResult == PULSE_KNEE_FOUND) {
-                bisectHigh = kneeCurrentMa;
-                haveUpperBound = true;
-                state.outgassingCurrent_mA = kneeCurrentMa;
-                state.outgassingVoltage_V = kneeVoltage;
-                Serial.println("Initial high-current pulse found outgassing -- starting bisection search for the minimum current.");
-                pulseTestCurrent = (bisectLow+bisectHigh)/2.0f;
-                beginBisectionPulse();
-              } else if (lastPulseResult == PULSE_CEILING_HIT) {
-                 tripFault("reached overvoltage margin on initial pulse without knee -- high internal resistance or shorted cell?");
-                 break;
-              } else {
-                Serial.println("No knee yet at max available current -- battery not yet at gassing voltage; continuing.");
-                beginPulse(); // stays open-loop max-duty
-              }
-            } else if (doingFinalConfirm) {
-              if (lastPulseResult != PULSE_KNEE_FOUND) {
-                Serial.println("Final confirmation pulse did not reproduce the knee -- borderline/noisy result, "
-                                "keeping the last confirmed value but treat it with some caution.");
-              }
-              state.calibrated = true;
-              saveState();
-              Serial.print("Outgassing result: minimum current~"); Serial.print(state.outgassingCurrent_mA);
-              Serial.print(" mA at V="); Serial.println(state.outgassingVoltage_V,4);
-              startFloatHold();
-            } else {
-              bisectionIterations++;
-              if (lastPulseResult == PULSE_KNEE_FOUND) {
-                bisectHigh = pulseTestCurrent;
-                state.outgassingCurrent_mA = pulseTestCurrent;
-                state.outgassingVoltage_V = kneeVoltage;
-              } else if (lastPulseResult == PULSE_CEILING_HIT) {
-                // Inconclusive: hit ceiling without efficiency drop.
-                // Treat as high-bound hit to narrow search downward for safety.
-                Serial.println("Bisection pulse hit ceiling: treating as inconclusive high-bound.");
-                bisectHigh = pulseTestCurrent;
-              } else {
-                bisectLow = pulseTestCurrent;
-              }
-              if ((bisectHigh-bisectLow) <= BISECTION_RESOLUTION_MA || bisectionIterations >= MAX_BISECTION_ITERS) {
-                doingFinalConfirm = true;
-                pulseTestCurrent = bisectHigh;
-                Serial.println("Bisection converged -- running one confirmation pulse before finalizing.");
-                beginBisectionPulse();
-              } else {
-                pulseTestCurrent = (bisectLow+bisectHigh)/2.0f;
-                beginBisectionPulse();
-              }
-            }
-          }
-          break;
-        }
-      }
+      handleModePulseTest(vBatt, currentMillis);
       break;
     }
 
     case MODE_CHARGE_FLOAT: {
-      if (currentMillis - chargeStartedAt > CHARGE_TIMEOUT_MS) { tripFault("charge timeout"); break; }
-
-      float iBatt = ina219.getCurrent_mA() * CURRENT_SIGN;
-      if (iBatt > OVERCURRENT_LIMIT_MA) { tripFault("charge overcurrent"); break; }
-
-      mpptVoltageLoop(vIn);
-
-      float vError = cvTargetVoltage - vBatt;
-      // Manual PI scaled by dt
-      float duty = pidOut_charge + vError * 40.0f * (CONTROL_INTERVAL_MS / 1000.0f);
-      duty = constrain(duty, 0.0f, mpptDutyCeiling);
-      pidOut_charge = duty;
-      currentChargeDuty = (uint32_t)duty;
-      ledcWrite(CHARGE_CH, currentChargeDuty);
-
-      if (iBatt < CHARGE_TERMINATION_MA) {
-        ledcWrite(CHARGE_CH, 0);
-        Serial.println("Charge complete (float current tapered to termination threshold).");
-        enterMode(MODE_CHARGE_DONE);
-      }
-
+      handleModeFloat(vBatt, currentMillis);
       break;
     }
 

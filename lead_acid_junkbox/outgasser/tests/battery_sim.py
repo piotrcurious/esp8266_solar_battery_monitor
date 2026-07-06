@@ -74,6 +74,12 @@ class SolarSim:
             # Fast deep clouds
             self.cloud_factor = 0.3 + 0.7 * math.sin(self.time * 2 * math.pi / 20.0)
             if self.cloud_factor < 0: self.cloud_factor = 0
+        elif scenario == "dropout":
+            # Frequent sharp dropouts to test pause logic
+            if (int(self.time) % 10) < 5:
+                self.cloud_factor = 0.1
+            else:
+                self.cloud_factor = 1.0
         else:
             self.cloud_factor = 1.0
 
