@@ -1,0 +1,426 @@
+No prior calibration found.
+-> Mode: 2
+Parasitic baseline: idle V=12, holding at 12.1
+Ready. Serial: 'D'=legacy formation test, 'C'=start charge (bulk -> parasitic -> pulse test -> float), 'A'=re-run parasitic characterization only.
+-> Mode: 5
+Bulk Vbatt=12 Ibatt=0 Vin=18 duty=50
+Step 0: Mode=5 Vbatt=13.496 Ibatt=-49.2 duty=50
+Bulk Vbatt=13.4956 Ibatt=-49.231 Vin=20.0043 duty=62
+Bulk Vbatt=13.4958 Ibatt=-50.8083 Vin=20.0013 duty=74
+Bulk Vbatt=13.496 Ibatt=-49.2788 Vin=19.9959 duty=86
+Bulk Vbatt=13.4961 Ibatt=-49.4356 Vin=19.998 duty=98
+Bulk Vbatt=13.4958 Ibatt=-50.0077 Vin=20.0031 duty=110
+Bulk Vbatt=13.4954 Ibatt=-50.347 Vin=19.9961 duty=122
+Bulk Vbatt=13.4955 Ibatt=-50.0743 Vin=19.9979 duty=134
+Bulk Vbatt=13.4952 Ibatt=-50.1801 Vin=20.0043 duty=146
+Bulk Vbatt=13.4957 Ibatt=-50.8908 Vin=20.0042 duty=158
+Bulk Vbatt=13.4955 Ibatt=-50.8273 Vin=20.003 duty=170
+Bulk Vbatt=13.4955 Ibatt=-50.5394 Vin=20.0027 duty=182
+Bulk Vbatt=13.5106 Ibatt=137.155 Vin=18.9379 duty=194
+Bulk Vbatt=13.525 Ibatt=314.075 Vin=17.7778 duty=204
+Bulk Vbatt=13.5349 Ibatt=430.327 Vin=16.9228 duty=214
+Bulk Vbatt=13.5426 Ibatt=525.034 Vin=16.1433 duty=224
+Bulk Vbatt=13.5498 Ibatt=599.998 Vin=15.4258 duty=233
+Bulk Vbatt=13.5543 Ibatt=657.118 Vin=14.8358 duty=242
+Bulk Vbatt=13.5593 Ibatt=701.53 Vin=14.2937 duty=251
+Bulk Vbatt=13.5626 Ibatt=739.564 Vin=13.7865 duty=255
+Bulk Vbatt=13.5648 Ibatt=754.89 Vin=13.5704 duty=255
+Bulk Vbatt=13.5658 Ibatt=753.292 Vin=13.5687 duty=255
+Bulk Vbatt=13.5658 Ibatt=753.582 Vin=13.5729 duty=255
+Bulk Vbatt=13.5667 Ibatt=753.657 Vin=13.5662 duty=255
+Bulk Vbatt=13.5677 Ibatt=752.969 Vin=13.5726 duty=255
+Bulk Vbatt=13.568 Ibatt=754.08 Vin=13.5698 duty=255
+Bulk Vbatt=13.5696 Ibatt=753.491 Vin=13.5705 duty=255
+Bulk Vbatt=13.57 Ibatt=752.419 Vin=13.5729 duty=255
+Bulk Vbatt=13.5708 Ibatt=753.761 Vin=13.5739 duty=255
+Bulk Vbatt=13.5714 Ibatt=752.593 Vin=13.5696 duty=255
+Bulk Vbatt=13.572 Ibatt=753.661 Vin=13.5722 duty=255
+Bulk Vbatt=13.5725 Ibatt=753.067 Vin=13.581 duty=255
+Bulk Vbatt=13.5735 Ibatt=753.698 Vin=13.578 duty=255
+Bulk Vbatt=13.5742 Ibatt=753.662 Vin=13.5733 duty=255
+Bulk Vbatt=13.5746 Ibatt=753.014 Vin=13.5813 duty=255
+Bulk Vbatt=13.5759 Ibatt=753.238 Vin=13.58 duty=255
+Bulk Vbatt=13.5768 Ibatt=751.821 Vin=13.5798 duty=255
+Bulk Vbatt=13.5769 Ibatt=752.93 Vin=13.5833 duty=255
+Bulk Vbatt=13.5782 Ibatt=752.379 Vin=13.5788 duty=255
+Bulk Vbatt=13.5789 Ibatt=751.474 Vin=13.5824 duty=255
+Bulk Vbatt=13.5794 Ibatt=752.892 Vin=13.5791 duty=255
+Bulk Vbatt=13.5801 Ibatt=751.277 Vin=13.5856 duty=255
+Bulk Vbatt=13.5806 Ibatt=751.359 Vin=13.5825 duty=255
+Bulk Vbatt=13.5815 Ibatt=751.987 Vin=13.583 duty=255
+Bulk Vbatt=13.583 Ibatt=752.38 Vin=13.5867 duty=255
+Bulk Vbatt=13.5829 Ibatt=752.266 Vin=13.5883 duty=255
+Bulk Vbatt=13.5836 Ibatt=752.216 Vin=13.5837 duty=255
+Bulk Vbatt=13.5848 Ibatt=751.091 Vin=13.5904 duty=255
+Bulk Vbatt=13.5856 Ibatt=752.217 Vin=13.5897 duty=255
+Bulk Vbatt=13.5865 Ibatt=750.72 Vin=13.5853 duty=255
+Bulk Vbatt=13.5873 Ibatt=750.674 Vin=13.5877 duty=255
+Bulk Vbatt=13.5877 Ibatt=750.889 Vin=13.5948 duty=255
+Bulk Vbatt=13.5881 Ibatt=750.038 Vin=13.5877 duty=255
+Bulk Vbatt=13.5889 Ibatt=751.784 Vin=13.5908 duty=255
+Bulk Vbatt=13.5903 Ibatt=750.493 Vin=13.591 duty=255
+Bulk Vbatt=13.5902 Ibatt=751.672 Vin=13.5891 duty=255
+Bulk Vbatt=13.5915 Ibatt=750.09 Vin=13.5917 duty=255
+Bulk Vbatt=13.592 Ibatt=750.971 Vin=13.5941 duty=255
+Bulk Vbatt=13.5933 Ibatt=750.057 Vin=13.5998 duty=255
+Bulk Vbatt=13.5932 Ibatt=751.23 Vin=13.5944 duty=255
+Bulk Vbatt=13.5947 Ibatt=749.542 Vin=13.5995 duty=255
+Bulk Vbatt=13.5947 Ibatt=750.544 Vin=13.6023 duty=255
+Bulk Vbatt=13.5962 Ibatt=750.549 Vin=13.6002 duty=255
+Bulk Vbatt=13.5964 Ibatt=750.428 Vin=13.5957 duty=255
+Bulk Vbatt=13.5971 Ibatt=749.621 Vin=13.6006 duty=255
+Bulk Vbatt=13.5977 Ibatt=750.657 Vin=13.6013 duty=255
+Bulk Vbatt=13.5993 Ibatt=750.187 Vin=13.6027 duty=255
+Bulk Vbatt=13.5997 Ibatt=748.954 Vin=13.6025 duty=255
+Bulk Vbatt=13.6003 Ibatt=749.431 Vin=13.6036 duty=255
+Bulk Vbatt=13.6012 Ibatt=749.87 Vin=13.6047 duty=255
+Bulk Vbatt=13.6017 Ibatt=749.125 Vin=13.6004 duty=255
+Bulk Vbatt=13.6029 Ibatt=749.042 Vin=13.6027 duty=255
+Bulk Vbatt=13.6035 Ibatt=749.935 Vin=13.6071 duty=255
+Bulk Vbatt=13.6043 Ibatt=748.568 Vin=13.6051 duty=255
+Bulk Vbatt=13.6047 Ibatt=748.001 Vin=13.6044 duty=255
+Bulk Vbatt=13.6052 Ibatt=748.442 Vin=13.6094 duty=255
+Bulk Vbatt=13.6065 Ibatt=748.312 Vin=13.6065 duty=255
+Bulk Vbatt=13.6071 Ibatt=748.855 Vin=13.6055 duty=255
+Bulk Vbatt=13.608 Ibatt=748.212 Vin=13.6156 duty=255
+Bulk Vbatt=13.6082 Ibatt=748.783 Vin=13.613 duty=255
+Bulk Vbatt=13.6097 Ibatt=747.961 Vin=13.6162 duty=255
+Bulk Vbatt=13.6102 Ibatt=748.779 Vin=13.6109 duty=255
+Bulk Vbatt=13.6106 Ibatt=747.436 Vin=13.6106 duty=255
+Bulk Vbatt=13.6117 Ibatt=749.149 Vin=13.6128 duty=255
+Bulk Vbatt=13.6126 Ibatt=748.078 Vin=13.6137 duty=255
+Bulk Vbatt=13.613 Ibatt=747.734 Vin=13.6152 duty=255
+Bulk Vbatt=13.614 Ibatt=748.782 Vin=13.6185 duty=255
+Bulk Vbatt=13.6147 Ibatt=748.45 Vin=13.6163 duty=255
+Bulk Vbatt=13.6154 Ibatt=747.055 Vin=13.6181 duty=255
+Bulk Vbatt=13.6159 Ibatt=747.467 Vin=13.6191 duty=255
+Bulk Vbatt=13.6162 Ibatt=747.563 Vin=13.6248 duty=255
+Bulk Vbatt=13.6173 Ibatt=747.148 Vin=13.6181 duty=255
+Bulk Vbatt=13.6181 Ibatt=746.789 Vin=13.6241 duty=255
+Bulk Vbatt=13.6188 Ibatt=747.414 Vin=13.6237 duty=255
+Bulk Vbatt=13.6199 Ibatt=746.215 Vin=13.6238 duty=255
+Bulk Vbatt=13.6203 Ibatt=746.202 Vin=13.6192 duty=255
+Bulk Vbatt=13.6208 Ibatt=746.885 Vin=13.6267 duty=255
+Bulk Vbatt=13.6217 Ibatt=746.558 Vin=13.6231 duty=255
+MPPT: sampled Voc=13.6266V, target Vmp=10.9013
+Bulk Vbatt=13.6221 Ibatt=746.958 Vin=13.6266 duty=255
+Bulk Vbatt=13.6236 Ibatt=746.321 Vin=13.6294 duty=255
+Bulk Vbatt=13.6244 Ibatt=746.725 Vin=13.6314 duty=255
+Bulk Vbatt=13.6245 Ibatt=746.337 Vin=13.6244 duty=255
+Bulk Vbatt=13.6256 Ibatt=745.958 Vin=13.6294 duty=255
+Bulk Vbatt=13.6259 Ibatt=745.85 Vin=13.6253 duty=255
+Bulk Vbatt=13.6273 Ibatt=747.165 Vin=13.6343 duty=255
+Bulk Vbatt=13.6279 Ibatt=745.173 Vin=13.6269 duty=255
+Bulk Vbatt=13.629 Ibatt=746.775 Vin=13.6361 duty=255
+Bulk Vbatt=13.629 Ibatt=746.507 Vin=13.6317 duty=255
+Bulk Vbatt=13.6296 Ibatt=745.332 Vin=13.6366 duty=255
+Bulk Vbatt=13.6306 Ibatt=744.911 Vin=13.6313 duty=255
+Bulk Vbatt=13.6312 Ibatt=745.357 Vin=13.6333 duty=255
+Bulk Vbatt=13.6323 Ibatt=744.734 Vin=13.638 duty=255
+Bulk Vbatt=13.6331 Ibatt=744.966 Vin=13.6359 duty=255
+Bulk Vbatt=13.6334 Ibatt=745.958 Vin=13.6407 duty=255
+Bulk Vbatt=13.6347 Ibatt=746.265 Vin=13.6409 duty=255
+Bulk Vbatt=13.6349 Ibatt=745.352 Vin=13.6398 duty=255
+Bulk Vbatt=13.6354 Ibatt=746.094 Vin=13.6432 duty=255
+Bulk Vbatt=13.6371 Ibatt=745.053 Vin=13.6414 duty=255
+Bulk Vbatt=13.6372 Ibatt=744.457 Vin=13.6416 duty=255
+Bulk Vbatt=13.6384 Ibatt=745.62 Vin=13.6394 duty=255
+Bulk Vbatt=13.6387 Ibatt=745.572 Vin=13.6383 duty=255
+Bulk Vbatt=13.64 Ibatt=745.378 Vin=13.6471 duty=255
+Bulk Vbatt=13.6404 Ibatt=744.396 Vin=13.647 duty=255
+Bulk Vbatt=13.6414 Ibatt=743.7 Vin=13.6483 duty=255
+Bulk Vbatt=13.6418 Ibatt=745.137 Vin=13.641 duty=255
+Bulk Vbatt=13.6426 Ibatt=744.218 Vin=13.6463 duty=255
+Bulk Vbatt=13.6432 Ibatt=745.105 Vin=13.6471 duty=255
+Bulk Vbatt=13.6442 Ibatt=744.529 Vin=13.6483 duty=255
+Bulk Vbatt=13.6452 Ibatt=744.561 Vin=13.6476 duty=255
+Bulk Vbatt=13.6459 Ibatt=743.649 Vin=13.6533 duty=255
+Bulk Vbatt=13.6457 Ibatt=744.141 Vin=13.6504 duty=255
+Bulk Vbatt=13.6467 Ibatt=743.432 Vin=13.6481 duty=255
+Bulk Vbatt=13.6473 Ibatt=744.027 Vin=13.6519 duty=255
+Bulk Vbatt=13.6486 Ibatt=742.821 Vin=13.6551 duty=255
+Bulk Vbatt=13.6494 Ibatt=743.506 Vin=13.657 duty=255
+Bulk Vbatt=13.6501 Ibatt=743.614 Vin=13.6522 duty=255
+Bulk Vbatt=13.6504 Ibatt=742.765 Vin=13.6581 duty=255
+Bulk Vbatt=13.6512 Ibatt=742.321 Vin=13.6532 duty=255
+Bulk Vbatt=13.6525 Ibatt=743.722 Vin=13.6601 duty=255
+Bulk Vbatt=13.6527 Ibatt=743.547 Vin=13.6597 duty=255
+Bulk Vbatt=13.6539 Ibatt=743.657 Vin=13.6545 duty=255
+Bulk Vbatt=13.6547 Ibatt=742.257 Vin=13.6587 duty=255
+Bulk Vbatt=13.6546 Ibatt=742.521 Vin=13.6548 duty=255
+Bulk Vbatt=13.6553 Ibatt=742.528 Vin=13.6542 duty=255
+Bulk Vbatt=13.6562 Ibatt=743.212 Vin=13.6626 duty=255
+Bulk Vbatt=13.6572 Ibatt=741.773 Vin=13.6573 duty=255
+Bulk Vbatt=13.6575 Ibatt=742.943 Vin=13.6616 duty=255
+Bulk Vbatt=13.6591 Ibatt=743.034 Vin=13.6667 duty=255
+Bulk Vbatt=13.6596 Ibatt=741.356 Vin=13.6675 duty=255
+Bulk Vbatt=13.6606 Ibatt=742.036 Vin=13.6658 duty=255
+Bulk Vbatt=13.6605 Ibatt=742.541 Vin=13.6684 duty=255
+Bulk Vbatt=13.6618 Ibatt=741.788 Vin=13.6631 duty=255
+Bulk Vbatt=13.6626 Ibatt=741.488 Vin=13.662 duty=255
+Bulk Vbatt=13.6636 Ibatt=742.57 Vin=13.6653 duty=255
+Bulk Vbatt=13.6638 Ibatt=740.863 Vin=13.6678 duty=255
+Bulk Vbatt=13.6642 Ibatt=740.886 Vin=13.6691 duty=255
+Bulk Vbatt=13.6657 Ibatt=742.162 Vin=13.6679 duty=255
+Bulk Vbatt=13.666 Ibatt=740.466 Vin=13.6715 duty=255
+Bulk Vbatt=13.6664 Ibatt=741.575 Vin=13.6737 duty=255
+Bulk Vbatt=13.6678 Ibatt=740.286 Vin=13.6662 duty=255
+Bulk Vbatt=13.668 Ibatt=740.207 Vin=13.6732 duty=255
+Bulk Vbatt=13.669 Ibatt=741.389 Vin=13.6758 duty=255
+Bulk Vbatt=13.67 Ibatt=740.833 Vin=13.6732 duty=255
+Bulk Vbatt=13.6707 Ibatt=741.405 Vin=13.6734 duty=255
+Bulk Vbatt=13.671 Ibatt=741.502 Vin=13.6739 duty=255
+Bulk Vbatt=13.6723 Ibatt=740.125 Vin=13.6801 duty=255
+Bulk Vbatt=13.6731 Ibatt=740.84 Vin=13.6721 duty=255
+Bulk Vbatt=13.6738 Ibatt=740.378 Vin=13.6752 duty=255
+Bulk Vbatt=13.6737 Ibatt=740.055 Vin=13.6767 duty=255
+Bulk Vbatt=13.6751 Ibatt=741.039 Vin=13.6743 duty=255
+Bulk Vbatt=13.6752 Ibatt=739.978 Vin=13.6742 duty=255
+Bulk Vbatt=13.6762 Ibatt=740.792 Vin=13.6845 duty=255
+Bulk Vbatt=13.6767 Ibatt=739.297 Vin=13.6813 duty=255
+Bulk Vbatt=13.6781 Ibatt=740.381 Vin=13.6797 duty=255
+Bulk Vbatt=13.6781 Ibatt=739.961 Vin=13.6773 duty=255
+Bulk Vbatt=13.6791 Ibatt=740.42 Vin=13.6801 duty=255
+Bulk Vbatt=13.6801 Ibatt=738.693 Vin=13.679 duty=255
+Bulk Vbatt=13.6804 Ibatt=738.955 Vin=13.6872 duty=255
+Bulk Vbatt=13.6811 Ibatt=739.88 Vin=13.684 duty=255
+Bulk Vbatt=13.6822 Ibatt=738.994 Vin=13.689 duty=255
+Bulk Vbatt=13.6831 Ibatt=738.315 Vin=13.6846 duty=255
+Bulk Vbatt=13.6833 Ibatt=739.707 Vin=13.6851 duty=255
+Bulk Vbatt=13.6842 Ibatt=738.625 Vin=13.6886 duty=255
+Bulk Vbatt=13.6847 Ibatt=738.231 Vin=13.6834 duty=255
+Bulk Vbatt=13.686 Ibatt=738.922 Vin=13.6929 duty=255
+Bulk Vbatt=13.6865 Ibatt=738.951 Vin=13.6937 duty=255
+Bulk Vbatt=13.6871 Ibatt=738.087 Vin=13.6878 duty=255
+Bulk Vbatt=13.6877 Ibatt=738.395 Vin=13.6883 duty=255
+Bulk Vbatt=13.6891 Ibatt=738.701 Vin=13.6942 duty=255
+Bulk Vbatt=13.6891 Ibatt=737.666 Vin=13.6976 duty=255
+Bulk Vbatt=13.6906 Ibatt=739.24 Vin=13.6886 duty=255
+Bulk Vbatt=13.6914 Ibatt=737.298 Vin=13.6988 duty=255
+Bulk Vbatt=13.6919 Ibatt=737.94 Vin=13.6914 duty=255
+Bulk Vbatt=13.6928 Ibatt=738.422 Vin=13.7003 duty=255
+Bulk Vbatt=13.6931 Ibatt=737.15 Vin=13.6952 duty=255
+Bulk Vbatt=13.6942 Ibatt=738.089 Vin=13.6971 duty=255
+Bulk Vbatt=13.6941 Ibatt=737.409 Vin=13.6972 duty=255
+Bulk Vbatt=13.6956 Ibatt=737.616 Vin=13.697 duty=255
+MPPT: sampled Voc=13.6968V, target Vmp=10.9575
+Bulk Vbatt=13.696 Ibatt=738.55 Vin=13.6968 duty=255
+Bulk Vbatt=13.6967 Ibatt=738.448 Vin=13.7011 duty=255
+Bulk Vbatt=13.6979 Ibatt=737.795 Vin=13.7058 duty=255
+Bulk Vbatt=13.6987 Ibatt=738.038 Vin=13.7026 duty=255
+Bulk Vbatt=13.6992 Ibatt=736.456 Vin=13.7031 duty=255
+Bulk Vbatt=13.6993 Ibatt=737.222 Vin=13.7033 duty=255
+Bulk Vbatt=13.6999 Ibatt=737.315 Vin=13.7068 duty=255
+Bulk Vbatt=13.7014 Ibatt=736.87 Vin=13.7078 duty=255
+Bulk Vbatt=13.7024 Ibatt=737.802 Vin=13.7021 duty=255
+Bulk Vbatt=13.7024 Ibatt=737.323 Vin=13.7084 duty=255
+Bulk Vbatt=13.7031 Ibatt=736.405 Vin=13.7017 duty=255
+Bulk Vbatt=13.7037 Ibatt=736.803 Vin=13.708 duty=255
+Bulk Vbatt=13.7045 Ibatt=735.706 Vin=13.7078 duty=255
+Bulk Vbatt=13.7053 Ibatt=737.273 Vin=13.7095 duty=255
+Bulk Vbatt=13.7064 Ibatt=736.261 Vin=13.7065 duty=255
+Bulk Vbatt=13.7072 Ibatt=736.538 Vin=13.7055 duty=255
+Bulk Vbatt=13.7074 Ibatt=735.212 Vin=13.7159 duty=255
+Bulk Vbatt=13.7085 Ibatt=736.919 Vin=13.713 duty=255
+Bulk Vbatt=13.709 Ibatt=735.91 Vin=13.7093 duty=255
+Bulk Vbatt=13.7096 Ibatt=735.113 Vin=13.7097 duty=255
+Bulk Vbatt=13.7108 Ibatt=736.119 Vin=13.7181 duty=255
+Bulk Vbatt=13.7115 Ibatt=734.719 Vin=13.7187 duty=255
+Bulk Vbatt=13.7117 Ibatt=734.922 Vin=13.7152 duty=255
+Bulk Vbatt=13.7129 Ibatt=736.167 Vin=13.7179 duty=255
+Bulk Vbatt=13.7136 Ibatt=735.112 Vin=13.7215 duty=255
+Bulk Vbatt=13.7141 Ibatt=736.103 Vin=13.7173 duty=255
+Bulk Vbatt=13.7147 Ibatt=734.23 Vin=13.7155 duty=255
+Bulk Vbatt=13.7156 Ibatt=734.549 Vin=13.7184 duty=255
+Bulk Vbatt=13.7165 Ibatt=734.211 Vin=13.7168 duty=255
+Bulk Vbatt=13.7173 Ibatt=735.138 Vin=13.72 duty=255
+Bulk Vbatt=13.7176 Ibatt=735.547 Vin=13.7224 duty=255
+Bulk Vbatt=13.7188 Ibatt=735.334 Vin=13.7236 duty=255
+Bulk Vbatt=13.7193 Ibatt=734.328 Vin=13.7262 duty=255
+Bulk Vbatt=13.7201 Ibatt=735.356 Vin=13.7255 duty=255
+Bulk Vbatt=13.7208 Ibatt=735.393 Vin=13.7238 duty=255
+Bulk Vbatt=13.7211 Ibatt=735.089 Vin=13.7216 duty=255
+Bulk Vbatt=13.7223 Ibatt=734.77 Vin=13.7305 duty=255
+Bulk Vbatt=13.7229 Ibatt=735.177 Vin=13.7243 duty=255
+Bulk Vbatt=13.7239 Ibatt=734.867 Vin=13.7266 duty=255
+Bulk Vbatt=13.7246 Ibatt=734.162 Vin=13.7269 duty=255
+Bulk Vbatt=13.7249 Ibatt=733.146 Vin=13.7284 duty=255
+Bulk Vbatt=13.7258 Ibatt=732.915 Vin=13.7338 duty=255
+Bulk Vbatt=13.7266 Ibatt=733.692 Vin=13.7337 duty=255
+Bulk Vbatt=13.7272 Ibatt=734.35 Vin=13.7259 duty=255
+Bulk Vbatt=13.7281 Ibatt=733.2 Vin=13.7276 duty=255
+Bulk Vbatt=13.7287 Ibatt=734.233 Vin=13.7296 duty=255
+Bulk Vbatt=13.7296 Ibatt=733.037 Vin=13.7314 duty=255
+Bulk Vbatt=13.7299 Ibatt=732.981 Vin=13.7365 duty=255
+Bulk Vbatt=13.7314 Ibatt=733.651 Vin=13.7381 duty=255
+Bulk Vbatt=13.7313 Ibatt=733.304 Vin=13.74 duty=255
+Bulk Vbatt=13.7323 Ibatt=732.425 Vin=13.7399 duty=255
+Bulk Vbatt=13.7335 Ibatt=732.942 Vin=13.7365 duty=255
+Bulk Vbatt=13.7336 Ibatt=732.335 Vin=13.7378 duty=255
+Bulk Vbatt=13.7351 Ibatt=732.443 Vin=13.7402 duty=255
+Bulk Vbatt=13.7358 Ibatt=732.014 Vin=13.7422 duty=255
+Bulk Vbatt=13.7366 Ibatt=732.873 Vin=13.7359 duty=255
+Bulk Vbatt=13.7373 Ibatt=731.841 Vin=13.7358 duty=255
+Bulk Vbatt=13.7377 Ibatt=732.684 Vin=13.7375 duty=255
+Bulk Vbatt=13.7384 Ibatt=732.662 Vin=13.7426 duty=255
+Bulk Vbatt=13.7391 Ibatt=732.678 Vin=13.745 duty=255
+Bulk Vbatt=13.7399 Ibatt=731.744 Vin=13.7447 duty=255
+Bulk Vbatt=13.7401 Ibatt=732.406 Vin=13.7401 duty=255
+Bulk Vbatt=13.7416 Ibatt=730.986 Vin=13.7431 duty=255
+Bulk Vbatt=13.7415 Ibatt=731.35 Vin=13.747 duty=255
+Bulk Vbatt=13.743 Ibatt=731.036 Vin=13.7429 duty=255
+Bulk Vbatt=13.7437 Ibatt=731.53 Vin=13.7457 duty=255
+Bulk Vbatt=13.744 Ibatt=732.543 Vin=13.7429 duty=255
+Bulk Vbatt=13.7452 Ibatt=730.669 Vin=13.7492 duty=255
+Bulk Vbatt=13.7452 Ibatt=730.449 Vin=13.7525 duty=255
+Bulk Vbatt=13.7465 Ibatt=732.144 Vin=13.7469 duty=255
+Bulk Vbatt=13.7465 Ibatt=732.21 Vin=13.7465 duty=255
+Bulk Vbatt=13.7477 Ibatt=731.875 Vin=13.7537 duty=255
+Bulk Vbatt=13.7489 Ibatt=731.699 Vin=13.751 duty=255
+Bulk Vbatt=13.7493 Ibatt=731.751 Vin=13.7476 duty=255
+Bulk Vbatt=13.7502 Ibatt=730.064 Vin=13.7518 duty=255
+Bulk Vbatt=13.7507 Ibatt=730.023 Vin=13.7524 duty=255
+Bulk Vbatt=13.7508 Ibatt=729.921 Vin=13.7581 duty=255
+Bulk Vbatt=13.7522 Ibatt=730.755 Vin=13.7515 duty=255
+Bulk Vbatt=13.7525 Ibatt=729.738 Vin=13.7532 duty=255
+Bulk Vbatt=13.7531 Ibatt=729.943 Vin=13.7569 duty=255
+Bulk Vbatt=13.7539 Ibatt=730.43 Vin=13.7527 duty=255
+Bulk Vbatt=13.7549 Ibatt=729.756 Vin=13.7579 duty=255
+Bulk Vbatt=13.7551 Ibatt=730.473 Vin=13.7551 duty=255
+Bulk Vbatt=13.7561 Ibatt=730.63 Vin=13.7611 duty=255
+Bulk Vbatt=13.7573 Ibatt=729.268 Vin=13.7558 duty=255
+Bulk Vbatt=13.7582 Ibatt=729.113 Vin=13.7596 duty=255
+Bulk Vbatt=13.7587 Ibatt=728.978 Vin=13.7595 duty=255
+Bulk Vbatt=13.7595 Ibatt=729.333 Vin=13.7669 duty=255
+Bulk Vbatt=13.7604 Ibatt=729.127 Vin=13.7585 duty=255
+Bulk Vbatt=13.7606 Ibatt=729.19 Vin=13.7634 duty=255
+Bulk Vbatt=13.761 Ibatt=730.047 Vin=13.7644 duty=255
+Bulk Vbatt=13.7617 Ibatt=729.239 Vin=13.7605 duty=255
+Bulk Vbatt=13.7631 Ibatt=728.61 Vin=13.7673 duty=255
+Bulk Vbatt=13.7639 Ibatt=728.379 Vin=13.7707 duty=255
+Bulk Vbatt=13.7647 Ibatt=729.345 Vin=13.7701 duty=255
+Bulk Vbatt=13.7647 Ibatt=729.492 Vin=13.7658 duty=255
+Bulk Vbatt=13.7657 Ibatt=729.672 Vin=13.7721 duty=255
+Bulk Vbatt=13.7665 Ibatt=729.639 Vin=13.768 duty=255
+Bulk Vbatt=13.7668 Ibatt=729.539 Vin=13.7727 duty=255
+Bulk Vbatt=13.7682 Ibatt=729.531 Vin=13.7692 duty=255
+MPPT: sampled Voc=13.7722V, target Vmp=11.0177
+Bulk Vbatt=13.7684 Ibatt=728.9 Vin=13.7722 duty=255
+Bulk Vbatt=13.7696 Ibatt=729.137 Vin=13.7699 duty=255
+Bulk Vbatt=13.7696 Ibatt=727.808 Vin=13.7727 duty=255
+Bulk Vbatt=13.7712 Ibatt=728.234 Vin=13.7752 duty=255
+Bulk Vbatt=13.7717 Ibatt=728.914 Vin=13.776 duty=255
+Bulk Vbatt=13.7718 Ibatt=727.655 Vin=13.7764 duty=255
+Bulk Vbatt=13.7728 Ibatt=728.756 Vin=13.778 duty=255
+Bulk Vbatt=13.7735 Ibatt=727.028 Vin=13.7753 duty=255
+Bulk Vbatt=13.7742 Ibatt=728.017 Vin=13.7729 duty=255
+Bulk Vbatt=13.7749 Ibatt=726.732 Vin=13.7825 duty=255
+Bulk Vbatt=13.7756 Ibatt=728.068 Vin=13.7788 duty=255
+Bulk Vbatt=13.7762 Ibatt=728.37 Vin=13.7784 duty=255
+Bulk Vbatt=13.7776 Ibatt=727.626 Vin=13.7816 duty=255
+Bulk Vbatt=13.7775 Ibatt=726.531 Vin=13.7785 duty=255
+Bulk Vbatt=13.7786 Ibatt=727.114 Vin=13.7779 duty=255
+Bulk Vbatt=13.7797 Ibatt=727.358 Vin=13.7852 duty=255
+Bulk Vbatt=13.7803 Ibatt=727.725 Vin=13.7842 duty=255
+Bulk Vbatt=13.7805 Ibatt=727.39 Vin=13.782 duty=255
+Bulk Vbatt=13.7817 Ibatt=725.942 Vin=13.7857 duty=255
+Bulk Vbatt=13.7823 Ibatt=726.609 Vin=13.7827 duty=255
+Bulk Vbatt=13.7828 Ibatt=726.171 Vin=13.7825 duty=255
+Bulk Vbatt=13.784 Ibatt=725.903 Vin=13.7838 duty=255
+Bulk Vbatt=13.7849 Ibatt=725.72 Vin=13.785 duty=255
+Bulk Vbatt=13.7855 Ibatt=727.354 Vin=13.7917 duty=255
+Bulk Vbatt=13.7861 Ibatt=726.716 Vin=13.7937 duty=255
+Bulk Vbatt=13.7863 Ibatt=726.903 Vin=13.7884 duty=255
+Bulk Vbatt=13.787 Ibatt=725.945 Vin=13.7865 duty=255
+Bulk Vbatt=13.7877 Ibatt=725.602 Vin=13.7903 duty=255
+Bulk Vbatt=13.7891 Ibatt=725.96 Vin=13.7967 duty=255
+Bulk Vbatt=13.7893 Ibatt=725.253 Vin=13.79 duty=255
+Bulk Vbatt=13.7899 Ibatt=726.059 Vin=13.7934 duty=255
+Bulk Vbatt=13.7907 Ibatt=725.902 Vin=13.7917 duty=255
+Bulk Vbatt=13.7913 Ibatt=724.748 Vin=13.7998 duty=255
+Bulk Vbatt=13.7927 Ibatt=726.381 Vin=13.7913 duty=255
+Bulk Vbatt=13.7929 Ibatt=725.737 Vin=13.7944 duty=255
+Bulk Vbatt=13.7935 Ibatt=725.284 Vin=13.7933 duty=255
+Bulk Vbatt=13.7949 Ibatt=724.546 Vin=13.794 duty=255
+Bulk Vbatt=13.7949 Ibatt=725.028 Vin=13.7973 duty=255
+Bulk Vbatt=13.7955 Ibatt=725.36 Vin=13.8012 duty=255
+Bulk Vbatt=13.7962 Ibatt=724.552 Vin=13.7956 duty=255
+Bulk Vbatt=13.797 Ibatt=725.74 Vin=13.8018 duty=255
+Bulk Vbatt=13.7982 Ibatt=725.02 Vin=13.8023 duty=255
+Bulk Vbatt=13.7986 Ibatt=725.482 Vin=13.8006 duty=255
+Bulk Vbatt=13.8 Ibatt=723.912 Vin=13.8074 duty=255
+Bulk charge plateau reached -- measuring parasitic baseline, then pulse-testing for outgassing.
+-> Mode: 2
+Parasitic baseline: idle V=13.8006, holding at 13.9006
+Parasitic/self-discharge-compensation current: 39.1886 mA
+-> Mode: 6
+Starting outgassing characterization: maximum-available-current pulse.
+MPPT: sampled Voc=19.9952V, target Vmp=15.9962
+Baseline capacitance established: 102.004 F
+Pulse probe: I=724.291mA R=0.0879942 ohm tau=8.97579 s
+Pulse energy: E_cap=201.433J E_gas=65.6701J (gas fraction=24.586%)
+Step 1000: Mode=6 Vbatt=13.930 Ibatt=-49.4 duty=0
+No knee yet at max available current -- battery not yet at gassing voltage; continuing.
+MPPT: sampled Voc=19.9982V, target Vmp=15.9986
+Pulse probe: I=700.634mA R=0.0864463 ohm tau=9.29246 s
+Pulse energy: E_cap=172.403J E_gas=98.7852J (gas fraction=36.4269%)
+tau_decay=19.0394s vs tau_charge=9.29246s
+Step 2000: Mode=6 Vbatt=14.055 Ibatt=-50.6 duty=0
+No knee yet at max available current -- battery not yet at gassing voltage; continuing.
+MPPT: sampled Voc=20.0037V, target Vmp=16.003
+Pulse probe: I=683.662mA R=0.0866447 ohm tau=12.9889 s
+Pulse energy: E_cap=204.368J E_gas=169.255J (gas fraction=45.301%)
+No knee yet at max available current -- battery not yet at gassing voltage; continuing.
+MPPT: sampled Voc=20.0021V, target Vmp=16.0017
+Pulse probe: I=668.33mA R=0.0867346 ohm tau=16.3133 s
+Step 3000: Mode=6 Vbatt=14.281 Ibatt=664.3 duty=255
+Knee detected: V=14.3431 I=657.336 efficiency=0.571592
+Pulse energy: E_cap=227.268J E_gas=334.121J (gas fraction=59.5169%)
+Step 4000: Mode=6 Vbatt=14.307 Ibatt=-50.8 duty=0
+Decay fit (post-knee): tau_fast=-1s tau_slow=846.437s
+Initial high-current pulse found outgassing -- starting bisection search for the minimum current.
+MPPT: sampled Voc=19.9952V, target Vmp=15.9962
+Pulse probe: I=220.564mA R=0 ohm tau=0 s
+Pulse energy: E_cap=7.32515J E_gas=2.88942J (gas fraction=28.2872%)
+Pulse probe: I=507.206mA R=0.0862545 ohm tau=-1 s
+Pulse energy: E_cap=6.17614J E_gas=8.35648J (gas fraction=57.5015%)
+MPPT: sampled Voc=20.0031V, target Vmp=16.0025
+Pulse probe: I=577.966mA R=0.0908513 ohm tau=5.55037 s
+Knee detected: V=14.3272 I=583.696 efficiency=0.298258
+Step 5000: Mode=6 Vbatt=14.328 Ibatt=584.2 duty=240
+Pulse energy: E_cap=34.4345J E_gas=51.5589J (gas fraction=59.9568%)
+Decay fit (post-knee): tau_fast=-1s tau_slow=102.161s
+Step 6000: Mode=6 Vbatt=14.243 Ibatt=-49.2 duty=0
+MPPT: sampled Voc=20.0046V, target Vmp=16.0037
+Pulse probe: I=546.479mA R=0.0912136 ohm tau=7.23027 s
+Knee detected: V=14.2837 I=547.898 efficiency=0.359606
+Pulse energy: E_cap=44.1542J E_gas=56.3344J (gas fraction=56.0605%)
+Step 7000: Mode=6 Vbatt=14.225 Ibatt=-50.9 duty=0
+Decay fit (post-knee): tau_fast=-1s tau_slow=138.148s
+MPPT: sampled Voc=20.0021V, target Vmp=16.0017
+Pulse probe: I=525.925mA R=0.0946396 ohm tau=4.47224 s
+Knee detected: V=14.2456 I=517.35 efficiency=0.233131
+Pulse energy: E_cap=30.0925J E_gas=35.168J (gas fraction=53.8887%)
+Step 8000: Mode=6 Vbatt=14.199 Ibatt=-49.6 duty=0
+Decay fit (post-knee): tau_fast=-1s tau_slow=-1s
+MPPT: sampled Voc=20.0001V, target Vmp=16.0001
+Pulse probe: I=511.563mA R=0.0988386 ohm tau=3.99084 s
+Knee detected: V=14.247 I=518.202 efficiency=0.288296
+Pulse energy: E_cap=24.9515J E_gas=33.2602J (gas fraction=57.1365%)
+Decay fit (post-knee): tau_fast=-1s tau_slow=25.3325s
+Bisection converged -- running one confirmation pulse before finalizing.
+MPPT: sampled Voc=19.9997V, target Vmp=15.9998
+Pulse probe: I=522.218mA R=0.103812 ohm tau=3.77964 s
+Step 9000: Mode=6 Vbatt=14.225 Ibatt=514.9 duty=227
+Knee detected: V=14.227 I=521.692 efficiency=0.30757
+Pulse energy: E_cap=24.4474J E_gas=30.7208J (gas fraction=55.6857%)
+Decay fit (post-knee): tau_fast=-1s tau_slow=99.2952s
+Step 10000: Mode=6 Vbatt=14.144 Ibatt=-51.0 duty=0
+Outgassing result: minimum current~517.05 mA at V=14.247
+-> Mode: 7
+MPPT: sampled Voc=20.0021V, target Vmp=16.0017
+Charge complete (float current tapered to termination threshold).
+-> Mode: 8
+Float Vbatt=14.131 Ibatt=-49.2045 target=14.247
+
+TEST PASSED: MODE_CHARGE_DONE reached.

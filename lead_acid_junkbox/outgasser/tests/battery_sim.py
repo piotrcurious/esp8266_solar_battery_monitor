@@ -7,10 +7,11 @@ import random
 class BatterySim:
     def __init__(self):
         self.v_cap = 13.5 # Starting near bulk
-        self.c = 200.0 # Smaller C for faster simulation
+        self.c = 100.0 # Even smaller C for faster simulation
         self.r_int = 0.08 # Ohms
-        self.outgas_v = 14.2
+        self.outgas_v = 13.9 # Lower outgas_v to reach it sooner
         self.outgas_slope = 1.0 # A/V
+        self.i_parasitic = -0.050 # 50mA discharge
 
     def step(self, i_applied, dt):
         # i_applied is current into battery (A)
@@ -58,7 +59,8 @@ def main():
             d_dis = duty_dis / 255.0
 
             i_ch = solar.get_i_bat(d_ch, bat.v_cap, bat.r_int)
-            i_dis = (bat.v_cap / 10.0) * d_dis
+            # Use fixed parasitic load instead of d_dis
+            i_dis = -bat.i_parasitic # +ve i_dis is discharge
 
             i_net = i_ch - i_dis
 

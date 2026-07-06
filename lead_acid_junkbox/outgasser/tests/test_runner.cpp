@@ -11,7 +11,6 @@ float readVinPanel();
 #include "esp32_solar_battery_controller-1.cpp"
 
 extern int _mock_duty_ch;
-extern int _mock_duty_dis;
 
 float mock_v_pnl = 18.0;
 
@@ -54,7 +53,7 @@ int main() {
 
         // Sync with simulator every tick
         char buf[256];
-        sprintf(buf, "%d %d 0.1\n", _mock_duty_ch, _mock_duty_dis);
+        sprintf(buf, "%d 0 0.1\n", _mock_duty_ch); // Always 0 discharge duty
         write(pipe_to_sim[1], buf, strlen(buf));
 
         // Read back from simulator
