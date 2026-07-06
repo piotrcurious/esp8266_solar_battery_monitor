@@ -98,16 +98,18 @@ bool run_test(const std::string& scenario) {
     return success;
 }
 
-int main() {
-    std::vector<std::string> scenarios = {"healthy", "high_r", "aged", "hot", "cold", "cloudy", "stormy", "stalled", "dropout"};
-    int passed = 0;
-
-    for (const auto& s : scenarios) {
-        if (run_test(s)) passed++;
+int main(int argc, char** argv) {
+    if (argc < 2) {
+        std::vector<std::string> scenarios = {"healthy", "high_r", "aged", "hot", "cold", "cloudy", "stormy", "stalled", "dropout"};
+        int passed = 0;
+        for (const auto& s : scenarios) {
+            if (run_test(s)) passed++;
+        }
+        printf("\n--- SUMMARY ---\n");
+        printf("Passed %d/%zu scenarios.\n", passed, scenarios.size());
+        return (passed == scenarios.size()) ? 0 : 1;
+    } else {
+        std::string scenario = argv[1];
+        return run_test(scenario) ? 0 : 1;
     }
-
-    printf("\n--- SUMMARY ---\n");
-    printf("Passed %d/%zu scenarios.\n", passed, scenarios.size());
-
-    return (passed == scenarios.size()) ? 0 : 1;
 }
