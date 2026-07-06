@@ -169,12 +169,12 @@ float getBatteryTemp() {
   return tempK - 273.15f;
 }
 
-float readVinPanel() {
-  long sum = 0;
-  for (int i = 0; i < ADC_OVERSAMPLE_N; i++) sum += analogRead(VIN_PIN);
-  float avgCounts = (float)sum / ADC_OVERSAMPLE_N;
-  return (avgCounts * (ADC_VREF / ADC_MAX_COUNTS)) * VIN_DIVIDER_RATIO;
-}
+//float readVinPanel() {
+//  long sum = 0;
+//  for (int i = 0; i < ADC_OVERSAMPLE_N; i++) sum += analogRead(VIN_PIN);
+//  float avgCounts = (float)sum / ADC_OVERSAMPLE_N;
+//  return (avgCounts * (ADC_VREF / ADC_MAX_COUNTS)) * VIN_DIVIDER_RATIO;
+//}
 
 // ================= Safety / charge parameters (12V lead-acid style -- VERIFY) =================
 float BULK_TARGET_V         = 13.8f;

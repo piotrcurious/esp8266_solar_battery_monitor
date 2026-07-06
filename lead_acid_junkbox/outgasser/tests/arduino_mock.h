@@ -24,12 +24,15 @@ extern unsigned long _mock_millis;
 inline unsigned long millis() { return _mock_millis; }
 inline void delay(unsigned long ms) { _mock_millis += ms; }
 
+extern int _mock_ntc_counts;
+
 struct SerialMock {
     void begin(int baud) {}
     void print(const char* s) { std::cout << s; }
     void print(float f, int p = 2) { std::cout << f; }
     void print(int i) { std::cout << i; }
     void print(unsigned long i) { std::cout << i; }
+    void print(uint32_t i) { std::cout << i; }
     void print(double d) { std::cout << d; }
     void println(const char* s) { std::cout << s << std::endl; }
     void println(float f, int p = 2) { std::cout << f << std::endl; }
@@ -104,13 +107,17 @@ struct PID {
 
 inline void pinMode(int pin, int mode) {}
 inline int digitalRead(int pin) { return HIGH; }
-inline int analogRead(int pin) { return 2000; }
+inline int analogRead(int pin) {
+    if (pin == 35) return _mock_ntc_counts;
+    return 2000;
+}
 inline void analogSetAttenuation(int att) {}
 
 inline void ledcSetup(int ch, int freq, int res) {}
 inline void ledcAttachPin(int pin, int ch) {}
 
 extern int _mock_duty_ch;
+extern int _mock_ntc_counts;
 inline void ledcWrite(int ch, int duty) {
     if (ch == 0) _mock_duty_ch = duty;
 }
