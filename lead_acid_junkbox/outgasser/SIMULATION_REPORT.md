@@ -1,41 +1,53 @@
-# Outgasser Firmware Simulation Report
+# Outgasser Firmware: Operation & Simulation Report
 
-This report summarizes the performance of the `outgasser` firmware across multiple simulated battery and solar conditions.
+This document explains the charging algorithm and characterization process implemented in the `outgasser` firmware, verified through extensive simulation across various battery health scenarios.
 
-## Simulation Environment
+## Charging Algorithm Flow
 
-The simulation utilizes a 3-component electrochemical model for the battery:
-1.  **Bulk Capacitance:** Represents the main energy storage (SOC).
-2.  **Double Layer:** Captures fast voltage transients when current starts/stops.
-3.  **Diffusion/Gas component:** Models the slow relaxation seen after outgassing or heavy charging.
+The firmware follows a multi-stage state machine to safely charge lead-acid batteries while identifying their specific electrochemical outgassing point.
 
-Solar conditions are modeled with a fractional-Voc MPPT loop, including support for variable irradiance (clouds).
+### 1. BULK Stage (MODE 5)
+- **Goal:** Charge the battery as fast as the solar conditions allow.
+- **Process:** Utilizes a fractional-Voc MPPT loop to keep the solar panel at its maximum power point. Charging continues until the terminal voltage reaches `BULK_TARGET_V` (default 13.8V).
+- **Visualization:** This is the long rising voltage curve at the start of the "Full Cycle" graphs.
 
-## Scenarios and Results
+### 2. PARASITIC BASELINE Stage (MODE 2)
+- **Goal:** Measure the self-discharge and system load.
+- **Process:** The charge FET is modulated in a small closed-loop to hold the battery voltage slightly above its idle level. The average current required to maintain this voltage is recorded as the `parasiticCurrent_mA`. This value sets the lower bound for the outgassing search.
 
-### 1. Healthy Battery
-A battery with low internal resistance and standard capacity.
-- **Result:** Successful bulk charge, accurate outgassing detection at ~13.7V, and smooth transition to float.
-- **Graph:** `tests/healthy_results.svg`
+### 3. OUTGASSING CHARACTERIZATION (MODE 6)
+- **Goal:** Find the minimum current that triggers the "knee" of the water-splitting reaction (outgassing).
+- **Process:**
+    - **Initial Pulse:** Runs at maximum available solar current to establish a baseline capacitance and see if gassing is reachable.
+    - **Bisection Search:** Iteratively tests currents between the parasitic floor and the last known gassing current.
+    - **Knee Detection:** Monitors the ratio of the actual slope (dV/dt) to the expected capacitive slope. A significant drop (below 0.7 efficiency) indicates the Faradaic reaction is consuming current.
+    - **Decay Verification:** After each pulse, the voltage relaxation is analyzed. A confirmed gassing pulse shows a distinctive bi-exponential decay as gases recombine or diffuse.
+- **Visualization:** See the "Characterization Detail" graphs for a zoomed-in view of these diagnostic pulses.
 
-### 2. High Internal Resistance
-Simulates an aged or sulfated battery with high ohmic losses.
-- **Result:** Firmware correctly identifies high voltage drops during pulses. Bisection search remains stable despite increased noise and lower charging efficiency.
-- **Graph:** `tests/high_r_results.svg`
+### 4. FLOAT Stage (MODE 7)
+- **Goal:** Maintain the battery at its optimal full-charge voltage without excessive gassing.
+- **Process:** Holds the battery at the discovered outgassing voltage. The current tapers down naturally as the battery saturates. The cycle completes when the current falls below the termination threshold.
 
-### 3. Aged / Low Capacity
-Simulates a battery with significantly reduced Ah capacity.
-- **Result:** Faster bulk charge phase. Outgassing knee is detected early. The bisection search handles the rapid voltage rise robustly.
-- **Graph:** `tests/aged_results.svg`
+---
 
-### 4. Cloudy Day (Variable Solar)
-Irradiance varies sinusoidally every 60 seconds, simulating passing clouds.
-- **Result:** The firmware's solar dropout detection pauses characterization pulses when panel voltage falls below the MPPT target, preventing spurious "knee" detections due to current collapse.
-- **Graph:** `tests/cloudy_results.svg`
+## Simulation Scenarios
 
-## Key Improvements Verified
+### Healthy Battery
+Standard internal resistance and capacity.
+- **Full Overview:** ![Healthy Full](tests/healthy_full.svg)
+- **Characterization Zoom:** ![Healthy Pulses](tests/healthy_pulses.svg)
 
-- **Temperature Compensation:** Verified outgassing voltage targets shift correctly with simulated NTC input.
-- **Passive Formation:** Confirmed legacy discharge logic can be replaced by observing opportunistic parasitic loads.
-- **Kalman Filtering:** Successfully provided stable slope (dV/dt) estimates during high-SNR pulses.
-- **Structured Telemetry:** `TELE:` lines provide a clean CSV-compatible format for field data analysis.
+### High Internal Resistance
+Simulates an aged/sulfated battery. The characterization zoom shows much higher instantaneous voltage steps ("IR drop") during pulses.
+- **Full Overview:** ![High-R Full](tests/high_r_full.svg)
+- **Characterization Zoom:** ![High-R Pulses](tests/high_r_pulses.svg)
+
+### Aged / Low Capacity
+A battery with very small Ah capacity. The voltage rises much faster during bulk and characterization.
+- **Full Overview:** ![Aged Full](tests/aged_full.svg)
+- **Characterization Zoom:** ![Aged Pulses](tests/aged_pulses.svg)
+
+### Cloudy Day (Variable Solar)
+Irradiance varies sinusoidally. The firmware pauses the bisection pulses during solar dropouts to ensure diagnostic accuracy.
+- **Full Overview:** ![Cloudy Full](tests/cloudy_full.svg)
+- **Characterization Zoom:** ![Cloudy Pulses](tests/cloudy_pulses.svg)
