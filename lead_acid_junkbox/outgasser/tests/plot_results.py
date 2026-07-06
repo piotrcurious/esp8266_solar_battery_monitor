@@ -3,6 +3,7 @@ import os
 
 # Mode map from firmware
 # 2: CHAR_PARASITIC
+# 3: CHAR_PARASITIC_WAIT
 # 5: CHARGE_BULK
 # 6: OUTGAS_PULSE_TEST
 # 7: CHARGE_FLOAT
@@ -12,8 +13,9 @@ def generate_svg(data, output_svg, title, zoom_mode=None):
         return
 
     if zoom_mode:
-        # Filter for a specific mode range if requested
-        filtered = [d for d in data if d['m'] == zoom_mode]
+        # Filter for pulse test or parasitic phases to see the transitions
+        # Include mode 2/3 and 6
+        filtered = [d for d in data if d['m'] in [2, 3, 6]]
     else:
         filtered = data
 
@@ -36,20 +38,23 @@ def generate_svg(data, output_svg, title, zoom_mode=None):
     all_times = [d['t'] for d in filtered]
     all_v = [d['v'] for d in filtered]
     all_i = [d['i'] for d in filtered]
+    all_ratio = [d['r'] for d in filtered if 'r' in d]
 
     t_min, t_max = min(all_times), max(all_times)
     v_min, v_max = min(all_v), max(all_v)
     i_min, i_max = min(all_i), max(all_i)
+    r_min, r_max = (min(all_ratio), max(all_ratio)) if all_ratio else (0, 1.2)
 
     if v_max == v_min: v_max += 0.1; v_min -= 0.1
     if i_max == i_min: i_max += 0.1; i_min -= 0.1
     if t_max == t_min: t_max += 1.0
 
     width = 1000
-    height = 500
+    height = 600
     padding = 75
 
     def scale(val, src_min, src_max, dst_min, dst_max):
+        if src_max == src_min: return dst_min
         return dst_min + (val - src_min) * (dst_max - dst_min) / (src_max - src_min)
 
     with open(output_svg, 'w') as f:
@@ -69,10 +74,18 @@ def generate_svg(data, output_svg, title, zoom_mode=None):
             y = scale(i_val, i_min, i_max, height-padding, padding)
             f.write(f'<text x="{width-padding+10}" y="{y+4}" text-anchor="start" font-family="sans-serif" font-size="12" fill="blue">{i_val:.2f}A</text>\n')
 
+        # Ratio axis (Green) if zoom
+        if zoom_mode == 6:
+            for i in range(3):
+                r_val = 0.5 + i * 0.25
+                y = scale(r_val, 0, 1.25, height-padding, padding)
+                f.write(f'<line x1="{padding}" y1="{y}" x2="{width-padding}" y2="{y}" stroke="green" stroke-width="0.5" stroke-dasharray="2,2" opacity="0.3"/>\n')
+                f.write(f'<text x="{padding + 40}" y="{y-2}" text-anchor="start" font-family="sans-serif" font-size="10" fill="green">Eff:{r_val:.2f}</text>\n')
+
         # Plot each segment separately to avoid jump lines
         for seg in segments:
             # Downsample segment for size
-            step = max(1, len(seg) // 500)
+            step = max(1, len(seg) // 800)
             seg = seg[::step]
 
             v_pts = " ".join([f"{scale(d['t'], t_min, t_max, padding, width-padding):.1f},{scale(d['v'], v_min, v_max, height-padding, padding):.1f}" for d in seg])
@@ -80,6 +93,11 @@ def generate_svg(data, output_svg, title, zoom_mode=None):
 
             i_pts = " ".join([f"{scale(d['t'], t_min, t_max, padding, width-padding):.1f},{scale(d['i'], i_min, i_max, height-padding, padding):.1f}" for d in seg])
             f.write(f'<polyline points="{i_pts}" fill="none" stroke="blue" stroke-width="1.5" stroke-dasharray="5,3"/>\n')
+
+            if zoom_mode == 6:
+                 r_pts = " ".join([f"{scale(d['t'], t_min, t_max, padding, width-padding):.1f},{scale(d['r'], 0, 1.25, height-padding, padding):.1f}" for d in seg if 'r' in d])
+                 if r_pts:
+                     f.write(f'<polyline points="{r_pts}" fill="none" stroke="green" stroke-width="1.2" opacity="0.6"/>\n')
 
         # Axis
         f.write(f'<line x1="{padding}" y1="{height-padding}" x2="{width-padding}" y2="{height-padding}" stroke="#333" stroke-width="2"/>\n')
@@ -94,11 +112,14 @@ def generate_svg(data, output_svg, title, zoom_mode=None):
 
         # Legend
         f.write(f'<g transform="translate({width-200}, 60)">\n')
-        f.write(f'<rect width="140" height="50" fill="white" fill-opacity="0.9" stroke="#ccc"/>\n')
+        f.write(f'<rect width="140" height="70" fill="white" fill-opacity="0.9" stroke="#ccc"/>\n')
         f.write(f'<line x1="10" y1="15" x2="40" y2="15" stroke="red" stroke-width="3"/>\n')
         f.write(f'<text x="45" y="20" font-family="sans-serif" font-size="14">Voltage</text>\n')
         f.write(f'<line x1="10" y1="35" x2="40" y2="35" stroke="blue" stroke-width="2" stroke-dasharray="5,3"/>\n')
         f.write(f'<text x="45" y="40" font-family="sans-serif" font-size="14">Current</text>\n')
+        if zoom_mode == 6:
+            f.write(f'<line x1="10" y1="55" x2="40" y2="55" stroke="green" stroke-width="1.2"/>\n')
+            f.write(f'<text x="45" y="60" font-family="sans-serif" font-size="14">Efficiency</text>\n')
         f.write(f'</g>\n')
 
         f.write('</svg>')
@@ -117,7 +138,11 @@ def main():
             if line.startswith("TELE:"):
                 try:
                     p = line.split(" ")[1].split(",")
-                    data.append({'t': float(p[0])/1000, 'm': int(p[1]), 'v': float(p[2]), 'i': float(p[3])/1000})
+                    d = {'t': float(p[0])/1000, 'm': int(p[1]), 'v': float(p[2]), 'i': float(p[3])/1000}
+                    if len(p) >= 9:
+                        d['r'] = float(p[7])
+                        d['c'] = float(p[8])
+                    data.append(d)
                 except: continue
 
     if not data:
