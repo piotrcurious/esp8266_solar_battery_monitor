@@ -242,6 +242,13 @@ enum PulseSubPhase {
   PULSE_REST_LATE
 };
 
+enum PulseResult {
+  PULSE_NONE,
+  PULSE_KNEE_FOUND,
+  PULSE_NO_KNEE,
+  PULSE_CEILING_HIT
+};
+
 struct PersistedState {
   uint32_t magic;
   Mode mode;
@@ -287,7 +294,6 @@ unsigned long lastTempCompAt = 0;
 const unsigned long CONTROL_INTERVAL_MS = 100;
 unsigned long stateEnteredAt = 0;
 unsigned long chargeStartedAt = 0;
-unsigned long pulsePausedMs = 0;
 int uvloLowCount = 0;
 
 // ---- Parasitic-baseline hold-loop state ----
@@ -322,7 +328,7 @@ float emaSlope = 0, V_prevTick = 0;
 bool kneeDetected = false;
 int kneeConfirmTicks = 0;
 float kneeVoltage = 0, kneeCurrentMa = 0;
-bool pulseFoundKnee = false;
+PulseResult lastPulseResult = PULSE_NONE;
 double E_cap_J = 0, E_gas_J = 0;
 
 // ---- Decay-fit state ----
@@ -491,13 +497,12 @@ void applyPulseDuty(float iBatt) {
 void beginPulse() {
   pulseSubPhase = PULSE_PRE;
   pulsePhaseStartedAt = millis();
-  pulsePausedMs = 0;
   kneeDetected = false;
   kneeConfirmTicks = 0;
   slope1 = 0;
   E_cap_J = 0;
   E_gas_J = 0;
-  pulseFoundKnee = false;
+  lastPulseResult = PULSE_NONE;
 }
 
 void beginBisectionPulse() {
@@ -602,7 +607,8 @@ void setup() {
     voltage_est = ina219.getBusVoltage_V();
     slope_est = 0;
     if (state.modeBeforeSleep == MODE_CHARGE_BULK || state.modeBeforeSleep == MODE_CHAR_PARASITIC ||
-        state.modeBeforeSleep == MODE_OUTGAS_PULSE_TEST || state.modeBeforeSleep == MODE_CHARGE_FLOAT) {
+        state.modeBeforeSleep == MODE_OUTGAS_PULSE_TEST || state.modeBeforeSleep == MODE_CHARGE_FLOAT ||
+        state.modeBeforeSleep == MODE_CHARGE_DONE) {
       Serial.println("Restarting charge sequence from bulk.");
       startCharge();
     } else {
@@ -692,7 +698,7 @@ void loop() {
     if (uvloLowCount >= UVLO_DEBOUNCE_SAMPLES) {
       goToLowInputSleep();
     }
-    if (vBatt > CHARGE_V_OVERVOLTAGE) { tripFault("battery overvoltage"); return; }
+    if (vBatt > CHARGE_V_OVERVOLTAGE && mode != MODE_FAULT) { tripFault("battery overvoltage"); return; }
   }
 
   switch (mode) {
@@ -857,7 +863,8 @@ void loop() {
           if (currentChargeDuty >= PWM_MAX - 5 && vIn < (vinTarget - 1.0f)) {
             Serial.println("Pulse paused: solar dropout detected.");
             ledcWrite(CHARGE_CH, 0);
-            pulsePausedMs += CONTROL_INTERVAL_MS;
+            pulsePhaseStartedAt += CONTROL_INTERVAL_MS;
+            if (kneeDetected) pulsePostKneeStartedAt += CONTROL_INTERVAL_MS;
             return; // Exit loop for this tick, don't advance timers or integrate
           }
 
@@ -877,7 +884,7 @@ void loop() {
           E_cap_J += vBatt * I_cap * (CONTROL_INTERVAL_MS/1000.0);
           E_gas_J += vBatt * I_gas * (CONTROL_INTERVAL_MS/1000.0);
 
-          unsigned long elapsed = (currentMillis - pulsePhaseStartedAt) - pulsePausedMs;
+          unsigned long elapsed = (currentMillis - pulsePhaseStartedAt);
 
           if (!kneeDetected) {
             float ratio = (slope1 > 1e-9f) ? emaSlope/slope1 : 1.0f;
@@ -885,7 +892,7 @@ void loop() {
             // Safety margin check: separate from knee detection
             if (vBatt >= CHARGE_V_OVERVOLTAGE - OVERVOLTAGE_PULSE_MARGIN) {
               Serial.println("Pulse ended: reached voltage ceiling before knee.");
-              pulseFoundKnee = false;
+              lastPulseResult = PULSE_CEILING_HIT;
               goto pulseMainDone;
             }
 
@@ -908,16 +915,18 @@ void loop() {
               MIN_PULSE_MS, MAX_PULSE_MS);
             if (!kneeDetected && elapsed >= noKneeTimeout) {
               slope2 = emaSlope;
-              pulseFoundKnee = false;
+              lastPulseResult = PULSE_NO_KNEE;
               goto pulseMainDone;
             }
           } else {
             unsigned long postKneeTarget = constrain(
               (tau_est>0) ? (unsigned long)(TAU_MULTIPLE_POST_KNEE*tau_est*1000.0f) : MIN_PULSE_MS,
               MIN_PULSE_MS/2, MAX_PULSE_MS/2);
-            if (currentMillis - pulsePostKneeStartedAt >= postKneeTarget) {
+            // Account for pauses during the post-knee window too
+            unsigned long postKneeElapsed = (currentMillis - pulsePostKneeStartedAt);
+            if (postKneeElapsed >= postKneeTarget) {
               slope2 = emaSlope;
-              pulseFoundKnee = true;
+              lastPulseResult = PULSE_KNEE_FOUND;
               goto pulseMainDone;
             }
           }
@@ -933,7 +942,7 @@ void loop() {
           ledcWrite(CHARGE_CH, 0);
           decaySampleIdx = 0;
           float tauRef = (tau_est>0) ? tau_est : 2.0f;
-          if (pulseFoundKnee) {
+          if (lastPulseResult == PULSE_KNEE_FOUND) {
             float dtE = max(0.3f, tauRef*0.5f);
             float dtL = max(1.0f, tauRef*2.0f);
             decaySampleTimesMs[0] = 0;
@@ -1001,7 +1010,7 @@ void loop() {
           if (currentMillis - pulsePhaseStartedAt >= restRemainingMs) {
 
             if (pulseOpenLoopMaxDuty) {
-              if (pulseFoundKnee) {
+              if (lastPulseResult == PULSE_KNEE_FOUND) {
                 bisectHigh = kneeCurrentMa;
                 haveUpperBound = true;
                 state.outgassingCurrent_mA = kneeCurrentMa;
@@ -1009,16 +1018,15 @@ void loop() {
                 Serial.println("Initial high-current pulse found outgassing -- starting bisection search for the minimum current.");
                 pulseTestCurrent = (bisectLow+bisectHigh)/2.0f;
                 beginBisectionPulse();
+              } else if (lastPulseResult == PULSE_CEILING_HIT) {
+                 tripFault("reached overvoltage margin on initial pulse without knee -- high internal resistance or shorted cell?");
+                 break;
               } else {
-                if (vBatt >= CHARGE_V_OVERVOLTAGE - OVERVOLTAGE_PULSE_MARGIN) {
-                  tripFault("reached overvoltage margin without ever finding an outgassing plateau -- check cell/wiring");
-                  break;
-                }
                 Serial.println("No knee yet at max available current -- battery not yet at gassing voltage; continuing.");
                 beginPulse(); // stays open-loop max-duty
               }
             } else if (doingFinalConfirm) {
-              if (!pulseFoundKnee) {
+              if (lastPulseResult != PULSE_KNEE_FOUND) {
                 Serial.println("Final confirmation pulse did not reproduce the knee -- borderline/noisy result, "
                                 "keeping the last confirmed value but treat it with some caution.");
               }
@@ -1029,10 +1037,15 @@ void loop() {
               startFloatHold();
             } else {
               bisectionIterations++;
-              if (pulseFoundKnee) {
+              if (lastPulseResult == PULSE_KNEE_FOUND) {
                 bisectHigh = pulseTestCurrent;
                 state.outgassingCurrent_mA = pulseTestCurrent;
                 state.outgassingVoltage_V = kneeVoltage;
+              } else if (lastPulseResult == PULSE_CEILING_HIT) {
+                // Inconclusive: hit ceiling without efficiency drop.
+                // Treat as high-bound hit to narrow search downward for safety.
+                Serial.println("Bisection pulse hit ceiling: treating as inconclusive high-bound.");
+                bisectHigh = pulseTestCurrent;
               } else {
                 bisectLow = pulseTestCurrent;
               }
