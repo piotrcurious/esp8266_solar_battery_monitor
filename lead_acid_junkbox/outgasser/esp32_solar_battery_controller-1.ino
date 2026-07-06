@@ -283,6 +283,7 @@ bool loadState() {
 Mode mode = MODE_BOOT;
 PostParasiticAction postParasiticAction = POST_PARASITIC_IDLE;
 unsigned long previousMillis = 0;
+unsigned long lastTempCompAt = 0;
 const unsigned long CONTROL_INTERVAL_MS = 100;
 unsigned long stateEnteredAt = 0;
 unsigned long chargeStartedAt = 0;
@@ -293,6 +294,11 @@ float parasiticTargetVoltage = 0;
 float parasiticHoldDuty = 0;
 float parasiticAccum = 0;
 int parasiticSamples = 0;
+
+// ---- Safety / stall detection ----
+unsigned long lastVoltageRiseAt = 0;
+float maxVoltageSeenInBulk = 0;
+const unsigned long BULK_STALL_TIMEOUT_MS = 6UL * 60UL * 60UL * 1000UL; // 6 hours
 
 // ---- Bisection search state ----
 float bisectLow = 0, bisectHigh = 0;
@@ -561,6 +567,7 @@ void fitBiExponentialDecay(float* samples, unsigned long* timesMs, float &tauFas
 void setup() {
   Serial.begin(115200);
   delay(200);
+  Serial.println("BOOT: ESP32 Solar Battery Controller v1.2 starting...");
 
   pinMode(BUTTON_PIN, INPUT_PULLUP);
   analogSetAttenuation(ADC_11db);
@@ -618,6 +625,9 @@ void setup() {
   Serial.println("Ready. Serial: 'D'=passive formation test, "
                   "'C'=start charge (bulk -> parasitic -> pulse test -> float), "
                   "'A'=re-run parasitic characterization only.");
+
+  Serial.print("CONF: BULK_TARGET_V="); Serial.println(BULK_TARGET_V, 2);
+  Serial.print("CONF: CHARGE_V_OVERVOLTAGE="); Serial.println(CHARGE_V_OVERVOLTAGE, 2);
 }
 
 // ================= Main loop =================
@@ -644,7 +654,10 @@ void logTelemetry() {
 void loop() {
   unsigned long currentMillis = millis();
 
-  if (currentMillis % 10000 < 100) applyTemperatureCompensation();
+  if (currentMillis - lastTempCompAt >= 10000) {
+    applyTemperatureCompensation();
+    lastTempCompAt = currentMillis;
+  }
 
   if (Serial.available()) {
     char c = Serial.read();
@@ -739,6 +752,26 @@ void loop() {
       if (currentMillis - chargeStartedAt > CHARGE_TIMEOUT_MS) { tripFault("charge timeout"); break; }
 
       float iBatt = ina219.getCurrent_mA() * CURRENT_SIGN;
+
+      // Stall detection: battery must rise by at least 10mV every timeout period if charging hard
+      if (vBatt > maxVoltageSeenInBulk + 0.01f) {
+        maxVoltageSeenInBulk = vBatt;
+        lastVoltageRiseAt = currentMillis;
+      } else if (vBatt < maxVoltageSeenInBulk - 0.05f) {
+        // Significant drop during bulk is also a sign of a problem (except during cloud which pauses)
+        if (vIn >= vinTarget) {
+            tripFault("bulk charge voltage drop - possible cell failure");
+            break;
+        }
+      }
+
+      if (lastVoltageRiseAt == 0) lastVoltageRiseAt = currentMillis; // Init
+
+      if (currentChargeDuty > 200 && (currentMillis - lastVoltageRiseAt > BULK_STALL_TIMEOUT_MS)) {
+        tripFault("bulk charge stalled - possible shorted cell");
+        break;
+      }
+
       if (iBatt > OVERCURRENT_LIMIT_MA) { tripFault("charge overcurrent"); break; }
 
       mpptVoltageLoop(vIn);
@@ -795,6 +828,12 @@ void loop() {
               C_baseline = C_est;
               Serial.print("Baseline capacitance established: "); Serial.print(C_baseline,2); Serial.println(" F");
             }
+
+            // Update Kalman filter's internal resistance parameter with the measured R_est
+            if (R_est > 0.001f && R_est < 2.0f) {
+              internalResistance = 0.8f * internalResistance + 0.2f * R_est;
+            }
+
             slope1 = probeSlope;
             emaSlope = probeSlope;
             V_prevTick = V_afterProbe;
