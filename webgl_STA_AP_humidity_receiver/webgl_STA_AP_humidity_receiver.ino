@@ -4,6 +4,7 @@
 #include <AsyncUDP.h>
 #include <freertos/FreeRTOS.h>
 #include <freertos/semphr.h>
+#include <Preferences.h>
 
 #define NUMBER_OF_BUFFERS 5
 #define MINUTES_GRAPH_BUFFER_MAX 1440
@@ -16,9 +17,28 @@ telemetry_frame last_frame;
 bool new_packet_received = false;
 
 SemaphoreHandle_t bufferMutex = NULL;
+Preferences prefs;
+
+// Current STA settings
+String current_sta_ssid;
+String current_sta_password;
 
 AsyncWebServer server(80);
 AsyncUDP udp;
+
+void loadSettings() {
+    prefs.begin("wifi-config", true);
+    current_sta_ssid = prefs.getString("ssid", sta_ssid);
+    current_sta_password = prefs.getString("pass", sta_password);
+    prefs.end();
+}
+
+void saveSettings(String ssid, String pass) {
+    prefs.begin("wifi-config", false);
+    prefs.putString("ssid", ssid);
+    prefs.putString("pass", pass);
+    prefs.end();
+}
 
 // HTML/JS/WebGL Frontend
 const char index_html[] PROGMEM = R"rawliteral(
@@ -37,6 +57,13 @@ const char index_html[] PROGMEM = R"rawliteral(
         #info { position: absolute; bottom: 10px; left: 10px; font-size: 12px; opacity: 0.6; pointer-events: none; }
         .legend-color { display: inline-block; width: 12px; height: 12px; margin-right: 10px; border-radius: 2px; flex-shrink: 0; }
         .toggle-group { margin-top: 10px; padding-top: 10px; border-top: 1px solid #444; }
+
+        /* Modal Styles */
+        .modal { display: none; position: fixed; z-index: 100; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); }
+        .modal-content { background: #222; margin: 15% auto; padding: 20px; border: 1px solid #444; width: 300px; border-radius: 8px; }
+        .modal-content h2 { margin-top: 0; font-size: 18px; }
+        .modal-content input { width: 100%; padding: 8px; margin: 10px 0; background: #333; border: 1px solid #555; color: white; box-sizing: border-box; }
+        .modal-content .actions { display: flex; justify-content: flex-end; gap: 10px; }
     </style>
 </head>
 <body>
@@ -51,8 +78,24 @@ const char index_html[] PROGMEM = R"rawliteral(
 
         <div class="toggle-group">
             <button id="btn-stack" class="btn" onclick="toggleStack()"><span class="legend-color" style="background:#888"></span>Stack Graphs</button>
+            <button class="btn" onclick="openSettings()"><span class="legend-color" style="background:#555"></span>WiFi Settings</button>
         </div>
     </div>
+
+    <div id="settingsModal" class="modal">
+        <div class="modal-content">
+            <h2>WiFi Settings</h2>
+            <label>STA SSID</label>
+            <input type="text" id="staSsid" placeholder="SSID">
+            <label>STA Password</label>
+            <input type="password" id="staPass" placeholder="Password">
+            <div class="actions">
+                <button class="btn" style="min-width:auto" onclick="closeSettings()">Cancel</button>
+                <button class="btn active" style="min-width:auto" onclick="saveWifiSettings()">Save & Reboot</button>
+            </div>
+        </div>
+    </div>
+
     <div id="info">Packets: <span id="pkt">0</span> | IPs: <span id="ips">...</span></div>
     <canvas id="glCanvas"></canvas>
 
@@ -124,6 +167,30 @@ const char index_html[] PROGMEM = R"rawliteral(
             if (currentMode === -1) document.getElementById('btn-combined').classList.add('active');
             else document.getElementById('btn-' + currentMode).classList.add('active');
             if (isStacked) document.getElementById('btn-stack').classList.add('active');
+        }
+
+        function openSettings() {
+            document.getElementById('settingsModal').style.display = 'block';
+        }
+
+        function closeSettings() {
+            document.getElementById('settingsModal').style.display = 'none';
+        }
+
+        async function saveWifiSettings() {
+            const ssid = document.getElementById('staSsid').value;
+            const pass = document.getElementById('staPass').value;
+            const formData = new FormData();
+            formData.append('ssid', ssid);
+            formData.append('pass', pass);
+
+            try {
+                await fetch('/settings', { method: 'POST', body: formData });
+                alert("Settings saved. Device will reboot.");
+                closeSettings();
+            } catch (e) {
+                alert("Error saving settings.");
+            }
         }
 
         async function fetchData() {
@@ -235,6 +302,7 @@ void setup() {
     Serial.begin(115200);
 
     bufferMutex = xSemaphoreCreateMutex();
+    loadSettings();
 
     // Dynamic allocation of individual buffers
     for (int j = 0; j < NUMBER_OF_BUFFERS; j++) {
@@ -248,7 +316,7 @@ void setup() {
 
     WiFi.mode(WIFI_AP_STA);
     WiFi.softAP(ap_ssid, ap_password);
-    WiFi.begin(sta_ssid, sta_password);
+    WiFi.begin(current_sta_ssid.c_str(), current_sta_password.c_str());
 
     if (udp.listenMulticast(multicastIP, multicastPort)) {
         udp.onPacket([](AsyncUDPPacket packet) {
@@ -321,6 +389,21 @@ void setup() {
         json += "\"ips\":\"STA: " + WiFi.localIP().toString() + ", AP: " + WiFi.softAPIP().toString() + "\"";
         json += "}";
         request->send(200, "application/json", json);
+    });
+
+    server.on("/settings", HTTP_POST, [](AsyncWebServerRequest *request){
+        if (request->hasParam("ssid", true) && request->hasParam("pass", true)) {
+            String new_ssid = request->getParam("ssid", true)->value();
+            String new_pass = request->getParam("pass", true)->value();
+            saveSettings(new_ssid, new_pass);
+            request->send(200, "text/plain", "Settings saved. Rebooting...");
+
+            // Delayed reboot
+            delay(1000);
+            ESP.restart();
+        } else {
+            request->send(400, "text/plain", "Missing parameters");
+        }
     });
 
     server.begin();
