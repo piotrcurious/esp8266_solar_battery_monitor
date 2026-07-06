@@ -9,6 +9,7 @@
 #include <map>
 #include <algorithm>
 #include <cstring>
+#include <stdint.h>
 
 #define HIGH 1
 #define LOW 0
@@ -17,9 +18,6 @@
 #define ADC_11db 0
 #define AUTOMATIC 1
 #define DIRECT 0
-
-typedef uint32_t uint32_t;
-typedef uint64_t uint64_t;
 
 extern unsigned long _mock_millis;
 
@@ -113,10 +111,8 @@ inline void ledcSetup(int ch, int freq, int res) {}
 inline void ledcAttachPin(int pin, int ch) {}
 
 extern int _mock_duty_ch;
-extern int _mock_duty_dis;
 inline void ledcWrite(int ch, int duty) {
     if (ch == 0) _mock_duty_ch = duty;
-    if (ch == 1) _mock_duty_dis = duty;
 }
 
 #define esp_sleep_enable_timer_wakeup(t)
