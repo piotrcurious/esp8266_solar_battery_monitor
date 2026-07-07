@@ -393,12 +393,14 @@ const float H[2] = {1, 0};
 void kalmanSetTimestep(float dt) {
   A[0][0] = 1; A[0][1] = dt;
   A[1][0] = 0; A[1][1] = 1;
-  Bc[0] = internalResistance * dt;
+  Bc[0] = 0; // Bc was incorrectly adding IR integration into Voc estimate
   Bc[1] = 0;
 }
 
-void kalmanUpdate(float current_input_ma, float measured_voltage) {
+void kalmanUpdate(float current_input_ma, float measured_voltage_raw) {
   float current_input = current_input_ma / 1000.0f;
+  // Subtract IR drop from measured voltage to get Voc for the Kalman Filter
+  float measured_voltage = measured_voltage_raw - current_input * internalResistance;
 
   float q_v = 0.0005f;
   float q_s = 0.0005f;
@@ -610,6 +612,12 @@ void handleModePulseTest(float vBatt, unsigned long now) {
                Serial.print("BISE: C_baseline established: "); Serial.print(C_baseline, 2); Serial.println(" F");
            }
            ledcWrite(CHARGE_CH, 0);
+
+           // Initialize decay sample times so the rest phase works
+           decaySampleIdx = 0;
+           decaySampleTimesMs[0] = 0; decaySampleTimesMs[1] = 1000; decaySampleTimesMs[2] = 2000;
+           decaySampleCount = 3;
+
            pulseSubPhase = PULSE_REST_EARLY;
            pulsePhaseStartedAt = now;
        } else if (now - pulsePhaseStartedAt >= IR_SETTLE_MS && V_afterIR < 1.0f) {
@@ -653,7 +661,7 @@ void handleModePulseTest(float vBatt, unsigned long now) {
           Serial.print("Baseline capacitance established: "); Serial.print(C_baseline,2); Serial.println(" F");
         }
 
-        if (R_est > 0.001f && R_est < 2.0f) {
+        if (R_est > 0.001f && R_est < 2.0f && iBatt > 200.0f) { // Only update on high current pulses
           internalResistance = 0.8f * internalResistance + 0.2f * R_est;
         }
 
@@ -856,6 +864,17 @@ void handleModePulseTest(float vBatt, unsigned long now) {
             saveState();
             Serial.print("BISE: multi-pass complete. Final I="); Serial.print(state.outgassingCurrent_mA);
             Serial.print("mA at V="); Serial.println(state.outgassingVoltage_V,4);
+
+    // SoH Estimation (Rough)
+    // Healthy Lead-Acid 100Ah might have R_int ~15mOhm and C ~100kF (double layer)
+    // Our simulator uses smaller values (100F).
+    // Let's assume baseline for 'Healthy' is our 100F simulator battery
+    float soh_r = constrain(0.08f / internalResistance, 0.0f, 1.0f);
+    float soh_c = constrain(C_baseline / 100.0f, 0.0f, 1.0f);
+    float soh = 0.5f * soh_r + 0.5f * soh_c;
+    Serial.print("STAT: SoH Estimation: "); Serial.print(soh * 100.0f, 1); Serial.println("%");
+    Serial.print("STAT: R_est="); Serial.print(internalResistance*1000.0f, 1); Serial.print("mO C_est="); Serial.print(C_baseline, 2); Serial.println("F");
+
             startFloatHold();
           }
         } else {
@@ -1131,7 +1150,10 @@ void logTelemetry() {
     ratio = (fabs(expectedSlope) > 1e-6) ? emaSlope / expectedSlope : 1.0f;
   }
   Serial.print(ratio, 3); Serial.print(",");
-  Serial.println(C_baseline, 3);
+  Serial.print(C_baseline, 3); Serial.print(",");
+  Serial.print(slope_est, 6); Serial.print(",");
+  Serial.print(E_cap_J, 3); Serial.print(",");
+  Serial.println(E_gas_J, 3);
 }
 
 void loop() {
