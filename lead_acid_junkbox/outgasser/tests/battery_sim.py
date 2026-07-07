@@ -105,6 +105,11 @@ def main():
         elif scenario == "aged":
             c = 30.0
             v_outgas = 13.7
+        elif scenario == "sulfated":
+            # Sulfated: high resistance, significantly lower capacity, higher outgas voltage
+            r = 0.6
+            c = 15.0
+            v_outgas = 14.5
         elif scenario == "hot":
             temp = 45.0
         elif scenario == "cold":
