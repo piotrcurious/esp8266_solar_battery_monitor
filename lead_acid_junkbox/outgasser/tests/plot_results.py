@@ -2,11 +2,17 @@ import sys
 import os
 
 # Mode map from firmware
-# 2: CHAR_PARASITIC
-# 3: CHAR_PARASITIC_WAIT
-# 5: CHARGE_BULK
-# 6: OUTGAS_PULSE_TEST
-# 7: CHARGE_FLOAT
+# 1: IDLE
+# 2: CHAR_PARASITIC_WAIT
+# 3: CHAR_PARASITIC
+# 4: PASSIVE_FORMATION_TEST
+# 5: WAIT_AFTER_OUTGASSING
+# 6: CHARGE_BULK
+# 7: OUTGAS_PULSE_TEST
+# 8: CHARGE_FLOAT
+# 9: CHARGE_DONE
+# 10: FAULT
+# 11: LOW_INPUT_SLEEP
 
 def generate_svg(data, output_svg, title, zoom_mode=None):
     if not data:
@@ -14,8 +20,8 @@ def generate_svg(data, output_svg, title, zoom_mode=None):
 
     if zoom_mode:
         # Filter for pulse test or parasitic phases to see the transitions
-        # Include mode 2/3 and 6
-        filtered = [d for d in data if d['m'] in [2, 3, 6]]
+        # Include mode 2/3 (Parasitic) and 7 (Pulse Test)
+        filtered = [d for d in data if d['m'] in [2, 3, 7]]
     else:
         filtered = data
 
@@ -75,7 +81,7 @@ def generate_svg(data, output_svg, title, zoom_mode=None):
             f.write(f'<text x="{width-padding+10}" y="{y+4}" text-anchor="start" font-family="sans-serif" font-size="12" fill="blue">{i_val:.2f}A</text>\n')
 
         # Ratio axis (Green) if zoom
-        if zoom_mode == 6:
+        if zoom_mode == 7:
             for i in range(3):
                 r_val = 0.5 + i * 0.25
                 y = scale(r_val, 0, 1.25, height-padding, padding)
@@ -94,7 +100,7 @@ def generate_svg(data, output_svg, title, zoom_mode=None):
             i_pts = " ".join([f"{scale(d['t'], t_min, t_max, padding, width-padding):.1f},{scale(d['i'], i_min, i_max, height-padding, padding):.1f}" for d in seg])
             f.write(f'<polyline points="{i_pts}" fill="none" stroke="blue" stroke-width="1.5" stroke-dasharray="5,3"/>\n')
 
-            if zoom_mode == 6:
+            if zoom_mode == 7:
                  r_pts = " ".join([f"{scale(d['t'], t_min, t_max, padding, width-padding):.1f},{scale(d['r'], 0, 1.25, height-padding, padding):.1f}" for d in seg if 'r' in d])
                  if r_pts:
                      f.write(f'<polyline points="{r_pts}" fill="none" stroke="green" stroke-width="1.2" opacity="0.6"/>\n')
@@ -117,7 +123,7 @@ def generate_svg(data, output_svg, title, zoom_mode=None):
         f.write(f'<text x="45" y="20" font-family="sans-serif" font-size="14">Voltage</text>\n')
         f.write(f'<line x1="10" y1="35" x2="40" y2="35" stroke="blue" stroke-width="2" stroke-dasharray="5,3"/>\n')
         f.write(f'<text x="45" y="40" font-family="sans-serif" font-size="14">Current</text>\n')
-        if zoom_mode == 6:
+        if zoom_mode == 7:
             f.write(f'<line x1="10" y1="55" x2="40" y2="55" stroke="green" stroke-width="1.2"/>\n')
             f.write(f'<text x="45" y="60" font-family="sans-serif" font-size="14">Efficiency</text>\n')
         f.write(f'</g>\n')
@@ -149,7 +155,7 @@ def main():
         return
 
     generate_svg(data, f"{out_prefix}_full.svg", f"Full Charge Cycle: {out_prefix}")
-    generate_svg(data, f"{out_prefix}_pulses.svg", f"Outgassing Characterization Detail (Zoom): {out_prefix}", zoom_mode=6)
+    generate_svg(data, f"{out_prefix}_pulses.svg", f"Outgassing Characterization Detail (Zoom): {out_prefix}", zoom_mode=7)
 
 if __name__ == "__main__":
     main()
