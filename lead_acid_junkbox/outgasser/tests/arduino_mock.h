@@ -25,6 +25,7 @@ inline unsigned long millis() { return _mock_millis; }
 inline void delay(unsigned long ms) { _mock_millis += ms; }
 
 extern int _mock_ntc_counts;
+extern std::vector<char> _mock_serial_buf;
 
 struct SerialMock {
     void begin(int baud) {}
@@ -41,8 +42,13 @@ struct SerialMock {
     void println(uint32_t i) { std::cout << i << std::endl; }
     void println(double d) { std::cout << d << std::endl; }
     void println() { std::cout << std::endl; }
-    int available() { return 0; }
-    char read() { return 0; }
+    int available() { return _mock_serial_buf.size(); }
+    char read() {
+        if (_mock_serial_buf.empty()) return 0;
+        char c = _mock_serial_buf.front();
+        _mock_serial_buf.erase(_mock_serial_buf.begin());
+        return c;
+    }
 };
 
 extern SerialMock Serial;

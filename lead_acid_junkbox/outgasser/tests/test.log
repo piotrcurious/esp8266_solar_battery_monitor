@@ -1,0 +1,11 @@
+
+--- STARTING TEST SCENARIO: healthy ---
+BOOT: ESP32 Solar Battery Controller v1.2 starting...
+No prior calibration found.
+-> Mode: 2
+PARA: transient wait started...
+Ready. Serial: 'D'=passive formation test, 'C'=start charge (bulk -> parasitic -> pulse test -> float), 'A'=re-run parasitic characterization only.
+CONF: BULK_TARGET_V=13.8
+CONF: CHARGE_V_OVERVOLTAGE=15.5
+-> Mode: 6
+TELE: 200,6,12,0,18,0,26.048,1,0,0,0,0
