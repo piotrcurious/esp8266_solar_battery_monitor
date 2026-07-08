@@ -82,11 +82,17 @@ def generate_svg(data, output_svg, title, zoom_mode=None):
 
         # Ratio axis (Green) if zoom
         if zoom_mode == 7:
-            for i in range(3):
-                r_val = 0.5 + i * 0.25
+            # Draw threshold lines
+            for thresh, label, col in [(0.8, "ADS", "#f39c12"), (0.3, "GAS", "#27ae60")]:
+                y = scale(thresh, 0, 1.25, height-padding, padding)
+                f.write(f'<line x1="{padding}" y1="{y}" x2="{width-padding}" y2="{y}" stroke="{col}" stroke-width="1.5" stroke-dasharray="4,2" opacity="0.6"/>\n')
+                f.write(f'<text x="{width-padding-5}" y="{y-4}" text-anchor="end" font-family="sans-serif" font-size="10" font-weight="bold" fill="{col}">{label} LIMIT ({thresh:.2f})</text>\n')
+
+            for i in range(5):
+                r_val = i * 0.25
                 y = scale(r_val, 0, 1.25, height-padding, padding)
-                f.write(f'<line x1="{padding}" y1="{y}" x2="{width-padding}" y2="{y}" stroke="green" stroke-width="0.5" stroke-dasharray="2,2" opacity="0.3"/>\n')
-                f.write(f'<text x="{padding + 40}" y="{y-2}" text-anchor="start" font-family="sans-serif" font-size="10" fill="green">Eff:{r_val:.2f}</text>\n')
+                f.write(f'<line x1="{padding}" y1="{y}" x2="{width-padding}" y2="{y}" stroke="green" stroke-width="0.5" stroke-dasharray="2,2" opacity="0.2"/>\n')
+                f.write(f'<text x="{padding + 5}" y="{y-2}" text-anchor="start" font-family="sans-serif" font-size="10" fill="green">Ratio:{r_val:.2f}</text>\n')
 
         # Plot each segment separately to avoid jump lines
         for seg in segments:
